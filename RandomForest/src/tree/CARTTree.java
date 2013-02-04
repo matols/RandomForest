@@ -1,0 +1,283 @@
+/**
+ * 
+ */
+package tree;
+
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * @author		Simon Bull
+ * @version		1.0
+ * @since		2013-01-31
+ */
+public class CARTTree
+{
+
+	/**
+	 * The tree that has been grown.
+	 */
+	Node condInfTree = null;
+
+	/**
+	 * The object recording the control parameters for the tree.
+	 */
+	TreeGrowthControl ctrl;
+
+	/**
+	 * 
+	 */
+	ProcessDataForGrowing processedData;
+
+	public CARTTree(ProcessDataForGrowing processedData)
+	{
+		TreeGrowthControl ctrl = new TreeGrowthControl();
+		this.ctrl = ctrl;
+		this.processedData = processedData;
+		controlTreeGrowth();
+	}
+
+	public CARTTree(ProcessDataForGrowing processedData, TreeGrowthControl ctrl)
+	{
+		this.ctrl = ctrl;
+		this.processedData = processedData;
+		controlTreeGrowth();
+	}
+
+	public CARTTree(ProcessDataForGrowing processedData, Map<String, Double> weights)
+	{
+		TreeGrowthControl ctrl = new TreeGrowthControl();
+		this.ctrl = ctrl;
+		this.processedData = processedData;
+		controlTreeGrowth(weights);
+	}
+
+	public CARTTree(ProcessDataForGrowing processedData, List<Integer> observationsToUse)
+	{
+		TreeGrowthControl ctrl = new TreeGrowthControl();
+		this.ctrl = ctrl;
+		this.processedData = processedData;
+		controlTreeGrowth(observationsToUse);
+	}
+
+	public CARTTree(ProcessDataForGrowing processedData, TreeGrowthControl ctrl, Map<String, Double> weights,
+			List<Integer> observationsToUse)
+	{
+		this.ctrl = ctrl;
+		this.processedData = processedData;
+		controlTreeGrowth(weights, observationsToUse);
+	}
+
+	/**
+	 * Controls the growth of the tree.
+	 */
+	void controlTreeGrowth()
+	{
+		controlTreeGrowth(new HashMap<String, Double>());
+	}
+
+	void controlTreeGrowth(Map<String, Double> potentialWeights)
+	{
+		// Setup the class weights.
+		for (String s : this.processedData.responseData)
+		{
+			if (!potentialWeights.containsKey(s))
+			{
+				// Any classes without a weight are assigned a weight of 1.
+				potentialWeights.put(s, 1.0);
+			}
+		}
+
+		// Setup the list of observations.
+		List<Integer> observationsUsed = new ArrayList<Integer>();
+		for (int i = 0; i < this.processedData.numberObservations; i++)
+		{
+			observationsUsed.add(i);
+		}
+
+		// Grow the tree.
+		this.condInfTree = growTree(observationsUsed, potentialWeights, 0);
+	}
+
+	void controlTreeGrowth(List<Integer> observationsUsed)
+	{
+		// Grow the tree.
+		this.condInfTree = growTree(observationsUsed, new HashMap<String, Double>(), 0);
+	}
+
+	void controlTreeGrowth(Map<String, Double> potentialWeights, List<Integer> observationsUsed)
+	{
+		// Setup the class weights.
+		for (String s : this.processedData.responseData)
+		{
+			if (!potentialWeights.containsKey(s))
+			{
+				// Any classes without a weight are assigned a weight of 1.
+				potentialWeights.put(s, 1.0);
+			}
+		}
+
+		// Grow the tree.
+		this.condInfTree = growTree(observationsUsed, potentialWeights, 0);
+	}
+
+	/**
+	 * Displays the tree.
+	 */
+	public void display()
+	{
+		this.condInfTree.display();
+	}
+
+	Node growTree(List<Integer> observationsInNode, Map<String, Double> weights, int currentDepth)
+	{
+		// Determine the counts of each class in the current node.
+		int numberOfObservationsInNode = observationsInNode.size();
+		Map<String, Integer> classCountsForNode = new HashMap<String, Integer>();
+		for (String s : this.processedData.responseData)
+		{
+			classCountsForNode.put(s, 0);
+		}
+		for (Integer i : observationsInNode)
+		{
+			String responseValue = this.processedData.responseData.get(i);
+			classCountsForNode.put(responseValue, classCountsForNode.get(responseValue) + 1);
+		}
+		Set<String> classesPresentInNode = new HashSet<String>();
+		for (String s : classCountsForNode.keySet())
+		{
+			if (classCountsForNode.get(s) > 0)
+			{
+				classesPresentInNode.add(s);
+			}
+		}
+
+		//**********************************************
+		// Check whether growth should stop.
+		//**********************************************
+		if (numberOfObservationsInNode <= this.ctrl.minNodeSize)
+		{
+			// The number of observations in the node is too few to perform a split.
+			// A terminal node must therefore be created.
+			return new NodeTerminal(classCountsForNode, currentDepth, weights);
+		}
+		if (!(classesPresentInNode.size() > 1))
+		{
+			// There are too few classes present in the observations in the node to warrant a split.
+			// A terminal node must therefore be created.
+			return new NodeTerminal(classCountsForNode, currentDepth, weights);
+		}
+		
+
+		//**********************************************
+		// Determine the variables to split on.
+		//**********************************************
+		Set<String> covariablesAvailable = this.processedData.covariableData.keySet();
+		List<String> shuffledCovariables = new ArrayList<String>(covariablesAvailable);
+		Collections.shuffle(shuffledCovariables);
+		int numVarsToSelect = Math.min(covariablesAvailable.size(), ctrl.mtry);
+		List<String> variablesToSplitOn = shuffledCovariables.subList(0, numVarsToSelect);
+
+		//**********************************************
+		// Try to find a split.
+		//**********************************************
+		boolean isSplitFound = false;
+		double splitValue;
+		String covarToSplitOn;
+
+		DetermineSplit splitCalculator = new DetermineSplit();
+		ImmutableThreeValues<Boolean, Double, String> splitResult = splitCalculator.findBestSplit(this.processedData.covariableData,
+				this.processedData.responseData, observationsInNode, variablesToSplitOn, weights);
+		isSplitFound = splitResult.first;
+		splitValue = splitResult.second;
+		covarToSplitOn = splitResult.third;
+
+		// Return the Node and continue building the tree.
+		if (isSplitFound)
+		{
+			List<Integer> rightObservations = new ArrayList<Integer>();
+			List<Integer> leftObserations = new ArrayList<Integer>();
+			// If a valid split was found, then generate a non-terminal node and recurse through its children.
+			for (Integer i : observationsInNode)
+			{
+				// Sort out which observations will go into the right child, and which will go into the left child.
+				if (this.processedData.covariableData.get(covarToSplitOn).get(i) > splitValue)
+				{
+					rightObservations.add(i);
+				}
+				else
+				{
+					leftObserations.add(i);
+				}
+			}
+			Node leftChild = growTree(leftObserations, weights, currentDepth + 1);
+			Node rightChild = growTree(rightObservations, weights, currentDepth + 1);
+			return new NodeNonTerminal(currentDepth, covarToSplitOn, splitValue, leftChild,
+					rightChild, classCountsForNode, weights);
+		}
+		else
+		{
+			// If there was no valid split found, then return a terminal node.
+			return new NodeTerminal(classCountsForNode, currentDepth, weights);
+		}
+
+	}
+
+	Map<Integer, ImmutableTwoValues<String, Double>> predict(ProcessDataForGrowing predData)
+	{
+		List<Integer> observationsToPredict = new ArrayList<Integer>();
+		for (int i = 0; i < predData.numberObservations; i++)
+		{
+			observationsToPredict.add(i);
+		}
+		return predict(predData, observationsToPredict);
+	}
+
+	Map<Integer, ImmutableTwoValues<String, Double>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
+	{
+		Map<Integer, ImmutableTwoValues<String, Double>> returnValue = new HashMap<Integer, ImmutableTwoValues<String, Double>>();
+		if (this.condInfTree == null)
+		{
+			System.out.println("The tree can not be used fr prediction before it has been trained.");
+			System.exit(0);
+		}
+		else
+		{
+			for (Integer i : observationsToPredict)
+			{
+				// The current observation is a mapping from the covariable names to their values.
+				Map<String, Double> currentObservation = new HashMap<String, Double>();
+				for (String s : predData.covariableData.keySet())
+				{
+					currentObservation.put(s, predData.covariableData.get(s).get(i));
+				}
+				returnValue.put(i, condInfTree.predict(currentObservation));
+			}
+		}
+
+		return returnValue;
+	}
+
+	void save(String location)
+	{
+		try
+		{
+			FileWriter outputFile = new FileWriter(location);
+			BufferedWriter outputWriter = new BufferedWriter(outputFile);
+			outputWriter.close();
+		}
+		catch (Exception e)
+		{
+			System.err.println(e.getStackTrace());
+			System.exit(0);
+		}
+	}
+
+}
