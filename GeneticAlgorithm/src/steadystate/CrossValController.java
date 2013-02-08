@@ -323,6 +323,12 @@ public class CrossValController
     		}
     	}
 
+    	// Determine the weights to use if none are specified.
+    	if (weights.size() == 0)
+    	{
+    		weights = determineWeights(args[0], ctrl);
+    	}
+
 	    // Calculate the fitness of the initial population.
 	    List<Double> fitness = new ArrayList<Double>();
 	    for (Integer[] geneSet : population)
@@ -539,6 +545,53 @@ public class CrossValController
 			System.exit(0);
 		}
 
+	}
+
+	/**
+	 * Determine the weighting of each class as its proportion of the total number of observations.
+	 * 
+	 * @param inputLocation
+	 * @return
+	 */
+	Map<String, Double> determineWeights(String inputLocation, TreeGrowthControl ctrl)
+	{
+		ProcessDataForGrowing procData = new ProcessDataForGrowing(inputLocation, ctrl);
+
+		// Determine how often each class occurs.
+		Map<String, Double> classCounts = new HashMap<String, Double>();
+		for (String s : procData.responseData)
+		{
+			if (!classCounts.containsKey(s))
+			{
+				classCounts.put(s, 1.0);
+			}
+			else
+			{
+				classCounts.put(s, classCounts.get(s) + 1.0);
+			}
+		}
+
+		// Find the number of occurrences of the class that occurs most often.
+		double maxClass = 0.0;
+		for (String s : classCounts.keySet())
+		{
+			if (classCounts.get(s) > maxClass)
+			{
+				maxClass = classCounts.get(s);
+			}
+		}
+
+		// Determine the weighting of each class in relation to the class that occurs most often.
+		// Weights the most frequent class as 1.
+		// Two classes, A occurs 10 times and B 5 times. A gets a weight of 1 / (10 / 10) == 1.
+		// B gets a weight of 1 / (5 / 10) == 2.
+		Map<String, Double> classWeights = new HashMap<String, Double>();
+		for (String s : classCounts.keySet())
+		{
+			classWeights.put(s, 1.0 / (classCounts.get(s) / maxClass));
+		}
+
+		return classWeights;
 	}
 
 	boolean loopTermination(int currentGen, int maxGens, int currentEvals, int maxEvals,
