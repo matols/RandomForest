@@ -81,13 +81,18 @@ public class CrossValController
 		}
 		String outputLocation = args[1];  // The location to store any and all results.
 		File outputDirectory = new File(outputLocation);
-		if (outputDirectory.isDirectory())
+		if (!outputDirectory.exists())
 		{
-			removeDirectoryContent(outputDirectory);
+			boolean isDirCreated = outputDirectory.mkdirs();
+			if (!isDirCreated)
+			{
+				System.out.println("The output directory could not be created.");
+				System.exit(0);
+			}
 		}
-		boolean isDirCreated = outputDirectory.mkdirs();
-		if (!isDirCreated)
+		else if (!outputDirectory.isDirectory())
 		{
+			// Exists and is not a directory.
 			System.out.println("The second argument must be a valid directory location or location where a directory can be created.");
 			System.exit(0);
 		}
