@@ -21,11 +21,11 @@ public class TestDriver
 	public static void main(String[] args)
 	{
 		TreeGrowthControl ctrl = new TreeGrowthControl();
-		ctrl.isReplacementUsed = false;
+		ctrl.isReplacementUsed = true;
 		ctrl.numberOfTreesToGrow = 100;
-		ctrl.mtry = 10;
+		ctrl.mtry = 9;
 		int gaRepetitions = 10;
-		boolean isXValUsed = true;
+		boolean isXValUsed = false;
 		Map<String, Double> weights = new HashMap<String, Double>();
 		new Controller(args, ctrl, gaRepetitions, isXValUsed, weights);
 	}

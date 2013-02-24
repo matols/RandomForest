@@ -3,3 +3,5 @@ RandomForest/src/tree/*.class
 GeneticAlgorithm/src/steadystate/*.class
 
 TargetClassification/src/featureselection/*.class
+
+TargetClassification/src/datasetgeneration/*.class

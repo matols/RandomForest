@@ -86,7 +86,7 @@ public class ProcessDataForGrowing
 		}
 		catch (Exception e)
 		{
-			System.err.println("Error: " + e.getMessage());
+			e.printStackTrace();
 			System.exit(0);
 		}
 	}
@@ -295,7 +295,7 @@ public class ProcessDataForGrowing
 		}
 		catch (Exception e)
 		{
-			System.err.println("Error: " + e.getMessage());
+			e.printStackTrace();
 			System.exit(0);
 		}
 	}
