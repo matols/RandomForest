@@ -141,29 +141,51 @@ public class SubSampleGeneration
 					Collections.shuffle(unlabelledObservations);
 
 					// Write out the dataset.
-					String datasetLocation = fractionLocation + "/" + Integer.toString(i) + ".txt";
+					String trainingLocation = fractionLocation + "/" + Integer.toString(i) + "Training.txt";
+					String testLocation = fractionLocation + "/" + Integer.toString(i) + "Test.txt";
 					try
 					{
 						// Write out the training data.
-						FileWriter datasetOutputFile = new FileWriter(datasetLocation);
-						BufferedWriter datasetOutputWriter = new BufferedWriter(datasetOutputFile);
-						datasetOutputWriter.write(headerOne);
-						datasetOutputWriter.newLine();
-						datasetOutputWriter.write(headerTwo);
-						datasetOutputWriter.newLine();
-						datasetOutputWriter.write(headerThree);
-						datasetOutputWriter.newLine();
+						FileWriter trainingOutputFile = new FileWriter(trainingLocation);
+						BufferedWriter trainingOutputWriter = new BufferedWriter(trainingOutputFile);
+						trainingOutputWriter.write(headerOne);
+						trainingOutputWriter.newLine();
+						trainingOutputWriter.write(headerTwo);
+						trainingOutputWriter.newLine();
+						trainingOutputWriter.write(headerThree);
+						trainingOutputWriter.newLine();
 						for (int j = 0; j < minorityObservations; j++)
 						{
-							datasetOutputWriter.write(positiveObservations.get(j));
-							datasetOutputWriter.newLine();
+							trainingOutputWriter.write(positiveObservations.get(j));
+							trainingOutputWriter.newLine();
 						}
 						for (int j = 0; j < majorityObservations; j++)
 						{
-							datasetOutputWriter.write(unlabelledObservations.get(j));
-							datasetOutputWriter.newLine();
+							trainingOutputWriter.write(unlabelledObservations.get(j));
+							trainingOutputWriter.newLine();
 						}
-						datasetOutputWriter.close();
+						trainingOutputWriter.close();
+
+						// Write out the test data.
+						FileWriter testOutputFile = new FileWriter(testLocation);
+						BufferedWriter testOutputWriter = new BufferedWriter(testOutputFile);
+						testOutputWriter.write(headerOne);
+						testOutputWriter.newLine();
+						testOutputWriter.write(headerTwo);
+						testOutputWriter.newLine();
+						testOutputWriter.write(headerThree);
+						testOutputWriter.newLine();
+						for (int j = minorityObservations; j < numberPosObs; j++)
+						{
+							testOutputWriter.write(positiveObservations.get(j));
+							testOutputWriter.newLine();
+						}
+						for (int j = majorityObservations; j < numberUnlabObs; j++)
+						{
+							testOutputWriter.write(unlabelledObservations.get(j));
+							testOutputWriter.newLine();
+						}
+						trainingOutputWriter.close();
 					}
 					catch (Exception e)
 					{
