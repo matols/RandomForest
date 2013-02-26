@@ -21,9 +21,9 @@ public class TestDriver
 	public static void main(String[] args)
 	{
 		TreeGrowthControl ctrl = new TreeGrowthControl();
-		ctrl.isReplacementUsed = true;
+		ctrl.isReplacementUsed = false;
 		ctrl.numberOfTreesToGrow = 100;
-		ctrl.mtry = 9;
+		ctrl.mtry = 10;
 		int gaRepetitions = 10;
 		boolean isXValUsed = false;
 		Map<String, Double> weights = new HashMap<String, Double>();

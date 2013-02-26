@@ -327,8 +327,14 @@ public class Controller
 	    		}
 	    	}
 	    	ctrl.variablesToIgnore = variablesToIgnore;
-	    	Forest forest = new Forest(inputLocation, ctrl, weights);
-	    	fitness.add(forest.oobErrorEstimate);
+	    	double averagedFitness = 0.0;
+	    	for (int j = 0; j < 10; j++)
+	    	{
+	    		Forest forest = new Forest(inputLocation, ctrl, weights);
+	    		averagedFitness += forest.oobErrorEstimate;
+	    	}
+	    	averagedFitness /= 10;
+	    	fitness.add(averagedFitness);
 	    	numberEvaluations += 1;
 	    }
 
@@ -415,8 +421,14 @@ public class Controller
 		    		}
 		    	}
 		    	ctrl.variablesToIgnore = variablesToIgnore;
-		    	Forest forest = new Forest(inputLocation, ctrl, weights);
-		    	offspringFitness.add(forest.oobErrorEstimate);
+		    	double averagedFitness = 0.0;
+		    	for (int j = 0; j < 10; j++)
+		    	{
+		    		Forest forest = new Forest(inputLocation, ctrl, weights);
+		    		averagedFitness += forest.oobErrorEstimate;
+		    	}
+		    	averagedFitness /= 10;
+		    	offspringFitness.add(averagedFitness);
 		    	numberEvaluations += 1;
 		    }
 

@@ -185,7 +185,7 @@ public class SubSampleGeneration
 							testOutputWriter.write(unlabelledObservations.get(j));
 							testOutputWriter.newLine();
 						}
-						trainingOutputWriter.close();
+						testOutputWriter.close();
 					}
 					catch (Exception e)
 					{

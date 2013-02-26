@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 
 /**
@@ -36,11 +37,14 @@ public class CARTTree
 	 */
 	ProcessDataForGrowing processedData;
 
+	long seed;
+
 	public CARTTree(ProcessDataForGrowing processedData)
 	{
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		this.ctrl = ctrl;
 		this.processedData = processedData;
+		this.seed = System.currentTimeMillis();
 		controlTreeGrowth();
 	}
 
@@ -48,6 +52,7 @@ public class CARTTree
 	{
 		this.ctrl = ctrl;
 		this.processedData = processedData;
+		this.seed = System.currentTimeMillis();
 		controlTreeGrowth();
 	}
 
@@ -56,6 +61,7 @@ public class CARTTree
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		this.ctrl = ctrl;
 		this.processedData = processedData;
+		this.seed = System.currentTimeMillis();
 		controlTreeGrowth(weights);
 	}
 
@@ -64,6 +70,7 @@ public class CARTTree
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		this.ctrl = ctrl;
 		this.processedData = processedData;
+		this.seed = System.currentTimeMillis();
 		controlTreeGrowth(observationsToUse);
 	}
 
@@ -72,6 +79,16 @@ public class CARTTree
 	{
 		this.ctrl = ctrl;
 		this.processedData = processedData;
+		this.seed = System.currentTimeMillis();
+		controlTreeGrowth(weights, observationsToUse);
+	}
+
+	public CARTTree(ProcessDataForGrowing processedData, TreeGrowthControl ctrl, Map<String, Double> weights,
+			List<Integer> observationsToUse, long seed)
+	{
+		this.ctrl = ctrl;
+		this.processedData = processedData;
+		this.seed = seed;
 		controlTreeGrowth(weights, observationsToUse);
 	}
 
@@ -181,7 +198,7 @@ public class CARTTree
 		//**********************************************
 		Set<String> covariablesAvailable = this.processedData.covariableData.keySet();
 		List<String> shuffledCovariables = new ArrayList<String>(covariablesAvailable);
-		Collections.shuffle(shuffledCovariables);
+		Collections.shuffle(shuffledCovariables, new Random(this.seed));
 		int numVarsToSelect = Math.min(covariablesAvailable.size(), ctrl.mtry);
 		List<String> variablesToSplitOn = shuffledCovariables.subList(0, numVarsToSelect);
 

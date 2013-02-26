@@ -50,33 +50,50 @@ public class Forest
 
 	public Map<String, Double> weights;
 
+	public long seed;
+
+	public List<Long> treeSeeds = new ArrayList<Long>();
+
+
 	public Forest(String dataForGrowing)
 	{
 		this.ctrl = new TreeGrowthControl();
+		this.seed = System.currentTimeMillis();
 		growForest(dataForGrowing, new HashMap<String, Double>());
 	}
 
 	public Forest(String dataForGrowing, TreeGrowthControl ctrl)
 	{
 		this.ctrl = ctrl;
+		this.seed = System.currentTimeMillis();
 		growForest(dataForGrowing, new HashMap<String, Double>());
 	}
 
 	public Forest(String dataForGrowing, Map<String, Double> weights)
 	{
 		this.ctrl = new TreeGrowthControl();
+		this.seed = System.currentTimeMillis();
 		growForest(dataForGrowing, weights);
 	}
 
 	public Forest(String dataForGrowing, TreeGrowthControl ctrl, Map<String, Double> weights)
 	{
 		this.ctrl = ctrl;
+		this.seed = System.currentTimeMillis();
 		growForest(dataForGrowing, weights);
 	}
 
 	void growForest(String dataForGrowing, Map<String, Double> potentialWeights)
 	{
+		// Determine whether the tree is being regrown from known seeds, or a new forest is being grown.
+		boolean isNewGrowth = false;
+		if (this.treeSeeds.isEmpty())
+		{
+			// If no seeds are recorded, then the tree is being grown from scratch.
+			isNewGrowth = true;
+		}
 
+		this.dataFileGrownFrom = dataForGrowing;
 		ProcessDataForGrowing procData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
 		this.processedData = procData;
 
@@ -113,7 +130,7 @@ public class Forest
 			List<Integer> observationsForTheTree = new ArrayList<Integer>();
 			if (!ctrl.isReplacementUsed)
 			{
-				Collections.shuffle(observations);
+				Collections.shuffle(observations, new Random(this.seed));
 				for (int j = 0; j < numberObservationsToSelect; j++)
 				{
 					observationsForTheTree.add(observations.get(j));
@@ -121,7 +138,7 @@ public class Forest
 			}
 			else
 			{
-				Random randomObservation = new Random();
+				Random randomObservation = new Random(this.seed);
 				int selectedObservation;
 				for (int j = 0; j < numberObservationsToSelect; j++)
 				{
@@ -143,7 +160,16 @@ public class Forest
 			this.oobObservations.add(oobOnThisTree);
 
 			// Grow this tree from the chosen observations.
-			this.forest.add(new CARTTree(this.processedData, this.ctrl, weights, observationsForTheTree));
+			if (isNewGrowth)
+			{
+				long seedForTree = System.currentTimeMillis();
+				this.treeSeeds.add(seedForTree);
+				this.forest.add(new CARTTree(this.processedData, this.ctrl, weights, observationsForTheTree, seedForTree));
+			}
+			else
+			{
+				this.forest.add(new CARTTree(this.processedData, this.ctrl, weights, observationsForTheTree, this.treeSeeds.get(i)));
+			}
 		}
 
 		// Calculate the oob error. This is done by putting each observation down the trees where it is oob.
@@ -168,8 +194,8 @@ public class Forest
 			if (isIOob)
 			{
 				numberOobObservations += 1;
-			}
-			cumulativeErrorRate += predict(this.processedData, obsToPredict, treesToPredictFrom);
+				cumulativeErrorRate += predict(this.processedData, obsToPredict, treesToPredictFrom);
+			}			
 		}
 		this.oobErrorEstimate = cumulativeErrorRate / numberOobObservations;
 	}
@@ -281,6 +307,41 @@ public class Forest
 		errorRate = errorRate / observationToClassification.size();
 
 		return errorRate;
+	}
+
+	public void regrowForest()
+	{
+		// Regrow using old seeds.
+		this.forest = new ArrayList<CARTTree>();
+		this.oobObservations = new ArrayList<List<Integer>>();
+		this.oobErrorEstimate = 0.0;
+		this.growForest(this.dataFileGrownFrom, this.weights);
+	}
+
+	public void regrowForest(long newSeed)
+	{
+		// Regrow using different seeds.
+		this.seed = newSeed;
+		this.treeSeeds = new ArrayList<Long>();
+		this.regrowForest();
+	}
+
+	public void regrowForest(TreeGrowthControl newCtrl)
+	{
+		// Regrow with old seeds, but a different controller.
+		// This allows you to change replacement/mtry while keeping the random seeds the same.
+		this.ctrl = newCtrl;
+		this.regrowForest();
+	}
+
+	public void regrowForest(long newSeed, TreeGrowthControl newCtrl)
+	{
+		// Regrow using different seeds and a new controller.
+		// This allows you to change replacement/mtry while keeping the random seeds the same.
+		this.seed = newSeed;
+		this.treeSeeds = new ArrayList<Long>();
+		this.ctrl = newCtrl;
+		this.regrowForest();
 	}
 
 }
