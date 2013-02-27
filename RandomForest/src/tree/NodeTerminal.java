@@ -13,9 +13,9 @@ import java.util.Map;
 public class NodeTerminal extends Node
 {
 
-	NodeTerminal(String loadString)
+	NodeTerminal(Map<String, Map<String, String>> treeSkeleton, String nodeID)
 	{
-		loadString = loadString.replaceAll("\n", "");
+		String loadString = treeSkeleton.get(nodeID).get("Data");
 		String split[] = loadString.split("\t");
 		this.nodeDepth = Integer.parseInt(split[0]);
 		this.classCountsInNode = new HashMap<String, Integer>();
@@ -43,13 +43,16 @@ public class NodeTerminal extends Node
 		this.children[1] = null;
 	}
 
-	void display()
+	String display()
 	{
+		String outputString = "";
 		for (int i = 0; i < this.nodeDepth; i++)
 		{
-			System.out.print("|  ");
+			outputString += "|  ";
 		}
-		System.out.println(this.classCountsInNode.entrySet());
+		outputString += this.classCountsInNode.entrySet().toString();
+		outputString += "\n";
+		return outputString;
 	}
 
 	ImmutableTwoValues<String, Double> predict(Map<String, Double> currentObservation)
@@ -71,7 +74,7 @@ public class NodeTerminal extends Node
 
 	ImmutableTwoValues<String, Integer> save(Integer nodeID, Integer parentID)
 	{
-		String returnString = Integer.toString(nodeID) + "\t" + Integer.toString(parentID) + "\t";
+		String returnString = Integer.toString(nodeID) + "\t" + Integer.toString(parentID) + "\tTerminal\t";
 		returnString += Integer.toString(this.nodeDepth);
 		returnString += "\t";
 		for (String s : this.classCountsInNode.keySet())

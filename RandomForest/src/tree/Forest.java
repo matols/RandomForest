@@ -3,9 +3,13 @@
  */
 package tree;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -51,7 +55,7 @@ public class Forest
 	 */
 	public ProcessDataForGrowing processedData;
 
-	public Map<String, Double> weights;
+	public Map<String, Double> weights = new HashMap<String, Double>();
 
 	public long seed;
 
@@ -74,7 +78,63 @@ public class Forest
 		else
 		{
 			// Loading from a saved forest.
-			
+			// Load the control object.
+			String controllerLoadLocation = dataForGrowing + "/Controller.txt";
+			this.ctrl = new TreeGrowthControl(controllerLoadLocation);
+
+			// Load the processed data.
+			String processedDataLoadLocation = dataForGrowing + "/ProcessedData.txt";
+			this.processedData = new ProcessDataForGrowing(processedDataLoadLocation);
+
+			// Load the other forest attributes.
+			String attributeLoadLocation = dataForGrowing + "/Attributes.txt";
+			try (BufferedReader reader = Files.newBufferedReader(Paths.get(attributeLoadLocation), StandardCharsets.UTF_8))
+			{
+				String line = reader.readLine();
+				line.trim();
+				String[] splitLine = line.split("\t");
+				String[] oobSplits = splitLine[0].split(";");
+				for (String s : oobSplits)
+				{
+					List<Integer> currentOobs = new ArrayList<Integer>();
+					for (String p : s.split(","))
+					{
+						currentOobs.add(Integer.parseInt(p));
+					}
+					this.oobObservations.add(currentOobs);
+				}
+				this.oobErrorEstimate = Double.parseDouble(splitLine[1]);
+				this.dataFileGrownFrom = splitLine[2];
+				String[] weightSplits = splitLine[3].split(";");
+				for (String s : weightSplits)
+				{
+					String[] indivWeights = s.split(",");
+					this.weights.put(indivWeights[0], Double.parseDouble(indivWeights[1]));
+				}
+				this.seed = Long.parseLong(splitLine[4]);
+			}
+			catch (Exception e)
+			{
+				e.printStackTrace();
+				System.exit(0);
+			}
+
+			// Load the trees.
+			Map<Integer, CARTTree> orderedForest = new HashMap<Integer, CARTTree>();
+			File forestDirectory = new File(dataForGrowing);
+			for (String s : forestDirectory.list())
+			{
+				if (!s.contains(".txt"))
+				{
+					// If the location is not a text file, and therefore contains the information about a tree.
+					String treeLoadLocation = dataForGrowing + "/" + s;
+					orderedForest.put(Integer.parseInt(s), new CARTTree(treeLoadLocation));
+				}
+			}
+			for (int i = 0; i < orderedForest.size(); i++)
+			{
+				this.forest.add(orderedForest.get(i));
+			}
 		}
 	}
 
@@ -408,9 +468,9 @@ public class Forest
 			String weightsOutput = "";
 			for (String s : this.weights.keySet())
 			{
-				weightsOutput += s + ";" + Double.toString(this.weights.get(s)) + ",";
+				weightsOutput += s + "," + Double.toString(this.weights.get(s)) + ";";
 			}
-			weightsOutput = weightsOutput.substring(0, weightsOutput.length() - 1);  // Chop off the last ','.
+			weightsOutput = weightsOutput.substring(0, weightsOutput.length() - 1);  // Chop off the last ';'.
 			outputWriter.write(weightsOutput + "\t");
 			outputWriter.write(Long.toString(this.seed));
 			outputWriter.close();
@@ -420,12 +480,6 @@ public class Forest
 			System.err.println(e.getStackTrace());
 			System.exit(0);
 		}
-
-//		public List<List<Integer>> oobObservations = new ArrayList<List<Integer>>();
-//		public double oobErrorEstimate = 0.0;
-//		public String dataFileGrownFrom = "";
-//		public Map<String, Double> weights;
-//		public long seed;
 	}
 
 }

@@ -240,7 +240,7 @@ public class ProcessDataForGrowing
 		{
 			// Caught an error while reading the file. Indicate this and exit.
 			System.out.println("There was an error while processing the input data file.");
-			System.out.println(e.getStackTrace());
+			e.printStackTrace();
 			System.exit(0);
 		}
 

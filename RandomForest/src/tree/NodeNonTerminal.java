@@ -16,9 +16,40 @@ public class NodeNonTerminal extends Node
 	double splitValue;
 	String covariable;
 
-	public NodeNonTerminal(String loadString, Node leftChild, Node rightChild)
+	public NodeNonTerminal(Map<String, Map<String, String>> treeSkeleton, String nodeID)
 	{
-		loadString = loadString.replaceAll("\n", "");
+		// Create this node's left child.
+		Node leftChild;
+		String leftChildID = treeSkeleton.get(nodeID).get("LeftChild");
+		Map<String, String> leftChildRecord = treeSkeleton.get(leftChildID);
+		if (leftChildRecord.get("Type").equals("Terminal"))
+		{
+			// If the left child is a terminal node.
+			leftChild = new NodeTerminal(treeSkeleton, leftChildID);
+		}
+		else
+		{
+			// If the left child is a non-terminal node.
+			leftChild = new NodeNonTerminal(treeSkeleton, leftChildID);
+		}
+
+		// Create this node's right child.
+		Node rightChild;
+		String rightChildID  = treeSkeleton.get(nodeID).get("RightChild");
+		Map<String, String> rightChildRecord = treeSkeleton.get(rightChildID);
+		if (rightChildRecord.get("Type").equals("Terminal"))
+		{
+			// If the right child is a non-terminal node.
+			rightChild = new NodeTerminal(treeSkeleton, rightChildID);
+		}
+		else
+		{
+			// If the right child is a non-terminal node.
+			rightChild = new NodeNonTerminal(treeSkeleton, rightChildID);
+		}
+
+		// Create this node.
+		String loadString = treeSkeleton.get(nodeID).get("Data");
 		String split[] = loadString.split("\t");
 		this.nodeDepth = Integer.parseInt(split[0]);
 		this.numberOfObservationsInNode = Integer.parseInt(split[1]);
@@ -56,15 +87,17 @@ public class NodeNonTerminal extends Node
 
 	}
 
-	void display()
+	String display()
 	{
+		String outputString = "";
 		for (int i = 0; i < nodeDepth; i++)
 		{
-			System.out.print("|  ");
+			outputString += "|  ";
 		}
-		System.out.format("Covariable : %s, split value : %f\n", covariable, splitValue);
-		this.children[0].display();
-		this.children[1].display();
+		outputString += "Covariable : " + this.covariable + ", split value : " + Double.toString(this.splitValue) + "\n";
+		outputString += this.children[0].display();
+		outputString += this.children[1].display();
+		return outputString;
 	}
 
 	ImmutableTwoValues<String, Double> predict(Map<String, Double> currentObservation)
@@ -82,7 +115,7 @@ public class NodeNonTerminal extends Node
 
 	ImmutableTwoValues<String, Integer> save(Integer nodeID, Integer parentID)
 	{
-		String returnString = Integer.toString(nodeID) + "\t" + Integer.toString(parentID) + "\t";
+		String returnString = Integer.toString(nodeID) + "\t" + Integer.toString(parentID) + "\tNonTerminal\t";
 		returnString += Integer.toString(this.nodeDepth) + "\t" + Integer.toString(this.numberOfObservationsInNode) + "\t";
 		returnString +=  Double.toString(this.splitValue) + "\t" + this.covariable + "\t";
 		for (String s : this.classCountsInNode.keySet())

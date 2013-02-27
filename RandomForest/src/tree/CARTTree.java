@@ -3,9 +3,13 @@
  */
 package tree;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -26,7 +30,7 @@ public class CARTTree
 	/**
 	 * The tree that has been grown.
 	 */
-	Node condInfTree = null;
+	Node cartTree = null;
 
 	/**
 	 * The object recording the control parameters for the tree.
@@ -42,7 +46,85 @@ public class CARTTree
 
 	public CARTTree(String loadString)
 	{
-		// Loads from a saved tree.
+		// Load the tree.
+		String treeLoadLocation = loadString + "/Tree.txt";
+		// Contains a skeleton of all the information needed to reconstruct the tree.
+		Map<String, Map<String, String>> treeSkeleton = new HashMap<String, Map<String, String>>();
+		String rootID = "";  // The ID of the root of the tree.
+		try (BufferedReader reader = Files.newBufferedReader(Paths.get(treeLoadLocation), StandardCharsets.UTF_8))
+		{
+			String line;
+			while ((line = reader.readLine()) != null)
+			{
+				line.trim();
+				String[] splitLine = line.split("\t", 4);
+				String nodeID = splitLine[0];
+				String parentID = splitLine[1];
+				String nodeType = splitLine[2];
+				String nodeValue = splitLine[3];
+
+				if (rootID.isEmpty())
+				{
+					rootID = nodeID;
+				}
+				else
+				{
+					// If the parent has a left child recorded, then this is the right child.
+					if (treeSkeleton.get(parentID).containsKey("LeftChild"))
+					{
+						treeSkeleton.get(parentID).put("RightChild", nodeID);
+					}
+					else
+					{
+						treeSkeleton.get(parentID).put("LeftChild", nodeID);
+					}
+				}
+
+				Map<String, String> nodeData = new HashMap<String, String>();
+				nodeData.put("Type", nodeType);
+				nodeData.put("Data", nodeValue);
+				treeSkeleton.put(nodeID, nodeData);  // Add the data about the new node to the tree skeleton
+			}
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+
+		// Start reconstructing the tree.
+		if (treeSkeleton.get(rootID).get("Type").equals("Terminal"))
+		{
+			// If the root node of the tree is a terminal node.
+			this.cartTree = new NodeTerminal(treeSkeleton, rootID);
+		}
+		else
+		{
+			// The root node is a non-terminal.
+			this.cartTree = new NodeNonTerminal(treeSkeleton, rootID);
+		}
+
+		// Load the control object.
+		String controllerLoadLocation = loadString + "/Controller.txt";
+		this.ctrl = new TreeGrowthControl(controllerLoadLocation);
+
+		// Load the processed data.
+		String processedDataLoadLocation = loadString + "/ProcessedData.txt";
+		this.processedData = new ProcessDataForGrowing(processedDataLoadLocation);
+
+		// Load the seed.
+		String seedLoadLocation = loadString + "/Seed.txt";
+		try (BufferedReader reader = Files.newBufferedReader(Paths.get(seedLoadLocation), StandardCharsets.UTF_8))
+		{
+			String line = reader.readLine();
+			line.trim();
+			this.seed = Long.parseLong(line);
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
 	}
 
 	public CARTTree(ProcessDataForGrowing processedData)
@@ -126,13 +208,13 @@ public class CARTTree
 		}
 
 		// Grow the tree.
-		this.condInfTree = growTree(observationsUsed, potentialWeights, 0);
+		this.cartTree = growTree(observationsUsed, potentialWeights, 0);
 	}
 
 	void controlTreeGrowth(List<Integer> observationsUsed)
 	{
 		// Grow the tree.
-		this.condInfTree = growTree(observationsUsed, new HashMap<String, Double>(), 0);
+		this.cartTree = growTree(observationsUsed, new HashMap<String, Double>(), 0);
 	}
 
 	void controlTreeGrowth(Map<String, Double> potentialWeights, List<Integer> observationsUsed)
@@ -148,15 +230,15 @@ public class CARTTree
 		}
 
 		// Grow the tree.
-		this.condInfTree = growTree(observationsUsed, potentialWeights, 0);
+		this.cartTree = growTree(observationsUsed, potentialWeights, 0);
 	}
 
 	/**
 	 * Displays the tree.
 	 */
-	public void display()
+	public String display()
 	{
-		this.condInfTree.display();
+		return this.cartTree.display();
 	}
 
 	Node growTree(List<Integer> observationsInNode, Map<String, Double> weights, int currentDepth)
@@ -266,7 +348,7 @@ public class CARTTree
 	Map<Integer, ImmutableTwoValues<String, Double>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
 	{
 		Map<Integer, ImmutableTwoValues<String, Double>> returnValue = new HashMap<Integer, ImmutableTwoValues<String, Double>>();
-		if (this.condInfTree == null)
+		if (this.cartTree == null)
 		{
 			System.out.println("The tree can not be used fr prediction before it has been trained.");
 			System.exit(0);
@@ -281,7 +363,7 @@ public class CARTTree
 				{
 					currentObservation.put(s, predData.covariableData.get(s).get(i));
 				}
-				returnValue.put(i, condInfTree.predict(currentObservation));
+				returnValue.put(i, this.cartTree.predict(currentObservation));
 			}
 		}
 
@@ -309,7 +391,7 @@ public class CARTTree
 
 		// Save the tree itself.
 		String treeSaveLocation = outputLocation + "/Tree.txt";
-		ImmutableTwoValues<String, Integer> treeSave = this.condInfTree.save(1, 0);
+		ImmutableTwoValues<String, Integer> treeSave = this.cartTree.save(1, 0);
 		try
 		{
 			FileWriter outputFile = new FileWriter(treeSaveLocation);

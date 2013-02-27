@@ -72,7 +72,7 @@ public class TreeGrowthControl
 		}
 		catch (Exception e)
 		{
-			System.err.println("Error: " + e.getMessage());
+			e.printStackTrace();
 			System.exit(0);
 		}
 	}
@@ -106,7 +106,7 @@ public class TreeGrowthControl
 		}
 		catch (Exception e)
 		{
-			System.err.println(e.getStackTrace());
+			e.printStackTrace();
 			System.exit(0);
 		}
 	}
