@@ -11,6 +11,7 @@ import java.util.List;
 
 public class TreeGrowthControl
 {
+
 	/**
 	 * The number of observations that must be present in the node in order for it to be considered for splitting.
 	 * Equivalent to the ndsize argument from Breiman's Fortran 77 code.

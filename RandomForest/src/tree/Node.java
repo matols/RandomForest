@@ -27,8 +27,9 @@ public abstract class Node
 		return null;
 	}
 
-	String save()
+	ImmutableTwoValues<String, Integer> save(Integer nodeID, Integer parentID)
 	{
+		// Takes the ID of the node and its parent, and returns the next available ID.
 		return null;
 	}
 

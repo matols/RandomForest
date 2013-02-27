@@ -58,7 +58,6 @@ public class ProcessDataForGrowing
 			String procDataVariables[] = line.split("\t");
 
 			this.dataFileGrownFrom = procDataVariables[0];
-			this.numberObservations = Integer.parseInt(procDataVariables[2]);
 			this.covariableData = new HashMap<String, List<Double>>();
 			if (!procDataVariables[1].equals(""))
 			{
@@ -74,6 +73,7 @@ public class ProcessDataForGrowing
 					this.covariableData.put(sSplit[0], tmpList);
 				}
 			}
+			this.numberObservations = Integer.parseInt(procDataVariables[2]);
 			this.responseData = new ArrayList<String>();
 			if (!procDataVariables[3].equals(""))
 			{

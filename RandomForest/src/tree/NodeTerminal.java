@@ -17,13 +17,19 @@ public class NodeTerminal extends Node
 	{
 		loadString = loadString.replaceAll("\n", "");
 		String split[] = loadString.split("\t");
+		this.nodeDepth = Integer.parseInt(split[0]);
 		this.classCountsInNode = new HashMap<String, Integer>();
-		for (String s : split[0].split(","))
+		for (String s : split[1].split(","))
 		{
 			String sSplit[] = s.split(";");
 			this.classCountsInNode.put(sSplit[0], Integer.parseInt(sSplit[1]));
 		}
-		this.nodeDepth = Integer.parseInt(split[1]);
+		this.weights = new HashMap<String, Double>();
+		for (String s : split[2].split(","))
+		{
+			String sSplit[] = s.split(";");
+			this.weights.put(sSplit[0], Double.parseDouble(sSplit[1]));
+		}
 		this.children[0] = null;
 		this.children[1] = null;
 	}
@@ -63,17 +69,23 @@ public class NodeTerminal extends Node
 		return new ImmutableTwoValues<String, Double>(maxClass, largestClassCount);
 	}
 
-	String save()
+	ImmutableTwoValues<String, Integer> save(Integer nodeID, Integer parentID)
 	{
-		String returnValue = "";
+		String returnString = Integer.toString(nodeID) + "\t" + Integer.toString(parentID) + "\t";
+		returnString += Integer.toString(this.nodeDepth);
+		returnString += "\t";
 		for (String s : this.classCountsInNode.keySet())
 		{
-			returnValue += s + ";" + Integer.toBinaryString(this.classCountsInNode.get(s)) + ",";
+			returnString += s + ";" + Integer.toString(this.classCountsInNode.get(s)) + ",";
 		}
-		returnValue = returnValue.substring(0, returnValue.length() - 1);  // Chop off the last ','.
-		returnValue += "\t";
-		returnValue += Integer.toString(this.nodeDepth);
-		return returnValue;
+		returnString = returnString.substring(0, returnString.length() - 1);  // Chop off the last ','.
+		returnString += "\t";
+		for (String s : this.weights.keySet())
+		{
+			returnString += s + ";" + Double.toString(this.weights.get(s)) + ",";
+		}
+		returnString = returnString.substring(0, returnString.length() - 1);  // Chop off the last ','.
+		return new ImmutableTwoValues<String, Integer>(returnString, nodeID + 1);
 	}
 
 }

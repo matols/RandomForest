@@ -3,6 +3,7 @@
  */
 package tree;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -15,7 +16,7 @@ public class NodeNonTerminal extends Node
 	double splitValue;
 	String covariable;
 
-	public NodeNonTerminal(String loadString)
+	public NodeNonTerminal(String loadString, Node leftChild, Node rightChild)
 	{
 		loadString = loadString.replaceAll("\n", "");
 		String split[] = loadString.split("\t");
@@ -28,6 +29,14 @@ public class NodeNonTerminal extends Node
 			String sSplit[] = s.split(";");
 			this.classCountsInNode.put(sSplit[0], Integer.parseInt(sSplit[1]));
 		}
+		this.weights = new HashMap<String, Double>();
+		for (String s : split[5].split(","))
+		{
+			String sSplit[] = s.split(";");
+			this.weights.put(sSplit[0], Double.parseDouble(sSplit[1]));
+		}
+		this.children[0] = leftChild;
+		this.children[1] = rightChild;
 	}
 
 	public NodeNonTerminal(int nodeDepth, String covariable, double splitValue, Node leftChild, Node rightChild,
@@ -71,17 +80,29 @@ public class NodeNonTerminal extends Node
 		}
 	}
 
-	String save()
+	ImmutableTwoValues<String, Integer> save(Integer nodeID, Integer parentID)
 	{
-		String returnValue = "";
-		returnValue += Integer.toString(this.nodeDepth) + "/t" + Integer.toString(this.numberOfObservationsInNode) + "\t";
-		returnValue +=  Double.toString(this.splitValue) + "\t" + this.covariable + "\t";
+		String returnString = Integer.toString(nodeID) + "\t" + Integer.toString(parentID) + "\t";
+		returnString += Integer.toString(this.nodeDepth) + "\t" + Integer.toString(this.numberOfObservationsInNode) + "\t";
+		returnString +=  Double.toString(this.splitValue) + "\t" + this.covariable + "\t";
 		for (String s : this.classCountsInNode.keySet())
 		{
-			returnValue += s + ";" + Integer.toString(this.classCountsInNode.get(s)) + ",";
+			returnString += s + ";" + Integer.toString(this.classCountsInNode.get(s)) + ",";
 		}
-		returnValue = returnValue.substring(0, returnValue.length() - 1);  // Chop off the last ','.
-		return returnValue;
+		returnString = returnString.substring(0, returnString.length() - 1);  // Chop off the last ','.
+		returnString += "\t";
+		for (String s : this.weights.keySet())
+		{
+			returnString += s + ";" + Double.toString(this.weights.get(s)) + ",";
+		}
+		returnString = returnString.substring(0, returnString.length() - 1);  // Chop off the last ','.
+
+		ImmutableTwoValues<String, Integer> leftChild = this.children[0].save(nodeID + 1, nodeID);
+		Integer rightChildID = leftChild.second;
+		ImmutableTwoValues<String, Integer> rightChild = this.children[1].save(rightChildID, nodeID);
+		Integer nextID = rightChild.second;
+		returnString += "\n" + leftChild.first + "\n" + rightChild.first;
+		return new ImmutableTwoValues<String, Integer>(returnString, nextID);
 	}
 
 }

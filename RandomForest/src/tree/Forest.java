@@ -3,6 +3,9 @@
  */
 package tree;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -58,6 +61,21 @@ public class Forest
 		this.ctrl = new TreeGrowthControl();
 		this.seed = System.currentTimeMillis();
 		growForest(dataForGrowing, new HashMap<String, Double>());
+	}
+
+	public Forest(String dataForGrowing, Boolean isLoadingSavedPerformed)
+	{
+		if (!isLoadingSavedPerformed)
+		{
+			this.ctrl = new TreeGrowthControl();
+			this.seed = System.currentTimeMillis();
+			growForest(dataForGrowing, new HashMap<String, Double>());
+		}
+		else
+		{
+			// Loading from a saved forest.
+			
+		}
 	}
 
 	public Forest(String dataForGrowing, TreeGrowthControl ctrl)
@@ -184,6 +202,7 @@ public class Forest
 		this.oobErrorEstimate = cumulativeErrorRate / numberOobObservations;
 	}
 
+
 	public double predict(ProcessDataForGrowing predData)
 	{
 		List<Integer> observationsToPredict = new ArrayList<Integer>();
@@ -199,6 +218,7 @@ public class Forest
 		return predict(predData, observationsToPredict, treesToUseForPrediction);
 	}
 
+
 	public double predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
 	{
 		List<Integer> treesToUseForPrediction = new ArrayList<Integer>();
@@ -208,6 +228,7 @@ public class Forest
 		}
 		return predict(predData, observationsToPredict, treesToUseForPrediction);
 	}
+
 
 	public double predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict, List<Integer> treesToUseForPrediction)
 	{
@@ -324,6 +345,87 @@ public class Forest
 		this.seed = newSeed;
 		this.ctrl = newCtrl;
 		this.regrowForest();
+	}
+
+	public void save(String savedirLoc)
+	{
+		File outputDirectory = new File(savedirLoc);
+		if (!outputDirectory.exists())
+		{
+			boolean isDirCreated = outputDirectory.mkdirs();
+			if (!isDirCreated)
+			{
+				System.out.println("The output directory does not exist, but could not be created.");
+				System.exit(0);
+			}
+		}
+		else if (!outputDirectory.isDirectory())
+		{
+			// Exists and is not a directory.
+			System.out.println("The output directory location exists, but is not a directory.");
+			System.exit(0);
+		}
+
+		// Save the trees.
+		for (int i = 0; i < this.forest.size(); i++)
+		{
+			String treeSaveLocation = savedirLoc + "/" + Integer.toString(i);
+			this.forest.get(i).save(treeSaveLocation);
+		}
+
+		// Save the control object.
+		String controllerSaveLocation = savedirLoc + "/Controller.txt";
+		this.ctrl.save(controllerSaveLocation);
+
+		// Save the processed data.
+		String processedDataSaveLocation = savedirLoc + "/ProcessedData.txt";
+		this.processedData.save(processedDataSaveLocation);
+
+		// Save the other forest attributes.
+		String attributeSaveLocation = savedirLoc + "/Attributes.txt";
+		try
+		{
+			FileWriter outputFile = new FileWriter(attributeSaveLocation);
+			BufferedWriter outputWriter = new BufferedWriter(outputFile);
+			String oobObsOutput = "";
+			for (Integer i : this.oobObservations.get(0))
+			{
+				oobObsOutput += Integer.toString(i) + ",";
+			}
+			oobObsOutput = oobObsOutput.substring(0, oobObsOutput.length() - 1);  // Chop off the last ','.
+			for (int i = 1; i < this.oobObservations.size(); i++)
+			{
+				oobObsOutput += ";";
+				for (Integer j : this.oobObservations.get(i))
+				{
+					oobObsOutput += Integer.toString(j) + ",";
+				}
+				oobObsOutput = oobObsOutput.substring(0, oobObsOutput.length() - 1);  // Chop off the last ','.
+			}
+			outputWriter.write(oobObsOutput + "\t");
+			outputWriter.write(Double.toString(this.oobErrorEstimate) + "\t");
+			outputWriter.write(this.dataFileGrownFrom + "\t");
+			String weightsOutput = "";
+			for (String s : this.weights.keySet())
+			{
+				weightsOutput += s + ";" + Double.toString(this.weights.get(s)) + ",";
+			}
+			weightsOutput = weightsOutput.substring(0, weightsOutput.length() - 1);  // Chop off the last ','.
+			outputWriter.write(weightsOutput + "\t");
+			outputWriter.write(Long.toString(this.seed));
+			outputWriter.close();
+		}
+		catch (Exception e)
+		{
+			System.err.println(e.getStackTrace());
+			System.exit(0);
+		}
+
+//		public List<List<Integer>> oobObservations = new ArrayList<List<Integer>>();
+//		public double oobErrorEstimate = 0.0;
+//		public String dataFileGrownFrom = "";
+//		public Map<String, Double> weights;
+//		public long seed;
 	}
 
 }

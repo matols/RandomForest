@@ -4,6 +4,7 @@
 package tree;
 
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -38,6 +39,11 @@ public class CARTTree
 	ProcessDataForGrowing processedData;
 
 	long seed;
+
+	public CARTTree(String loadString)
+	{
+		// Loads from a saved tree.
+	}
 
 	public CARTTree(ProcessDataForGrowing processedData)
 	{
@@ -282,12 +288,56 @@ public class CARTTree
 		return returnValue;
 	}
 
-	void save(String location)
+	void save(String outputLocation)
 	{
+		File outputDirectory = new File(outputLocation);
+		if (!outputDirectory.exists())
+		{
+			boolean isDirCreated = outputDirectory.mkdirs();
+			if (!isDirCreated)
+			{
+				System.out.println("The output directory does not exist, but could not be created.");
+				System.exit(0);
+			}
+		}
+		else if (!outputDirectory.isDirectory())
+		{
+			// Exists and is not a directory.
+			System.out.println("The output directory location exists, but is not a directory.");
+			System.exit(0);
+		}
+
+		// Save the tree itself.
+		String treeSaveLocation = outputLocation + "/Tree.txt";
+		ImmutableTwoValues<String, Integer> treeSave = this.condInfTree.save(1, 0);
 		try
 		{
-			FileWriter outputFile = new FileWriter(location);
+			FileWriter outputFile = new FileWriter(treeSaveLocation);
 			BufferedWriter outputWriter = new BufferedWriter(outputFile);
+			outputWriter.write(treeSave.first);
+			outputWriter.close();
+		}
+		catch (Exception e)
+		{
+			System.err.println(e.getStackTrace());
+			System.exit(0);
+		}
+
+		// Save the control object.
+		String controllerSaveLocation = outputLocation + "/Controller.txt";
+		this.ctrl.save(controllerSaveLocation);
+
+		// Save the processed data.
+		String processedDataSaveLocation = outputLocation + "/ProcessedData.txt";
+		this.processedData.save(processedDataSaveLocation);
+
+		// Save the seed.
+		String seedSaveLocation = outputLocation + "/Seed.txt";
+		try
+		{
+			FileWriter outputFile = new FileWriter(seedSaveLocation);
+			BufferedWriter outputWriter = new BufferedWriter(outputFile);
+			outputWriter.write(Long.toString(this.seed));
 			outputWriter.close();
 		}
 		catch (Exception e)
