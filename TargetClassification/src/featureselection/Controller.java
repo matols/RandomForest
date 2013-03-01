@@ -257,13 +257,14 @@ public class Controller
 			System.out.format("GA round : %d.\n", i);
 			String thisGAArgs[] = args.clone();
 			thisGAArgs[1] += "/" + Integer.toString(i);
+			TreeGrowthControl thisGAControl = new TreeGrowthControl(ctrl);
 			if (isXValUsed)
 			{
-				new steadystate.CrossValController(thisGAArgs, ctrl, weights);
+				new steadystate.CrossValController(thisGAArgs, thisGAControl, weights);
 			}
 			else
 			{
-				new steadystate.Controller(thisGAArgs, ctrl, weights);
+				new steadystate.Controller(thisGAArgs, thisGAControl, weights);
 			}
 		}
 

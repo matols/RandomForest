@@ -47,6 +47,17 @@ public class TreeGrowthControl
 	{
 	}
 
+	public TreeGrowthControl(TreeGrowthControl ctrl)
+	{
+		// Copy constructor.
+		this.minNodeSize = ctrl.minNodeSize;
+		this.mtry = ctrl.mtry;
+		this.numberOfTreesToGrow = ctrl.numberOfTreesToGrow;
+		this.variablesToIgnore = new ArrayList<String>(this.variablesToIgnore);
+		this.isReplacementUsed = ctrl.isReplacementUsed;
+		this.selectionFraction = ctrl.selectionFraction;
+	}
+
 	public TreeGrowthControl(String location)
 	{
 		try (BufferedReader reader = Files.newBufferedReader(Paths.get(location), StandardCharsets.UTF_8))

@@ -46,7 +46,7 @@ public class CrossValController
 	/**
 	 * The record of the seeds that produced the individuals with the best fitness.
 	 */
-	public List<List<Long>> bestForestSeeds = new ArrayList<List<Long>>();
+	public List<Long> bestForestSeeds = new ArrayList<Long>();
 
 
 	public CrossValController(String[] args)
@@ -525,6 +525,7 @@ public class CrossValController
 	    		generationsOfStagnation = 0;
 	    		this.currentBestFitness = fitness.get(0);
 	    		this.bestMembersFound= new ArrayList<Integer[]>();  // Clear out the set of the best individuals found as there is a new top fitness.
+	    		this.bestForestSeeds = new ArrayList<Long>();  // Clear the list of the best individuals' seeds as there is a new top fitness.
 	    	}
 	    	// Add all the members with the best fitness to the set of best individuals found.
 	    	for (int i = 0; i < populationSize; i++)
@@ -533,6 +534,7 @@ public class CrossValController
 	    		{
 	    			// If the individual in position i has the best fitness of any individual found.
 	    			this.bestMembersFound.add(population.get(i));
+	    			this.bestForestSeeds.add(populationSeeds.get(i));
 	    		}
 	    	}
 	    	currentGeneration += 1;
@@ -582,13 +584,7 @@ public class CrossValController
 						bestIndivOutputWriter.write(",");
 						bestIndivOutputWriter.write(Integer.toString(currentMember[j]));
 					}
-					bestIndivOutputWriter.write("\t");
-					String seedString = "";
-					for (Long l : this.bestForestSeeds.get(i))
-					{
-						seedString += Long.toString(l) + ",";
-					}
-					bestIndivOutputWriter.write(seedString.substring(0, seedString.length() - 1));  // Chop off the trailing ','.
+					bestIndivOutputWriter.write("\t" + Long.toString(this.bestForestSeeds.get(i)));
 				    bestIndivOutputWriter.newLine();
 				}
 			}
