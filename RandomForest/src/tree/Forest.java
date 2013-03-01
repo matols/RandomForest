@@ -161,6 +161,14 @@ public class Forest
 		growForest(dataForGrowing, weights);
 	}
 
+	public Forest(String dataForGrowing, TreeGrowthControl ctrl, Map<String, Double> weights, Long seed)
+	{
+		this.ctrl = ctrl;
+		this.seed = seed;
+		growForest(dataForGrowing, weights);
+	}
+
+
 	void growForest(String dataForGrowing, Map<String, Double> potentialWeights)
 	{
 		// Seed the random generator used to control all the randomness in the algorithm,

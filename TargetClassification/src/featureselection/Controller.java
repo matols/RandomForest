@@ -381,7 +381,8 @@ public class Controller
 						continue;
 					}
 					List<Integer> individual = new ArrayList<Integer>();
-					for (String p : line.split(","))
+					String[] splitLine = line.split("\t");
+					for (String p : splitLine[0].split(","))
 					{
 						individual.add(Integer.parseInt(p));
 					}

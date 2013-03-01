@@ -22,7 +22,7 @@ import java.util.Random;
 import java.util.Set;
 
 import tree.Forest;
-import tree.IndexedDoubleData;
+import tree.IndexedDoubleLongData;
 import tree.ProcessDataForGrowing;
 import tree.TreeGrowthControl;
 
@@ -39,9 +39,15 @@ public class Controller
 	public double currentBestFitness = 100.0;
 
 	/**
-	 * A set of the individuals that have the best fitness found.
+	 * A list of the individuals that have the best fitness found.
 	 */
-	public Set<Integer[]> bestMembersFound = new HashSet<Integer[]>();
+	public List<Integer[]> bestMembersFound = new ArrayList<Integer[]>();
+
+	/**
+	 * The record of the seeds that produced the individuals with the best fitness.
+	 */
+	public List<Long> bestForestSeeds = new ArrayList<Long>();
+
 
 	public Controller(String[] args)
 	{
@@ -188,7 +194,7 @@ public class Controller
 		}
 		catch (Exception e)
 		{
-			System.err.println(e.getStackTrace());
+			e.printStackTrace();
 			System.exit(0);
 		}
 
@@ -222,7 +228,7 @@ public class Controller
 		}
 		catch (Exception e)
 		{
-			System.err.println(e.getStackTrace());
+			e.printStackTrace();
 			System.exit(0);
 		}
 
@@ -254,7 +260,7 @@ public class Controller
 		}
 		catch (Exception e)
 		{
-			System.err.println(e.getStackTrace());
+			e.printStackTrace();
 			System.exit(0);
 		}
 
@@ -262,8 +268,9 @@ public class Controller
 		// Begin the GA.
 		//----------------------
 
-		// Initialise the random number generator.
+		// Initialise the random number generator, and the record of random seeds.
 		Random random = new Random();
+		List<Long> populationSeeds = new ArrayList<Long>();
 		
 		// Generate the initial population.
 		List<Integer[]> population = new ArrayList<Integer[]>();
@@ -312,6 +319,24 @@ public class Controller
     	{
     		weights = determineWeights(args[0], ctrl);
     	}
+    	// Write out the weights used for the forest.
+		String weightOutputLocation = outputLocation + "/Weights.txt";
+		try
+		{
+			FileWriter weightOutputFile = new FileWriter(weightOutputLocation);
+			BufferedWriter weightOutputWriter = new BufferedWriter(weightOutputFile);
+			for (String s : weights.keySet())
+			{
+				weightOutputWriter.write(s + "\t" + Double.toString(weights.get(s)));
+				weightOutputWriter.newLine();
+			}
+			weightOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
 
 	    // Calculate the fitness of the initial population.
 	    List<Double> fitness = new ArrayList<Double>();
@@ -329,27 +354,31 @@ public class Controller
 	    	ctrl.variablesToIgnore = variablesToIgnore;
 	    	Forest forest = new Forest(inputLocation, ctrl, weights);
 	    	fitness.add(forest.oobErrorEstimate);
+	    	populationSeeds.add(forest.seed);
 	    	numberEvaluations += 1;
 	    }
 
 	    // Sort the initial population.
-	    List<IndexedDoubleData> sortedInitialPopulation = new ArrayList<IndexedDoubleData>();
+	    List<IndexedDoubleLongData> sortedInitialPopulation = new ArrayList<IndexedDoubleLongData>();
 	    for (int j = 0; j < population.size(); j++)
 	    {
-	    	sortedInitialPopulation.add(new IndexedDoubleData(fitness.get(j), j));
+	    	sortedInitialPopulation.add(new IndexedDoubleLongData(fitness.get(j), populationSeeds.get(j), j));
 	    }
 	    Collections.sort(sortedInitialPopulation);  // Sort the indices of the list in ascending order by error rate.
 	    List<Integer[]> newInitialPopulation = new ArrayList<Integer[]>();
 	    List<Double> newInitialFitness = new ArrayList<Double>();
+	    List<Long> newInitialSeeds = new ArrayList<Long>();
 	    for (int j = 0; j < populationSize; j ++)
 	    {
 	    	// Add the first populationSize population members with the lowest error rates.
 	    	int indexToAddFrom = sortedInitialPopulation.get(j).getIndex();
 	    	newInitialPopulation.add(population.get(indexToAddFrom));
 	    	newInitialFitness.add(fitness.get(indexToAddFrom));
+	    	newInitialSeeds.add(populationSeeds.get(indexToAddFrom));
 	    }
 	    population = newInitialPopulation;
 	    fitness = newInitialFitness;
+	    populationSeeds = newInitialSeeds;
 
 	    while (loopTermination(currentGeneration, maxGenerations, numberEvaluations, maxEvaluations, generationsOfStagnation, maxStagnantGenerations))
 	    {
@@ -403,6 +432,7 @@ public class Controller
 
 	    	// Calculate the fitness of the offspring.
 	    	List<Double> offspringFitness = new ArrayList<Double>();
+	    	List<Long> offspringSeeds = new ArrayList<Long>();
 		    for (Integer[] geneSet : mutants)
 		    {
 		    	List<String> variablesToIgnore = new ArrayList<String>();
@@ -417,6 +447,7 @@ public class Controller
 		    	ctrl.variablesToIgnore = variablesToIgnore;
 		    	Forest forest = new Forest(inputLocation, ctrl, weights);
 		    	offspringFitness.add(forest.oobErrorEstimate);
+		    	offspringSeeds.add(forest.seed);
 		    	numberEvaluations += 1;
 		    }
 
@@ -426,24 +457,28 @@ public class Controller
 		    	// Extend the population and the fitnesses to include the newly created offspring.
 		    	population.add(mutants.get(j));
 		    	fitness.add(offspringFitness.get(j));
+		    	populationSeeds.add(offspringSeeds.get(j));
 		    }
-		    List<IndexedDoubleData> sortedPopulation = new ArrayList<IndexedDoubleData>();
+		    List<IndexedDoubleLongData> sortedPopulation = new ArrayList<IndexedDoubleLongData>();
 		    for (int j = 0; j < population.size(); j++)
 		    {
-		    	sortedPopulation.add(new IndexedDoubleData(fitness.get(j), j));
+		    	sortedPopulation.add(new IndexedDoubleLongData(fitness.get(j), populationSeeds.get(j), j));
 		    }
 		    Collections.sort(sortedPopulation);  // Sort the indices of the list in ascending order by error rate.
 		    List<Integer[]> newPopulation = new ArrayList<Integer[]>();
 		    List<Double> newFitness = new ArrayList<Double>();
+		    List<Long> newSeeds = new ArrayList<Long>();
 		    for (int j = 0; j < populationSize; j ++)
 		    {
 		    	// Add the first populationSize population members with the lowest error rates.
 		    	int indexToAddFrom = sortedPopulation.get(j).getIndex();
 		    	newPopulation.add(population.get(indexToAddFrom));
 		    	newFitness.add(fitness.get(indexToAddFrom));
+		    	newSeeds.add(populationSeeds.get(indexToAddFrom));
 		    }
 		    population = newPopulation;
 		    fitness = newFitness;
+		    populationSeeds = newSeeds;
 
 	    	if (fitness.get(0) == this.currentBestFitness)
 	    	{
@@ -456,7 +491,8 @@ public class Controller
 	    		// is not the same then it must have improved.
 	    		generationsOfStagnation = 0;
 	    		this.currentBestFitness = fitness.get(0);
-	    		this.bestMembersFound= new HashSet<Integer[]>();  // Clear out the set of the best individuals found as there is a new top fitness.
+	    		this.bestMembersFound = new ArrayList<Integer[]>();  // Clear out the list of the best individuals found as there is a new top fitness.
+	    		this.bestForestSeeds = new ArrayList<Long>();  // Clear the list of the best individuals' seeds as there is a new top fitness.
 	    	}
 	    	// Add all the members with the best fitness to the set of best individuals found.
 	    	for (int i = 0; i < populationSize; i++)
@@ -465,6 +501,7 @@ public class Controller
 	    		{
 	    			// If the individual in position i has the best fitness of any individual found.
 	    			this.bestMembersFound.add(population.get(i));
+	    			this.bestForestSeeds.add(populationSeeds.get(i));
 	    		}
 	    	}
 	    	currentGeneration += 1;
@@ -488,11 +525,12 @@ public class Controller
 		}
 		catch (Exception e)
 		{
-			System.err.println(e.getStackTrace());
+			e.printStackTrace();
 			System.exit(0);
 		}
 
 	    // Write out the best member(s) of the population.
+	    Set<Integer[]> recordedIndividuals = new HashSet<Integer[]>();
 	    try
 		{
 	    	String bestIndivOutputLocation = outputLocation + "/BestIndividuals.txt";
@@ -501,21 +539,27 @@ public class Controller
 			bestIndivOutputWriter.write("Fitness : ");
 			bestIndivOutputWriter.write(Double.toString(this.currentBestFitness));
 			bestIndivOutputWriter.newLine();
-			for (Integer[] i : this.bestMembersFound)
+			for (int i = 0; i < this.bestMembersFound.size(); i++)
 			{
-				bestIndivOutputWriter.write(Integer.toString(i[0]));
-				for (int j = 1; j < i.length; j++)
+				Integer[] currentMember = this.bestMembersFound.get(i);
+				if (!recordedIndividuals.contains(currentMember))
 				{
-					bestIndivOutputWriter.write(",");
-					bestIndivOutputWriter.write(Integer.toString(i[j]));
+					recordedIndividuals.add(currentMember);
+					bestIndivOutputWriter.write(Integer.toString(currentMember[0]));
+					for (int j = 1; j < currentMember.length; j++)
+					{
+						bestIndivOutputWriter.write(",");
+						bestIndivOutputWriter.write(Integer.toString(currentMember[j]));
+					}
+					bestIndivOutputWriter.write("\t" + Long.toString(this.bestForestSeeds.get(i)));
+				    bestIndivOutputWriter.newLine();
 				}
-			    bestIndivOutputWriter.newLine();
 			}
 		    bestIndivOutputWriter.close();
 		}
 		catch (Exception e)
 		{
-			System.err.println(e.getStackTrace());
+			e.printStackTrace();
 			System.exit(0);
 		}
 
@@ -634,7 +678,7 @@ public class Controller
 		}
 		catch (Exception e)
 		{
-			System.err.println(e.getStackTrace());
+			e.printStackTrace();
 			System.exit(0);
 		}
 
@@ -653,7 +697,7 @@ public class Controller
 		}
 		catch (Exception e)
 		{
-			System.err.println(e.getStackTrace());
+			e.printStackTrace();
 			System.exit(0);
 		}
 
@@ -703,7 +747,7 @@ public class Controller
 		}
 		catch (Exception e)
 		{
-			System.err.println(e.getStackTrace());
+			e.printStackTrace();
 			System.exit(0);
 		}
 	}
