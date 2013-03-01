@@ -13,9 +13,11 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 /**
  * @author Simon Bull
@@ -256,14 +258,14 @@ public class Forest
 			if (isIOob)
 			{
 				numberOobObservations += 1;
-				cumulativeErrorRate += predict(this.processedData, obsToPredict, treesToPredictFrom);
+				cumulativeErrorRate += predict(this.processedData, obsToPredict, treesToPredictFrom).first;
 			}			
 		}
 		this.oobErrorEstimate = cumulativeErrorRate / numberOobObservations;
 	}
 
 
-	public double predict(ProcessDataForGrowing predData)
+	public ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predict(ProcessDataForGrowing predData)
 	{
 		List<Integer> observationsToPredict = new ArrayList<Integer>();
 		for (int i = 0; i < predData.numberObservations; i++)
@@ -279,7 +281,7 @@ public class Forest
 	}
 
 
-	public double predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
+	public ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
 	{
 		List<Integer> treesToUseForPrediction = new ArrayList<Integer>();
 		for (int i = 0; i < forest.size(); i++)
@@ -290,9 +292,9 @@ public class Forest
 	}
 
 
-	public double predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict, List<Integer> treesToUseForPrediction)
+	public ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict, List<Integer> treesToUseForPrediction)
 	{
-		double errorRate = 0.0;
+		Double errorRate = 0.0;
 		Map<Integer, String> observationToClassification = new HashMap<Integer, String>();
 
 		// Set up the mapping from observation index to predictions.
@@ -357,6 +359,17 @@ public class Forest
 			observationToClassification.put(i, majorityClass);
 		}
 
+		// Set up the confusion matrix.
+		Map<String, Map<String, Double>> confusionMatrix = new HashMap<String, Map<String, Double>>();
+		Set<String> responsePossibilities = new HashSet<String>(this.processedData.responseData);
+		for (String s : responsePossibilities)
+		{
+			Map<String, Double> classEntry = new HashMap<String, Double>();
+			classEntry.put("TruePositive", 0.0);
+			classEntry.put("FalsePositive", 0.0);
+			confusionMatrix.put(s, classEntry);
+		}
+
 		// Record the error rate for all observations.
 		for (int i : observationToClassification.keySet())
 		{
@@ -364,14 +377,23 @@ public class Forest
 			if (!predData.responseData.get(i).equals(predictedClass))
 			{
 				// If the classification is not correct.
-				errorRate += 1.0;
+				errorRate += 1.0; // Indicate that an incorrect prediction has been encountered.
+				// Increment the number of false positives for the predicted class.
+				Double currentFalsePos = confusionMatrix.get(predictedClass).get("FalsePositive");
+				confusionMatrix.get(predictedClass).put("FalsePositive", currentFalsePos + 1);
+			}
+			else
+			{
+				// Increment the number of true positives for the predicted class.
+				Double currentTruePos = confusionMatrix.get(predictedClass).get("TruePositive");
+				confusionMatrix.get(predictedClass).put("TruePositive", currentTruePos + 1);
 			}
 		}
 		// Divide the number of observations predicted incorrectly by the total number of observations in order to get the
 		// overall error rate of the set of observations provided on the set of trees provided.
 		errorRate = errorRate / observationToClassification.size();
 
-		return errorRate;
+		return new ImmutableTwoValues<Double, Map<String,Map<String,Double>>>(errorRate, confusionMatrix);
 	}
 
 	public void regrowForest()

@@ -352,7 +352,7 @@ public class CrossValController
 	    	for (List<Object> l : crossValFiles)
 	    	{
 	    		Forest forest = new Forest((String) l.get(0), ctrl, weights);
-	    		cumulativeError += forest.predict((ProcessDataForGrowing) l.get(1));
+	    		cumulativeError += forest.predict((ProcessDataForGrowing) l.get(1)).first;
 	    	}
 	    	fitness.add(cumulativeError / crossValFiles.size());
 	    	numberEvaluations += 1;
@@ -445,7 +445,7 @@ public class CrossValController
 		    	for (List<Object> l : crossValFiles)
 		    	{
 		    		Forest forest = new Forest((String) l.get(0), ctrl, weights);
-		    		cumulativeError += forest.predict((ProcessDataForGrowing) l.get(1));
+		    		cumulativeError += forest.predict((ProcessDataForGrowing) l.get(1)).first;
 		    	}
 		    	offspringFitness.add(cumulativeError / crossValFiles.size());
 		    	numberEvaluations += 1;
