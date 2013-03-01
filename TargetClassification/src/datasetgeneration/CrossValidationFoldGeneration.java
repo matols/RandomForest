@@ -72,9 +72,9 @@ import java.util.List;
 				positiveObsIndices.add(i * minPosObsInFold);
 				unlabelledObsIndices.add(i * minUnlabObsInFold);
 			}
-			// The number of observations left over is not 0 when the folds does not evenly divide into the number of observations (e.g. 5 folds 13 observations).
-			int leftOverPosObs = numberObservations - (minPosObsInFold * numberOfFolds);
-			int leftOverUnlabObs = numberObservations - (minPosObsInFold * numberOfFolds);
+			// The number of observations left over is not 0 when the number of folds does not evenly divide into the number of observations (e.g. 5 folds 13 observations).
+			int leftOverPosObs = numberPositives - (minPosObsInFold * numberOfFolds);
+			int leftOverUnlabObs = numberUnlabelled - (minUnlabObsInFold * numberOfFolds);
 
 			// Select the observations for each fold.
 			Collections.shuffle(positiveObservations);  // Shuffle the observations to randomise the observations in each fold.
@@ -96,6 +96,7 @@ import java.util.List;
 				for (int i = indexOfFirstLeftOver; i < numberPositives; i++)
 				{
 					datasets.get(foldIndex).add(positiveObservations.get(i));
+					foldIndex += 1;
 				}
 			}
 			if (leftOverUnlabObs != 0)
@@ -106,6 +107,7 @@ import java.util.List;
 				for (int i = indexOfFirstLeftOver; i < numberUnlabelled; i++)
 				{
 					datasets.get(foldIndex).add(unlabelledObservations.get(i));
+					foldIndex += 1;
 				}
 			}
 
