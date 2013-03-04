@@ -3,8 +3,11 @@
  */
 package tree;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Simon Bull
@@ -53,6 +56,18 @@ public class NodeTerminal extends Node
 		outputString += this.classCountsInNode.entrySet().toString();
 		outputString += "\n";
 		return outputString;
+	}
+
+	List<List<Integer>> getProximities(ProcessDataForGrowing processedData, List<Integer> observationIndices)
+	{
+		List<List<Integer>> proximities = new ArrayList<List<Integer>>();
+		proximities.add(observationIndices);
+		return proximities;
+	}
+
+	Map<String, Set<Double>> getSplitPoints()
+	{
+		return new HashMap<String, Set<Double>>();
 	}
 
 	ImmutableTwoValues<String, Double> predict(Map<String, Double> currentObservation)

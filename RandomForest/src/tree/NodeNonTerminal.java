@@ -3,8 +3,12 @@
  */
 package tree;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Simon Bull
@@ -98,6 +102,67 @@ public class NodeNonTerminal extends Node
 		outputString += this.children[0].display();
 		outputString += this.children[1].display();
 		return outputString;
+	}
+
+	List<List<Integer>> getProximities(ProcessDataForGrowing processedData, List<Integer> observationIndices)
+	{
+		// Determine which observations go to which child.
+		List<Integer> leftChildObs = new ArrayList<Integer>();
+		List<Integer> rightChildObs = new ArrayList<Integer>();
+		for (Integer i : observationIndices)
+		{
+			if (processedData.covariableData.get(this.covariable).get(i) <= this.splitValue)
+			{
+				leftChildObs.add(i);
+			}
+			else
+			{
+				rightChildObs.add(i);
+			}
+		}
+		List<List<Integer>> leftChildProximities = this.children[0].getProximities(processedData, leftChildObs);
+		List<List<Integer>> rightChildProximities = this.children[1].getProximities(processedData, rightChildObs);
+		List<List<Integer>> proximities = new ArrayList<List<Integer>>();
+		proximities.addAll(leftChildProximities);
+		proximities.addAll(rightChildProximities);
+		return proximities;
+	}
+
+	Map<String, Set<Double>> getSplitPoints()
+	{
+		Map<String, Set<Double>> splitPoints = this.children[0].getSplitPoints();  // Get the split points of the left child.
+		Map<String, Set<Double>> rightChildsplitsPoints = this.children[1].getSplitPoints();  // Get the split points of the right child.
+		for (String s : rightChildsplitsPoints.keySet())
+		{
+			if (splitPoints.containsKey(s))
+			{
+				// If the covariable is split on in both children.
+				Set<Double> currentSplitPoints = splitPoints.get(s);
+				currentSplitPoints.addAll(rightChildsplitsPoints.get(s));
+				splitPoints.put(s, currentSplitPoints);
+			}
+			else
+			{
+				// If the covariable is only split on in the right child.
+				splitPoints.put(s, rightChildsplitsPoints.get(s));
+			}
+		}
+		// Add the split point created by this node.
+		if (splitPoints.containsKey(this.covariable))
+		{
+			// If the covariable in the node is split on in one of the children.
+			Set<Double> currentSplitPoints = splitPoints.get(this.covariable);
+			currentSplitPoints.add(this.splitValue);
+			splitPoints.put(this.covariable, currentSplitPoints);
+		}
+		else
+		{
+			// If the covariable is not split on in one of the children.
+			Set<Double> thisSplit = new HashSet<Double>();
+			thisSplit.add(this.splitValue);
+			splitPoints.put(this.covariable, thisSplit);
+		}
+		return splitPoints;
 	}
 
 	ImmutableTwoValues<String, Double> predict(Map<String, Double> currentObservation)

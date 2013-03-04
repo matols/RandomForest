@@ -241,6 +241,21 @@ public class CARTTree
 		return this.cartTree.display();
 	}
 
+	public List<List<Integer>> getProximitySplitPoints()
+	{
+		List<Integer> observationIndices = new ArrayList<Integer>();
+		for (int i = 0; i < this.processedData.numberObservations; i++)
+		{
+			observationIndices.add(i);
+		}
+		return this.cartTree.getProximities(this.processedData, observationIndices);
+	}
+
+	public Map<String, Set<Double>> getSplitPoints()
+	{
+		return this.cartTree.getSplitPoints();
+	}
+
 	Node growTree(List<Integer> observationsInNode, Map<String, Double> weights, int currentDepth)
 	{
 		// Determine the counts of each class in the current node.

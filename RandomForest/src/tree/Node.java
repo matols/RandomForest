@@ -4,7 +4,9 @@
 package tree;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Simon Bull
@@ -20,6 +22,16 @@ public abstract class Node
 	Map<String, Double> weights = new HashMap<String, Double>();
 
 	String display()
+	{
+		return null;
+	}
+
+	List<List<Integer>> getProximities(ProcessDataForGrowing processedData, List<Integer> observationIndices)
+	{
+		return null;
+	}
+
+	Map<String, Set<Double>> getSplitPoints()
 	{
 		return null;
 	}
