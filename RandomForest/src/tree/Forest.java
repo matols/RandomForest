@@ -169,6 +169,61 @@ public class Forest
 	}
 
 
+	public void calculatProximities()
+	{
+		calculatProximities(this.processedData);
+	}
+
+	public Map<Integer, Map<Integer, Double>> calculatProximities(ProcessDataForGrowing procData)
+	{
+		Map<Integer, Map<Integer, Double>> proximities = new HashMap<Integer, Map<Integer, Double>>();
+		for (int i = 0; i < procData.numberObservations; i++)
+		{
+			// Add a record of all the observations to the proximities.
+			proximities.put(i, new HashMap<Integer, Double>());
+		}
+
+		for (CARTTree t : this.forest)
+		{
+			List<List<Integer>> treeProximities = t.getProximities(procData);  // Get the proximities for the tree.
+			for (List<Integer> l : treeProximities)
+			{
+				Collections.sort(l);  // Sort the list of observation indices o that you only have to keep half the matrix.
+				for (int i = 0; i < l.size(); i++)
+				{
+					Integer obsI = l.get(i);
+					for (int j = i + 1; j < l.size(); j++)
+					{
+						Integer obsJ = l.get(j);
+						// Go through all pairs of observation indices that ended up in the same terminal node.
+						if (!proximities.get(obsI).containsKey(obsJ))
+						{
+							// If obsI and obsJ have never occurred in the same terminal node before.
+							proximities.get(obsI).put(obsJ, 1.0);
+						}
+						else
+						{
+							Double oldProximityCount = proximities.get(obsI).get(obsJ);
+							proximities.get(obsI).put(obsJ, oldProximityCount + 1.0);
+						}
+					}
+				}
+			}
+		}
+
+		// Normalise the proximites by the number of trees.
+		for (Integer i : proximities.keySet())
+		{
+			for (Integer j : proximities.get(i).keySet())
+			{
+				Double oldProximityCount = proximities.get(i).get(j);
+				proximities.get(i).put(j, oldProximityCount / this.forest.size());
+			}
+		}
+
+		return proximities;
+	}
+
 	void growForest(String dataForGrowing, Map<String, Double> potentialWeights)
 	{
 		// Seed the random generator used to control all the randomness in the algorithm,

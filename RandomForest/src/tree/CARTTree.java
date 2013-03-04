@@ -241,14 +241,14 @@ public class CARTTree
 		return this.cartTree.display();
 	}
 
-	public List<List<Integer>> getProximitySplitPoints()
+	public List<List<Integer>> getProximities(ProcessDataForGrowing procData)
 	{
 		List<Integer> observationIndices = new ArrayList<Integer>();
 		for (int i = 0; i < this.processedData.numberObservations; i++)
 		{
 			observationIndices.add(i);
 		}
-		return this.cartTree.getProximities(this.processedData, observationIndices);
+		return this.cartTree.getProximities(procData, observationIndices);
 	}
 
 	public Map<String, Set<Double>> getSplitPoints()
