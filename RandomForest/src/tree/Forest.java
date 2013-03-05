@@ -11,7 +11,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -20,7 +19,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-import org.apache.commons.math3.linear.Array2DRowRealMatrix;
 import org.apache.commons.math3.linear.RealMatrix;
 import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 
@@ -227,6 +225,93 @@ public class Forest
 		}
 
 		return proximities;
+	}
+
+
+	public Map<String, Double> condVariableImportance()
+	{
+		return this.condVariableImportance(0.2);
+	}
+
+	public Map<String, Double> condVariableImportance(double maxCorrelation)
+	{
+		Map<String, Double> variableImportance = new HashMap<String, Double>();
+
+		// Determine correlations.
+		double[][] datasetArrays = new double[this.processedData.numberObservations][this.processedData.covariableData.size()];
+		List<String> covariableOrdering = new ArrayList<String>(this.processedData.covariableData.keySet());
+		for (int i = 0; i < covariableOrdering.size(); i++)
+		{
+			for (int j = 0; j < this.processedData.numberObservations; j++)
+			{
+				datasetArrays[j][i] = this.processedData.covariableData.get(covariableOrdering.get(i)).get(j);
+			}
+		}
+		PearsonsCorrelation correlationMatrix = new PearsonsCorrelation(datasetArrays);
+		RealMatrix correlations = correlationMatrix.getCorrelationMatrix();
+		Map<String, List<String>> correlatedVariables = new HashMap<String, List<String>>();
+		for (int i = 0; i < covariableOrdering.size(); i++)
+		{
+			String covariable = covariableOrdering.get(i);
+			List<String> toSimilarToI = new ArrayList<String>();
+			for (int j = 0; j < covariableOrdering.size(); j++)
+			{
+				if (i == j)
+				{
+					continue;
+				}
+				double correlationIJ = correlations.getEntry(i, j);
+				if (Math.abs(correlationIJ) >= maxCorrelation)
+				{
+					String covarJ = covariableOrdering.get(j);
+					toSimilarToI.add(covarJ);
+				}
+			}
+			correlatedVariables.put(covariable, toSimilarToI);
+		}
+
+		for (String s : this.processedData.covariableData.keySet())
+		{
+			Double cumulativeImportance = 0.0;
+			for (int i = 0; i < this.forest.size(); i++)
+			{
+				CARTTree currentTree = this.forest.get(i);
+				List<Integer> oobOnThisTree = this.oobObservations.get(i);
+				List<List<Integer>> conditionalGrid = currentTree.getConditionalGrid(this.processedData, oobOnThisTree, correlatedVariables.get(s));
+	
+				// Create the permuted copy of the data.
+				ProcessDataForGrowing permData = new ProcessDataForGrowing(this.processedData);
+				List<List<Integer>> permutedCondGrid = new ArrayList<List<Integer>>();
+				for (List<Integer> l : conditionalGrid)
+				{
+					List<Integer> permutedGridCell = new ArrayList<Integer>(l);
+					Collections.shuffle(permutedGridCell);
+					permutedCondGrid.add(permutedGridCell);
+				}
+				for (int j = 0; j < conditionalGrid.size(); j++)
+				{
+					List<Integer> gridCell = conditionalGrid.get(j);
+					List<Integer> permGridCell = permutedCondGrid.get(j);
+					for (int k = 0; k < gridCell.size(); k++)
+					{
+						int obsIndex = gridCell.get(k);  // Index of the observation that is being changed to a different value for the covariable s.
+						int permObsIndex = permGridCell.get(k);  // Index of the observation that is having its value placed in the obsIndex index.
+						double permValue = this.processedData.covariableData.get(s).get(permObsIndex);
+						permData.covariableData.get(s).set(obsIndex, permValue);
+					}
+				}
+	
+				// Determine the accuracy, and the change in it induced by the permutation.
+				List<Integer> treesToUse = new ArrayList<Integer>();
+				treesToUse.add(i);
+				Double originalAccuracy = 1 - predict(this.processedData, oobOnThisTree, treesToUse).first;  // Determine the predictive accuracy for the non-permuted observations.
+				Double permutedAccuracy = 1 - predict(permData, oobOnThisTree, treesToUse).first;  // Determine the predictive accuracy for the permuted observations.
+				cumulativeImportance += (originalAccuracy - permutedAccuracy);
+			}
+			cumulativeImportance /= this.forest.size();  // Get the mean change in the accuracy. This is the importance for the variable.
+			variableImportance.put(s, cumulativeImportance);
+		}
+		return variableImportance;
 	}
 
 
@@ -576,73 +661,37 @@ public class Forest
 
 	public Map<String, Double> variableImportance()
 	{
-		return this.variableImportance(0.2);
-	}
-
-	public Map<String, Double> variableImportance(double maxCorrelation)
-	{
 		Map<String, Double> variableImportance = new HashMap<String, Double>();
-
-		// Determine correlations.
-		double[][] datasetArrays = new double[this.processedData.numberObservations][this.processedData.covariableData.size()];
-		List<String> covariableOrdering = new ArrayList<String>(this.processedData.covariableData.keySet());
-		for (int i = 0; i < covariableOrdering.size(); i++)
-		{
-			for (int j = 0; j < this.processedData.numberObservations; j++)
-			{
-				datasetArrays[j][i] = this.processedData.covariableData.get(covariableOrdering.get(i)).get(j);
-			}
-		}
-		PearsonsCorrelation correlationMatrix = new PearsonsCorrelation(datasetArrays);
-		RealMatrix correlations = correlationMatrix.getCorrelationMatrix();
-		Map<String, List<String>> correlatedVariables = new HashMap<String, List<String>>();
-		for (int i = 0; i < covariableOrdering.size(); i++)
-		{
-			String covariable = covariableOrdering.get(i);
-			List<String> toSimilarToI = new ArrayList<String>();
-			for (int j = i + 1; j < covariableOrdering.size(); j++)
-			{
-				double correlationIJ = correlations.getEntry(i, j);
-				if (correlationIJ >= maxCorrelation || correlationIJ <= -maxCorrelation)
-				{
-					String covarJ = covariableOrdering.get(j);
-					toSimilarToI.add(covarJ);
-				}
-			}
-			correlatedVariables.put(covariable, toSimilarToI);
-		}
 
 		for (String s : this.processedData.covariableData.keySet())
 		{
-			Double cumulativeImportance = 0.0;
+			double cumulativeAccChange = 0.0;
 			for (int i = 0; i < this.forest.size(); i++)
 			{
-				CARTTree currentTree = this.forest.get(i);
 				List<Integer> oobOnThisTree = this.oobObservations.get(i);
-				List<Integer> treesToUse = new ArrayList<Integer>();
-				treesToUse.add(i);
-	
-				List<List<Integer>> treeSplits = currentTree.getConditionalGrid(this.processedData, correlatedVariables.get(s));
-				int gtOne = 0;
-				for (List<Integer> l : treeSplits)
-				{
-					if (l.size() > 1)
-					{
-						gtOne += 1;
-					}
-				}
-	
+				List<Integer> permutedOobOnThisTree = new ArrayList<Integer>(this.oobObservations.get(i));
+				Collections.shuffle(permutedOobOnThisTree);
+
 				// Create the permuted copy of the data.
 				ProcessDataForGrowing permData = new ProcessDataForGrowing(this.processedData);
-	
-				// Determine the accuracy, and the change in it induced by the permutation.
+				for (int j = 0; j < permutedOobOnThisTree.size(); j++)
+				{
+					int obsIndex = oobOnThisTree.get(j);  // Index of the observation that is being changed to a different value for the covariable s.
+					int permObsIndex = permutedOobOnThisTree.get(j);  // Index of the observation that is having its value placed in the obsIndex index.
+					double permValue = this.processedData.covariableData.get(s).get(permObsIndex);
+					permData.covariableData.get(s).set(obsIndex, permValue);
+				}
+
+				List<Integer> treesToUse = new ArrayList<Integer>();
+				treesToUse.add(i);
 				Double originalAccuracy = 1 - predict(this.processedData, oobOnThisTree, treesToUse).first;  // Determine the predictive accuracy for the non-permuted observations.
 				Double permutedAccuracy = 1 - predict(permData, oobOnThisTree, treesToUse).first;  // Determine the predictive accuracy for the permuted observations.
-				cumulativeImportance += (originalAccuracy - permutedAccuracy);
+				cumulativeAccChange += (originalAccuracy - permutedAccuracy);
 			}
-			cumulativeImportance /= this.forest.size();  // Get the mean change in the accuracy. This is the importance for the variable.
-			variableImportance.put(s, cumulativeImportance);
+			cumulativeAccChange /= this.forest.size();  // Get the mean change in the accuracy. This is the importance for the variable.
+			variableImportance.put(s, cumulativeAccChange);
 		}
+
 		return variableImportance;
 	}
 

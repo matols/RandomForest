@@ -251,15 +251,10 @@ public class CARTTree
 		return this.cartTree.getProximities(procData, observationIndices);
 	}
 
-	public List<List<Integer>> getConditionalGrid(ProcessDataForGrowing procData, List<String> covToConditionOn)
+	public List<List<Integer>> getConditionalGrid(ProcessDataForGrowing procData, List<Integer> oobOnThisTree, List<String> covToConditionOn)
 	{
-		List<Integer> observationIndices = new ArrayList<Integer>();
-		for (int i = 0; i < this.processedData.numberObservations; i++)
-		{
-			observationIndices.add(i);
-		}
 		List<List<Integer>> currentGrid = new ArrayList<List<Integer>>();
-		currentGrid.add(observationIndices);
+		currentGrid.add(oobOnThisTree);
 		return this.cartTree.getConditionalGrid(procData, currentGrid, covToConditionOn);
 	}
 

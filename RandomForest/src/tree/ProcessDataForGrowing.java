@@ -100,7 +100,10 @@ public class ProcessDataForGrowing
 	{
 		this.dataFileGrownFrom = toCopy.dataFileGrownFrom;
 		this.covariableData = new HashMap<String, List<Double>>();
-		this.covariableData.putAll(toCopy.covariableData);
+		for (String s : toCopy.covariableData.keySet())
+		{
+			this.covariableData.put(s, new ArrayList<Double>(toCopy.covariableData.get(s)));
+		}
 		this.numberObservations = toCopy.numberObservations;
 		this.responseData = new ArrayList<String>();
 		this.responseData.addAll(toCopy.responseData);
