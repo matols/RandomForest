@@ -30,7 +30,7 @@ public abstract class Node
 		return null;
 	}
 
-	List<List<Integer>> getConditionalGrid(ProcessDataForGrowing processedData, List<List<Integer>> currentGrid, String covToTest)
+	List<List<Integer>> getConditionalGrid(ProcessDataForGrowing processedData, List<List<Integer>> currentGrid, List<String> covToConditionOn)
 	{
 		return null;
 	}

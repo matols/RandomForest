@@ -64,7 +64,7 @@ public class NodeTerminal extends Node
 		return proximities;
 	}
 
-	List<List<Integer>> getConditionalGrid(ProcessDataForGrowing processedData, List<List<Integer>> currentGrid, String covToTest)
+	List<List<Integer>> getConditionalGrid(ProcessDataForGrowing processedData, List<List<Integer>> currentGrid, List<String> covToConditionOn)
 	{
 		return currentGrid;
 	}

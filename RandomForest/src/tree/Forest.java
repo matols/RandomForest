@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -18,6 +19,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+
+import org.apache.commons.math3.linear.Array2DRowRealMatrix;
+import org.apache.commons.math3.linear.RealMatrix;
+import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 
 /**
  * @author Simon Bull
@@ -571,10 +576,44 @@ public class Forest
 
 	public Map<String, Double> variableImportance()
 	{
+		return this.variableImportance(0.2);
+	}
+
+	public Map<String, Double> variableImportance(double maxCorrelation)
+	{
 		Map<String, Double> variableImportance = new HashMap<String, Double>();
+
+		// Determine correlations.
+		double[][] datasetArrays = new double[this.processedData.numberObservations][this.processedData.covariableData.size()];
+		List<String> covariableOrdering = new ArrayList<String>(this.processedData.covariableData.keySet());
+		for (int i = 0; i < covariableOrdering.size(); i++)
+		{
+			for (int j = 0; j < this.processedData.numberObservations; j++)
+			{
+				datasetArrays[j][i] = this.processedData.covariableData.get(covariableOrdering.get(i)).get(j);
+			}
+		}
+		PearsonsCorrelation correlationMatrix = new PearsonsCorrelation(datasetArrays);
+		RealMatrix correlations = correlationMatrix.getCorrelationMatrix();
+		Map<String, List<String>> correlatedVariables = new HashMap<String, List<String>>();
+		for (int i = 0; i < covariableOrdering.size(); i++)
+		{
+			String covariable = covariableOrdering.get(i);
+			List<String> toSimilarToI = new ArrayList<String>();
+			for (int j = i + 1; j < covariableOrdering.size(); j++)
+			{
+				double correlationIJ = correlations.getEntry(i, j);
+				if (correlationIJ >= maxCorrelation || correlationIJ <= -maxCorrelation)
+				{
+					String covarJ = covariableOrdering.get(j);
+					toSimilarToI.add(covarJ);
+				}
+			}
+			correlatedVariables.put(covariable, toSimilarToI);
+		}
+
 		for (String s : this.processedData.covariableData.keySet())
 		{
-			System.out.println(s);
 			Double cumulativeImportance = 0.0;
 			for (int i = 0; i < this.forest.size(); i++)
 			{
@@ -583,7 +622,7 @@ public class Forest
 				List<Integer> treesToUse = new ArrayList<Integer>();
 				treesToUse.add(i);
 	
-				List<List<Integer>> treeSplits = currentTree.getConditionalGrid(this.processedData, s);
+				List<List<Integer>> treeSplits = currentTree.getConditionalGrid(this.processedData, correlatedVariables.get(s));
 				int gtOne = 0;
 				for (List<Integer> l : treeSplits)
 				{
@@ -592,8 +631,6 @@ public class Forest
 						gtOne += 1;
 					}
 				}
-				System.out.println(treeSplits);
-				System.out.println(gtOne);
 	
 				// Create the permuted copy of the data.
 				ProcessDataForGrowing permData = new ProcessDataForGrowing(this.processedData);
@@ -605,7 +642,6 @@ public class Forest
 			}
 			cumulativeImportance /= this.forest.size();  // Get the mean change in the accuracy. This is the importance for the variable.
 			variableImportance.put(s, cumulativeImportance);
-			System.exit(0);
 		}
 		return variableImportance;
 	}

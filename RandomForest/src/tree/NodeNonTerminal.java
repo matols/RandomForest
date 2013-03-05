@@ -126,13 +126,13 @@ public class NodeNonTerminal extends Node
 		return proximities;
 	}
 
-	List<List<Integer>> getConditionalGrid(ProcessDataForGrowing processedData, List<List<Integer>> currentGrid, String covToTest)
+	List<List<Integer>> getConditionalGrid(ProcessDataForGrowing processedData, List<List<Integer>> currentGrid, List<String> covToConditionOn)
 	{
 		List<List<Integer>> newGrid = new ArrayList<List<Integer>>();
 
-		if (!this.covariable.equals(covToTest))
+		if (covToConditionOn.contains(this.covariable))
 		{
-			// If the covariable splitting this node is not the covariable that is having its importance calculated.
+			// If the covariable splitting this node is to be conditioned on.
 			for (List<Integer> l : currentGrid)
 			{
 				// Bisect each grid element along the lines specified by this node's covariable and split point.
@@ -168,30 +168,12 @@ public class NodeNonTerminal extends Node
 		}
 		else
 		{
-			// If the covariable splitting this node is the one having its importance calculated, then don't perform any bisecting for this node's split point.
+			// If the covariable splitting this node is not to be conditioned on, then don't perform any bisecting for this node's split point.
 			newGrid.addAll(currentGrid);
 		}
 
-		String outputStringOne = "";
-		String outputStringTwo = "";
-		for (int i = 0; i < nodeDepth; i++)
-		{
-			outputStringOne += "|  ";
-			outputStringTwo += "|  ";
-		}
-		outputStringOne += currentGrid.toString();
-		outputStringTwo += newGrid.toString();
-		System.out.println(outputStringOne);
-		System.out.println(outputStringTwo);
-		try {
-		    Thread.sleep(1000);
-		} catch(InterruptedException ex) {
-		    Thread.currentThread().interrupt();
-		}
-		
-
-		List<List<Integer>> leftChildGrid = this.children[0].getConditionalGrid(processedData, newGrid, covToTest);
-		List<List<Integer>> rightChildGrid = this.children[1].getConditionalGrid(processedData, leftChildGrid, covToTest);
+		List<List<Integer>> leftChildGrid = this.children[0].getConditionalGrid(processedData, newGrid, covToConditionOn);
+		List<List<Integer>> rightChildGrid = this.children[1].getConditionalGrid(processedData, leftChildGrid, covToConditionOn);
 		return rightChildGrid;
 	}
 
