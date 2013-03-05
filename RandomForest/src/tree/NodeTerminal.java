@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * @author Simon Bull
@@ -65,9 +64,9 @@ public class NodeTerminal extends Node
 		return proximities;
 	}
 
-	Map<String, Set<Double>> getSplitPoints()
+	List<List<Integer>> getConditionalGrid(ProcessDataForGrowing processedData, List<List<Integer>> currentGrid, String covToTest)
 	{
-		return new HashMap<String, Set<Double>>();
+		return currentGrid;
 	}
 
 	ImmutableTwoValues<String, Double> predict(Map<String, Double> currentObservation)

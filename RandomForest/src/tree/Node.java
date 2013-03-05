@@ -6,7 +6,6 @@ package tree;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * @author Simon Bull
@@ -31,7 +30,7 @@ public abstract class Node
 		return null;
 	}
 
-	Map<String, Set<Double>> getSplitPoints()
+	List<List<Integer>> getConditionalGrid(ProcessDataForGrowing processedData, List<List<Integer>> currentGrid, String covToTest)
 	{
 		return null;
 	}

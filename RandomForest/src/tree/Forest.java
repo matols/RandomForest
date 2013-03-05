@@ -32,7 +32,7 @@ public class Forest
 	public List<CARTTree> forest = new ArrayList<CARTTree>();
 
 	/**
-	 * A list where the ith element corresponds to the ith tree. The ith elemet of the list records
+	 * A list where the ith element corresponds to the ith tree. The ith element of the list records
 	 * all observations that are oob on the ith tree.
 	 */
 	public List<List<Integer>> oobObservations = new ArrayList<List<Integer>>();
@@ -169,9 +169,9 @@ public class Forest
 	}
 
 
-	public void calculatProximities()
+	public Map<Integer, Map<Integer, Double>> calculatProximities()
 	{
-		calculatProximities(this.processedData);
+		return calculatProximities(this.processedData);
 	}
 
 	public Map<Integer, Map<Integer, Double>> calculatProximities(ProcessDataForGrowing procData)
@@ -223,6 +223,7 @@ public class Forest
 
 		return proximities;
 	}
+
 
 	void growForest(String dataForGrowing, Map<String, Double> potentialWeights)
 	{
@@ -565,6 +566,48 @@ public class Forest
 			System.err.println(e.getStackTrace());
 			System.exit(0);
 		}
+	}
+
+
+	public Map<String, Double> variableImportance()
+	{
+		Map<String, Double> variableImportance = new HashMap<String, Double>();
+		for (String s : this.processedData.covariableData.keySet())
+		{
+			System.out.println(s);
+			Double cumulativeImportance = 0.0;
+			for (int i = 0; i < this.forest.size(); i++)
+			{
+				CARTTree currentTree = this.forest.get(i);
+				List<Integer> oobOnThisTree = this.oobObservations.get(i);
+				List<Integer> treesToUse = new ArrayList<Integer>();
+				treesToUse.add(i);
+	
+				List<List<Integer>> treeSplits = currentTree.getConditionalGrid(this.processedData, s);
+				int gtOne = 0;
+				for (List<Integer> l : treeSplits)
+				{
+					if (l.size() > 1)
+					{
+						gtOne += 1;
+					}
+				}
+				System.out.println(treeSplits);
+				System.out.println(gtOne);
+	
+				// Create the permuted copy of the data.
+				ProcessDataForGrowing permData = new ProcessDataForGrowing(this.processedData);
+	
+				// Determine the accuracy, and the change in it induced by the permutation.
+				Double originalAccuracy = 1 - predict(this.processedData, oobOnThisTree, treesToUse).first;  // Determine the predictive accuracy for the non-permuted observations.
+				Double permutedAccuracy = 1 - predict(permData, oobOnThisTree, treesToUse).first;  // Determine the predictive accuracy for the permuted observations.
+				cumulativeImportance += (originalAccuracy - permutedAccuracy);
+			}
+			cumulativeImportance /= this.forest.size();  // Get the mean change in the accuracy. This is the importance for the variable.
+			variableImportance.put(s, cumulativeImportance);
+			System.exit(0);
+		}
+		return variableImportance;
 	}
 
 }

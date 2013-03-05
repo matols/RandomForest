@@ -5,10 +5,8 @@ package tree;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * @author Simon Bull
@@ -128,41 +126,73 @@ public class NodeNonTerminal extends Node
 		return proximities;
 	}
 
-	Map<String, Set<Double>> getSplitPoints()
+	List<List<Integer>> getConditionalGrid(ProcessDataForGrowing processedData, List<List<Integer>> currentGrid, String covToTest)
 	{
-		Map<String, Set<Double>> splitPoints = this.children[0].getSplitPoints();  // Get the split points of the left child.
-		Map<String, Set<Double>> rightChildsplitsPoints = this.children[1].getSplitPoints();  // Get the split points of the right child.
-		for (String s : rightChildsplitsPoints.keySet())
+		List<List<Integer>> newGrid = new ArrayList<List<Integer>>();
+
+		if (!this.covariable.equals(covToTest))
 		{
-			if (splitPoints.containsKey(s))
+			// If the covariable splitting this node is not the covariable that is having its importance calculated.
+			for (List<Integer> l : currentGrid)
 			{
-				// If the covariable is split on in both children.
-				Set<Double> currentSplitPoints = splitPoints.get(s);
-				currentSplitPoints.addAll(rightChildsplitsPoints.get(s));
-				splitPoints.put(s, currentSplitPoints);
+				// Bisect each grid element along the lines specified by this node's covariable and split point.
+				List<Integer> leftSplitList = new ArrayList<Integer>();
+				boolean isLeftListEmpty = true;
+				List<Integer> rightSplitList = new ArrayList<Integer>();
+				boolean isRightListEmpty = true;
+				for (Integer i : l)
+				{
+					if (processedData.covariableData.get(this.covariable).get(i) <= this.splitValue)
+					{
+						leftSplitList.add(i);
+						isLeftListEmpty = false;
+					}
+					else
+					{
+						rightSplitList.add(i);
+						isRightListEmpty = false;
+					}
+				}
+	
+				if (!isLeftListEmpty)
+				{
+					// Only add the grid element for the left portion of the bisecting if it is not empty.
+					newGrid.add(leftSplitList);
+				}
+				if (!isRightListEmpty)
+				{
+					// Only add the grid element for the right portion of the bisecting if it is not empty.
+					newGrid.add(rightSplitList);
+				}
 			}
-			else
-			{
-				// If the covariable is only split on in the right child.
-				splitPoints.put(s, rightChildsplitsPoints.get(s));
-			}
-		}
-		// Add the split point created by this node.
-		if (splitPoints.containsKey(this.covariable))
-		{
-			// If the covariable in the node is split on in one of the children.
-			Set<Double> currentSplitPoints = splitPoints.get(this.covariable);
-			currentSplitPoints.add(this.splitValue);
-			splitPoints.put(this.covariable, currentSplitPoints);
 		}
 		else
 		{
-			// If the covariable is not split on in one of the children.
-			Set<Double> thisSplit = new HashSet<Double>();
-			thisSplit.add(this.splitValue);
-			splitPoints.put(this.covariable, thisSplit);
+			// If the covariable splitting this node is the one having its importance calculated, then don't perform any bisecting for this node's split point.
+			newGrid.addAll(currentGrid);
 		}
-		return splitPoints;
+
+		String outputStringOne = "";
+		String outputStringTwo = "";
+		for (int i = 0; i < nodeDepth; i++)
+		{
+			outputStringOne += "|  ";
+			outputStringTwo += "|  ";
+		}
+		outputStringOne += currentGrid.toString();
+		outputStringTwo += newGrid.toString();
+		System.out.println(outputStringOne);
+		System.out.println(outputStringTwo);
+		try {
+		    Thread.sleep(1000);
+		} catch(InterruptedException ex) {
+		    Thread.currentThread().interrupt();
+		}
+		
+
+		List<List<Integer>> leftChildGrid = this.children[0].getConditionalGrid(processedData, newGrid, covToTest);
+		List<List<Integer>> rightChildGrid = this.children[1].getConditionalGrid(processedData, leftChildGrid, covToTest);
+		return rightChildGrid;
 	}
 
 	ImmutableTwoValues<String, Double> predict(Map<String, Double> currentObservation)
