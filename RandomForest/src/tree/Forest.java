@@ -150,6 +150,14 @@ public class Forest
 		growForest(dataForGrowing, new HashMap<String, Double>());
 	}
 
+	public Forest(ProcessDataForGrowing procData, TreeGrowthControl ctrl)
+	{
+		this.ctrl = ctrl;
+		this.processedData = procData;
+		this.dataFileGrownFrom = procData.dataFileGrownFrom;
+		growForest(this.dataFileGrownFrom, new HashMap<String, Double>(), false);
+	}
+
 	public Forest(String dataForGrowing, Map<String, Double> weights)
 	{
 		this.ctrl = new TreeGrowthControl();
@@ -315,14 +323,23 @@ public class Forest
 	}
 
 
+
 	void growForest(String dataForGrowing, Map<String, Double> potentialWeights)
+	{
+		growForest(dataForGrowing, potentialWeights, true);
+	}
+
+	void growForest(String dataForGrowing, Map<String, Double> potentialWeights, boolean isProcessingNeeded)
 	{
 		// Seed the random generator used to control all the randomness in the algorithm,
 		Random randGenerator = new Random(this.seed);
 
-		this.dataFileGrownFrom = dataForGrowing;
-		ProcessDataForGrowing procData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
-		this.processedData = procData;
+		if (isProcessingNeeded)
+		{
+			this.dataFileGrownFrom = dataForGrowing;
+			ProcessDataForGrowing procData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
+			this.processedData = procData;
+		}
 
 		// Generate the default weightings.
 		for (String s : this.processedData.responseData)
@@ -434,7 +451,6 @@ public class Forest
 		return predict(predData, observationsToPredict, treesToUseForPrediction);
 	}
 
-
 	public ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
 	{
 		List<Integer> treesToUseForPrediction = new ArrayList<Integer>();
@@ -444,7 +460,6 @@ public class Forest
 		}
 		return predict(predData, observationsToPredict, treesToUseForPrediction);
 	}
-
 
 	public ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict, List<Integer> treesToUseForPrediction)
 	{
@@ -550,6 +565,7 @@ public class Forest
 		return new ImmutableTwoValues<Double, Map<String,Map<String,Double>>>(errorRate, confusionMatrix);
 	}
 
+
 	public void regrowForest()
 	{
 		// Regrow using old seeds.
@@ -582,6 +598,7 @@ public class Forest
 		this.ctrl = newCtrl;
 		this.regrowForest();
 	}
+
 
 	public void save(String savedirLoc)
 	{

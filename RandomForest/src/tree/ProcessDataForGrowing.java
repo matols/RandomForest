@@ -249,6 +249,22 @@ public class ProcessDataForGrowing
 
 	}
 	
+
+	/**
+	 * Add a new covariable to the dataset.
+	 * 
+	 * @param covar - The name of the covariable to add (must be different from all other names).
+	 * @param dataList - The list of data that corresponds to the covariable.
+	 */
+	public void addCovariable(String covar, List<Double> dataList)
+	{
+		if (covariableData.containsKey(covar))
+		{
+			System.out.format("The covariable %s already exists in the dataset.", covar);
+			System.exit(0);
+		}
+	}
+
 	/**
 	 * Method to save the control object to a file.
 	 * 
