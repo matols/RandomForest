@@ -1,7 +1,8 @@
 package featureselection;
 
-import java.awt.geom.RoundRectangle2D;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -33,7 +34,23 @@ public class Boruta
 			System.out.println("The first argument must be a valid file location, and must contain the data for feature selection.");
 			System.exit(0);
 		}
-		String outputLocation = args[0];  // The location of the file to output the results to.
+		String outputLocation = args[1];  // The location to store any and all results.
+		File outputDirectory = new File(outputLocation);
+		if (!outputDirectory.exists())
+		{
+			boolean isDirCreated = outputDirectory.mkdirs();
+			if (!isDirCreated)
+			{
+				System.out.println("The output directory could not be created.");
+				System.exit(0);
+			}
+		}
+		else if (!outputDirectory.isDirectory())
+		{
+			// Exists and is not a directory.
+			System.out.println("The second argument must be a valid directory location or location where a directory can be created.");
+			System.exit(0);
+		}
 
 		// Read in the user input.
 		double confidenceLevel = 0.999;
@@ -137,6 +154,10 @@ public class Boruta
 			{
 				// If a variable is currently Tentative, and a decision to reject it has been made, then mark it as Rejected.
 				variableDecisions.put(s, decisionsMadeThisRound.get(s));
+				if (verbose)
+				{
+					System.out.format("Variable %s is %s.\n", s, decisionsMadeThisRound.get(s));
+				}
 			}
 		}
 
@@ -173,6 +194,10 @@ public class Boruta
 			{
 				// If a variable is currently Tentative, and a decision to reject it has been made, then mark it as Rejected.
 				variableDecisions.put(s, decisionsMadeThisRound.get(s));
+				if (verbose)
+				{
+					System.out.format("Variable %s is %s.\n", s, decisionsMadeThisRound.get(s));
+				}
 			}
 		}
 
@@ -209,11 +234,15 @@ public class Boruta
 			{
 				// If a variable is currently Tentative, and a decision to reject it has been made, then mark it as Rejected.
 				variableDecisions.put(s, decisionsMadeThisRound.get(s));
+				if (verbose)
+				{
+					System.out.format("Variable %s is %s.\n", s, decisionsMadeThisRound.get(s));
+				}
 			}
 		}
 
 		//==============================================================================
-		// Proper round.
+		// Final round.
 		//==============================================================================
 		if (verbose)
 		{
@@ -244,20 +273,18 @@ public class Boruta
 		{
 			currentRun += 1;
 
-			// Grow the forest on the permuted datasets, and record the hits for each run.
-			for (int i = 0; i < numberOfRunsForSignificance; i++)
+			// Grow the forest on the permuted datasets, and record the hits for the run.
+			Set<String> hitVariables = randomforestRunner(processedData, variableDecisions, ctrl, 1, quickRun, isCompareSelf);
+			for (String s : hitVariables)
 			{
-				Set<String> hitVariables = randomforestRunner(processedData, variableDecisions, ctrl, 1, quickRun, isCompareSelf);
-				for (String s : hitVariables)
-				{
-					hits.put(s, hits.get(s) + 1);
-				}
+				hits.put(s, hits.get(s) + 1);
 			}
 
 			// Determine whether testing for Confirmed and Rejected variables should be performed on this run
 			// (i.e. if the number of runs is enough for significance).
 			if (currentRun >= numberOfRunsForSignificance)
 			{
+				System.out.format("Current run: %d\n", currentRun);
 				decisionsMadeThisRound = doTest(hits, currentRun, confidenceLevel, true);  // Allow variables to be Confirmed.
 				for (String s : decisionsMadeThisRound.keySet())
 				{
@@ -265,6 +292,10 @@ public class Boruta
 					{
 						// If a variable is currently Tentative, and a decision about it has been made, then record the decision (Confirmed or Rejected).
 						variableDecisions.put(s, decisionsMadeThisRound.get(s));
+						if (verbose)
+						{
+							System.out.format("Variable %s is %s.\n", s, decisionsMadeThisRound.get(s));
+						}
 					}
 				}
 				// Determine whether any variables remain that have not been Confirmed or Rejected.
@@ -277,6 +308,65 @@ public class Boruta
 					}
 				}
 			}
+		}
+		if (verbose)
+		{
+			if (isTentativesRemain)
+			{
+				System.out.println("Maximum runs reached. Tentatives remain.");
+			}
+			else
+			{
+				System.out.println("No tentatives remain.");
+			}
+		}
+
+		// Write out the results.
+		String confirmedOutputLocation = outputLocation + "/Confirmed.txt";
+		String confirmedAndTentativeOutputLocation = outputLocation + "/ConfirmedAndTentative.txt";
+		String tentativeOutputLocation = outputLocation + "/Tentative.txt";
+		String rejectedOutputLocation = outputLocation + "/Rejected.txt";
+		try
+		{
+			FileWriter confirmedOutputFile = new FileWriter(confirmedOutputLocation);
+			BufferedWriter confirmedOutputWriter = new BufferedWriter(confirmedOutputFile);
+			FileWriter confirmedAndTentativeOutputFile = new FileWriter(confirmedAndTentativeOutputLocation);
+			BufferedWriter confirmedAndTentativeOutputWriter = new BufferedWriter(confirmedAndTentativeOutputFile);
+			FileWriter tentativeOutputFile = new FileWriter(tentativeOutputLocation);
+			BufferedWriter tentativeOutputWriter = new BufferedWriter(tentativeOutputFile);
+			FileWriter rejectedOutputFile = new FileWriter(rejectedOutputLocation);
+			BufferedWriter rejectedOutputWriter = new BufferedWriter(rejectedOutputFile);
+			for (String s : variableDecisions.keySet())
+			{
+				if (variableDecisions.get(s).equals("Confirmed"))
+				{
+					confirmedOutputWriter.write(s);
+					confirmedOutputWriter.newLine();
+					confirmedAndTentativeOutputWriter.write(s);
+					confirmedAndTentativeOutputWriter.newLine();
+				}
+				else if (variableDecisions.get(s).equals("Tentative"))
+				{
+					confirmedAndTentativeOutputWriter.write(s);
+					confirmedAndTentativeOutputWriter.newLine();
+					tentativeOutputWriter.write(s);
+					tentativeOutputWriter.newLine();
+				}
+				else
+				{
+					rejectedOutputWriter.write(s);
+					rejectedOutputWriter.newLine();
+				}
+			}
+			confirmedOutputWriter.close();
+			confirmedAndTentativeOutputWriter.close();
+			tentativeOutputWriter.close();
+			rejectedOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
 		}
 	}
 
@@ -340,12 +430,14 @@ public class Boruta
 		ProcessDataForGrowing copyData = new ProcessDataForGrowing(procData);
 
 		// Choose variables to generate permutations of.
+		List<String> nonRejectedVariables = new ArrayList<String>();
 		List<String> tempVarsToPermute = new ArrayList<String>();
 		for (String s : variableDecisions.keySet())
 		{
-			if (quickRun)
+			if (!variableDecisions.get(s).equals("Rejected"))
 			{
-				if (!variableDecisions.equals("Rejected"))
+				nonRejectedVariables.add(s);
+				if (!quickRun)
 				{
 					// If quickRun is chosen, then only generate permutations of non-rejected variables.
 					tempVarsToPermute.add(s);
@@ -399,20 +491,17 @@ public class Boruta
 				sortedRandomImportances.add(newEntry);
 			}
 		}
-		Collections.sort(sortedRandomImportances);
+		Collections.sort(sortedRandomImportances, Collections.reverseOrder());
 		double nthMostImportantPermutedVarValue = sortedRandomImportances.get(levelOfRandomness - 1).getData();
 
 		// Determine hits.
 		Set<String> greaterThanRandom = new HashSet<String>();
-		for (String s : varsWithImportance)
+		for (String s : nonRejectedVariables)
 		{
-			if (!s.contains("-Rand"))
+			// Only consider the variables that have not been rejected yet as potentials for hits.
+			if (varImp.get(s) > nthMostImportantPermutedVarValue)
 			{
-				// If the variable is not a random variable, then check to see if it has a greater importance than the nth most important random variable.
-				if (varImp.get(s) > nthMostImportantPermutedVarValue)
-				{
-					greaterThanRandom.add(s);
-				}
+				greaterThanRandom.add(s);
 			}
 		}
 		return greaterThanRandom;

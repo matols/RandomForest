@@ -263,6 +263,7 @@ public class ProcessDataForGrowing
 			System.out.format("The covariable %s already exists in the dataset.", covar);
 			System.exit(0);
 		}
+		this.covariableData.put(covar, dataList);
 	}
 
 	/**
