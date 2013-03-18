@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -63,7 +64,7 @@ public class TestDriver
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 1000;
+		ctrl.numberOfTreesToGrow = 500;
 		ctrl.mtry = 10;
 		ctrl.variablesToIgnore = featuresIgnored;
 
@@ -85,6 +86,18 @@ public class TestDriver
 			subsetFeaturCrossValFiles.add(subsetFeatureTrainTestLocs);
 		}
 
+		ProcessDataForGrowing procData = new ProcessDataForGrowing(inputFileLocation, ctrl);
+		Map<String, Map<String, Double>> confusionMatrix = new HashMap<String, Map<String, Double>>();
+		for (String s : new HashSet<String>(procData.responseData))
+		{
+			confusionMatrix.put(s, new HashMap<String, Double>());
+			confusionMatrix.get(s).put("TruePositive", 0.0);
+			confusionMatrix.get(s).put("FalsePositive", 0.0);
+		}
+		List<String> classes = new ArrayList<String>(new HashSet<String>(procData.responseData));
+		String negClass = classes.get(0);
+		String posClass = classes.get(1);
+
 		System.out.println(featuresIgnored);
 		Map<String, Double> weights = determineWeights(inputFileLocation, ctrl);
 		long seed = 6262139609547888975L;
@@ -94,6 +107,16 @@ public class TestDriver
     	{
     		forest = new Forest((String) l.get(0), ctrl, weights, seed);
     		cumulativeError += forest.predict((ProcessDataForGrowing) l.get(1)).first;
+    		Map<String, Map<String, Double>> confMatrix = forest.predict((ProcessDataForGrowing) l.get(1)).second;
+    		for (String s : confMatrix.keySet())
+    		{
+    			Double oldTruePos = confusionMatrix.get(s).get("TruePositive");
+    			Double newTruePos = oldTruePos + confMatrix.get(s).get("TruePositive");
+    			confusionMatrix.get(s).put("TruePositive", newTruePos);
+    			Double oldFalsePos = confusionMatrix.get(s).get("FalsePositive");
+    			Double newFalsePos = oldFalsePos + confMatrix.get(s).get("FalsePositive");
+    			confusionMatrix.get(s).put("FalsePositive", newFalsePos);
+    		}
     		System.out.println(forest.predict((ProcessDataForGrowing) l.get(1)).first);
     		System.out.println(forest.predict((ProcessDataForGrowing) l.get(1)).second);
     	}
@@ -101,6 +124,13 @@ public class TestDriver
     	System.out.println(cumulativeError);
 		forest = new Forest(args[0], ctrl, weights, seed);
 		System.out.format("The OOB error estimate is : %f\n", forest.oobErrorEstimate);
+		System.out.println(confusionMatrix.entrySet());
+		Double TP = confusionMatrix.get(posClass).get("TruePositive");
+		Double FP = confusionMatrix.get(posClass).get("FalsePositive");
+		Double TN = confusionMatrix.get(negClass).get("TruePositive");
+		Double FN = confusionMatrix.get(negClass).get("FalsePositive");
+		Double MCC = (((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN)));
+		System.out.println(MCC);
 	}
 
 	/**

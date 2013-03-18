@@ -497,9 +497,11 @@ public class Controller
 	    	// Add all the members with the best fitness to the set of best individuals found.
 	    	for (int i = 0; i < populationSize; i++)
 	    	{
-	    		if (fitness.get(i) == this.currentBestFitness)
+	    		if ((fitness.get(i) == this.currentBestFitness) && (!this.bestMembersFound.contains(population.get(i))))
 	    		{
-	    			// If the individual in position i has the best fitness of any individual found.
+	    			// If the individual in position i has the best fitness of any individual found, and
+	    			// the individual is not already recorded as having the best fitness found (i.e. a new individual has been found
+	    			// that has the same fitness as the most fit individual already found).
 	    			this.bestMembersFound.add(population.get(i));
 	    			this.bestForestSeeds.add(populationSeeds.get(i));
 	    		}
