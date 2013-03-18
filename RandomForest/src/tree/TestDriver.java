@@ -33,7 +33,7 @@ public class TestDriver
 		}
 		catch (Exception e)
 		{
-			System.err.println(e.getStackTrace());
+			e.printStackTrace();
 			System.exit(0);
 		}
 
@@ -62,8 +62,9 @@ public class TestDriver
 		}
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
-		ctrl.numberOfTreesToGrow = 500;
 		ctrl.isReplacementUsed = true;
+		ctrl.numberOfTreesToGrow = 1000;
+		ctrl.mtry = 10;
 		ctrl.variablesToIgnore = featuresIgnored;
 
 		// Get the cross validation information
@@ -93,6 +94,8 @@ public class TestDriver
     	{
     		forest = new Forest((String) l.get(0), ctrl, weights, seed);
     		cumulativeError += forest.predict((ProcessDataForGrowing) l.get(1)).first;
+    		System.out.println(forest.predict((ProcessDataForGrowing) l.get(1)).first);
+    		System.out.println(forest.predict((ProcessDataForGrowing) l.get(1)).second);
     	}
     	cumulativeError /= subsetFeaturCrossValFiles.size();
     	System.out.println(cumulativeError);
