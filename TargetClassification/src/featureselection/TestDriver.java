@@ -3,7 +3,10 @@
  */
 package featureselection;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import tree.Forest;
@@ -23,11 +26,42 @@ public class TestDriver
 	{
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 100;
+		ctrl.numberOfTreesToGrow = 2000;
 		ctrl.mtry = 10;
-		int gaRepetitions = 1;
-		boolean isXValUsed = true;
+		int gaRepetitions = 20;
+		boolean isXValUsed = false;
 		Map<String, Double> weights = new HashMap<String, Double>();
+
+		Forest forest;
+
+		forest = new Forest(args[0], ctrl, weights);
+		Map<String, Double> varImp = forest.variableImportance();
+		System.out.println(varImp);
+		double maxImp = 0.0;
+		String maxVar = "";
+		for (String s : varImp.keySet())
+		{
+			if (varImp.get(s) > maxImp)
+			{
+				maxImp = varImp.get(s);
+				maxVar = s;
+			}
+		}
+		System.out.println(maxVar);
+		System.out.println(maxImp);
+
+		List<Double> oobs = new ArrayList<Double>();
+		double errorSum = 0.0;
+		for (int i = 0; i < 100; i++)
+		{
+			forest = new Forest(args[0], ctrl, weights);
+			oobs.add(forest.oobErrorEstimate);
+			errorSum += forest.oobErrorEstimate;
+		}
+		System.out.println(oobs);
+		System.out.println(Collections.min(oobs));
+		System.out.println(errorSum / 100);
+		System.exit(0);
 //		Forest forest = new Forest(args[0], ctrl, weights);
 //		forest.save("C:\\Users\\Simonial\\Documents\\PhD\\FeatureSelection\\TreeSave");
 //		Forest loadForest = new Forest("C:\\Users\\Simonial\\Documents\\PhD\\FeatureSelection\\TreeSave", true);

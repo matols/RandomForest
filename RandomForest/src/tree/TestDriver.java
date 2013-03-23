@@ -64,7 +64,7 @@ public class TestDriver
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 500;
+		ctrl.numberOfTreesToGrow = 100;
 		ctrl.mtry = 10;
 		ctrl.variablesToIgnore = featuresIgnored;
 
@@ -100,7 +100,7 @@ public class TestDriver
 
 		System.out.println(featuresIgnored);
 		Map<String, Double> weights = determineWeights(inputFileLocation, ctrl);
-		long seed = 6262139609547888975L;
+		long seed = 1363734549062L;
 		Forest forest;
 		double cumulativeError = 0.0;
     	for (List<Object> l : subsetFeaturCrossValFiles)

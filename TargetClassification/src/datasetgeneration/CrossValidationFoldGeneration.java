@@ -22,7 +22,11 @@ import java.util.List;
 			String inputFileLocation = args[0];
 			String outputLocation = args[1];
 			int numberOfFolds = Integer.parseInt(args[2]);
+			main(inputFileLocation, outputLocation, numberOfFolds);
+		}
 
+		public static void main(String inputFileLocation, String outputLocation, int numberOfFolds)
+		{
 			List<String> positiveObservations = new ArrayList<String>();
 			List<String> unlabelledObservations = new ArrayList<String>();
 
