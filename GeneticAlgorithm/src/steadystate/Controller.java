@@ -197,6 +197,7 @@ public class Controller
 			e.printStackTrace();
 			System.exit(0);
 		}
+		ctrl.save(outputLocation + "/RandomForestCtrl.txt");
 
 		// Initialise the fitness and population output directories.
 		String fitnessDirectoryLocation = outputLocation + "/Fitnesses";

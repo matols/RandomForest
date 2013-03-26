@@ -36,25 +36,21 @@ public class Controller
 	{
 	}
 
-	public Controller(String[] args, boolean isGA)
-	{
-		// Initialise the controller for the dataset determination and forest growing.
-		TreeGrowthControl ctrl = new TreeGrowthControl();
-		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 100;
-		if (isGA)
-		{
-			gaSelection(args, ctrl, 10, false, new HashMap<String, Double>());
-		}
-		else
-		{
-			recursiveFeatureElimination(args, ctrl, new HashMap<String, Double>());
-		}
-	}
-
 	public Controller(String[] args, TreeGrowthControl ctrl, Map<String, Double> weights)
 	{
 		recursiveFeatureElimination(args, ctrl, weights);
+	}
+
+	public Controller(String[] args, TreeGrowthControl ctrl, Map<String, Double> weights, boolean isVarImpOnlyUsed)
+	{
+		if (isVarImpOnlyUsed)
+		{
+			varImpOnlySelection(args, ctrl, weights);
+		}
+		else
+		{
+			recursiveFeatureElimination(args, ctrl, weights);
+		}
 	}
 
 	public Controller(String[] args, TreeGrowthControl ctrl, int gaRepetitions, boolean isXValUsed, Map<String, Double> weights)
@@ -243,9 +239,32 @@ public class Controller
 		int externalFolds = 2;
 		int internalRepetitions = 10;
 		int internalFolds = 2;
+		// Write out the parameters.
+		String parameterLocation = outputLocation + "/Parameters.txt";
+		try
+		{
+			FileWriter parameterOutputFile = new FileWriter(parameterLocation);
+			BufferedWriter parameterOutputWriter = new BufferedWriter(parameterOutputFile);
+			parameterOutputWriter.write("External Repetitions - " + Integer.toString(externalRepetitions));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("External Folds - " + Integer.toString(externalFolds));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("Internal Repetitions - " + Integer.toString(internalRepetitions));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("Internal Folds - " + Integer.toString(internalFolds));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+		ctrl.save(outputLocation + "/RandomForestCtrl.txt");
 
-		double overallMCC = 0.0;
-		double overallErrorRate = 0.0;
+		List<Double> overallMCC = new ArrayList<Double>();
+		List<Double> overallErrorRate = new ArrayList<Double>();
+		List<List<String>> bestSubsets = new ArrayList<List<String>>();
 
 		for (int exRep = 0; exRep < externalRepetitions; exRep++)
 		{
@@ -335,22 +354,242 @@ public class Controller
 				ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predictionResults = forest.predict(testData);
 				double MCC = calcMCC(posClass, negClass, predictionResults.second, fullDataset.responseData);  // Calculate the MCC.
 
-				System.out.println(bestSubsetSize);
-				System.out.println(chosenSubset);
-				System.out.println(tempCtrl.variablesToIgnore);
-				System.out.println(MCC);
-				System.out.println(predictionResults.first);
-
-				overallErrorRate += predictionResults.first;
-				overallMCC += MCC;
+				overallErrorRate.add(predictionResults.first);
+				overallMCC.add(MCC);
+				bestSubsets.add(chosenSubset);
 			}
 		}
 
-		overallErrorRate /= (externalFolds * externalRepetitions);
-		overallMCC /= (externalFolds * externalRepetitions);
+		// Get the names and types of the features (the types are so that you know which features are the response and which aren't used).
+		String featureNames[] = null;
+		String featureTypes[] = null;
+		try (BufferedReader reader = Files.newBufferedReader(Paths.get(inputLocation), StandardCharsets.UTF_8))
+		{
+			String line = reader.readLine();
+			line = line.replaceAll("\n", "");
+			featureNames = line.split("\t");
 
-		System.out.println(overallErrorRate);
-		System.out.println(overallMCC);
+			line = reader.readLine();
+			line = line.toLowerCase();
+			line = line.replaceAll("\n", "");
+			featureTypes = line.split("\t");
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+
+		// Determine the features that are used in the GAs.
+		List<String> featuresUsed = new ArrayList<String>();
+		for (int i = 0; i < featureNames.length; i++)
+		{
+			if (featureTypes[i].equals("x") || featureTypes[i].equals("r"))
+			{
+				// If the feature is a response variable or is to be skipped.
+				continue;
+			}
+			featuresUsed.add(featureNames[i]);
+		}
+
+		// Record the feature fractions.
+		Map<String, Double> featureFractions = new HashMap<String, Double>();
+		for (String s : featuresUsed)
+		{
+			featureFractions.put(s, 0.0);
+		}
+		for (List<String> l : bestSubsets)
+		{
+			for (String s : l)
+			{
+				featureFractions.put(s, featureFractions.get(s) + 1.0);
+			}
+		}
+		for (String s : featureFractions.keySet())
+		{
+			featureFractions.put(s, featureFractions.get(s) / bestSubsets.size());
+		}
+
+		// Write out the results.
+		String errorRatesLocation = outputLocation + "/ErrorRates.txt";
+		try
+		{
+			FileWriter errorRatesOutputFile = new FileWriter(errorRatesLocation);
+			BufferedWriter errorRatesOutputWriter = new BufferedWriter(errorRatesOutputFile);
+			for (Double d : overallErrorRate)
+			{
+				errorRatesOutputWriter.write(Double.toString(d));
+				errorRatesOutputWriter.newLine();
+			}
+			errorRatesOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+		String MCCsLocation = outputLocation + "/MCCs.txt";
+		try
+		{
+			FileWriter MCCsOutputFile = new FileWriter(MCCsLocation);
+			BufferedWriter MCCsOutputWriter = new BufferedWriter(MCCsOutputFile);
+			for (Double d : overallMCC)
+			{
+				MCCsOutputWriter.write(Double.toString(d));
+				MCCsOutputWriter.newLine();
+			}
+			MCCsOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+		String featureFractionsLocation = outputLocation + "/FeatureFractions.txt";
+		try
+		{
+			FileWriter featureFractionsOutputFile = new FileWriter(featureFractionsLocation);
+			BufferedWriter featureFractionsOutputWriter = new BufferedWriter(featureFractionsOutputFile);
+			for (String s : featuresUsed)
+			{
+				featureFractionsOutputWriter.write(s + "\t" + Double.toString(featureFractions.get(s)));
+				featureFractionsOutputWriter.newLine();
+			}
+			featureFractionsOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+	}
+
+	void varImpOnlySelection(String[] args, TreeGrowthControl ctrl, Map<String, Double> weights)
+	{
+		String inputLocation = args[0];  // The location of the file containing the data to use in the feature selection.
+		File inputFile = new File(inputLocation);
+		if (!inputFile.isFile())
+		{
+			System.out.println("The first argument must be a valid file location, and must contain the data for feature selection.");
+			System.exit(0);
+		}
+		String outputLocation = args[1];  // The location to store any and all results.
+		File outputDirectory = new File(outputLocation);
+		if (!outputDirectory.exists())
+		{
+			boolean isDirCreated = outputDirectory.mkdirs();
+			if (!isDirCreated)
+			{
+				System.out.println("The output directory could not be created.");
+				System.exit(0);
+			}
+		}
+		else if (!outputDirectory.isDirectory())
+		{
+			// Exists and is not a directory.
+			System.out.println("The second argument must be a valid directory location or location where a directory can be created.");
+			System.exit(0);
+		}
+
+		int repetitions = 5;
+		// Write out the parameters.
+		String parameterLocation = outputLocation + "/Parameters.txt";
+		try
+		{
+			FileWriter parameterOutputFile = new FileWriter(parameterLocation);
+			BufferedWriter parameterOutputWriter = new BufferedWriter(parameterOutputFile);
+			parameterOutputWriter.write("Repetitions - " + Integer.toString(repetitions));
+			parameterOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+		ctrl.save(outputLocation + "/RandomForestCtrl.txt");
+
+		// Get the names and types of the features (the types are so that you know which features are the response and which aren't used).
+		String featureNames[] = null;
+		String featureTypes[] = null;
+		try (BufferedReader reader = Files.newBufferedReader(Paths.get(inputLocation), StandardCharsets.UTF_8))
+		{
+			String line = reader.readLine();
+			line = line.replaceAll("\n", "");
+			featureNames = line.split("\t");
+
+			line = reader.readLine();
+			line = line.toLowerCase();
+			line = line.replaceAll("\n", "");
+			featureTypes = line.split("\t");
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+
+		// Determine the features that are used in the GAs.
+		List<String> featuresUsed = new ArrayList<String>();
+		for (int i = 0; i < featureNames.length; i++)
+		{
+			if (featureTypes[i].equals("x") || featureTypes[i].equals("r"))
+			{
+				// If the feature is a response variable or is to be skipped.
+				continue;
+			}
+			featuresUsed.add(featureNames[i]);
+		}
+
+		// Setup the record of the average importance ranking.
+		Map<String, List<Integer>> importanceRanking = new HashMap<String, List<Integer>>();
+		for (String s : featuresUsed)
+		{
+			importanceRanking.put(s, new ArrayList<Integer>());
+		}
+
+		for (int i = 0; i < repetitions; i++)
+		{
+			Forest forest = new Forest(inputLocation, ctrl, weights);
+			Map<String, Double> varImp = forest.variableImportance();
+
+			// Determine the importance ordering for the variables, largest importance first.
+			List<StringsSortedByDoubles> sortedVariables = new ArrayList<StringsSortedByDoubles>();
+			for (String s : varImp.keySet())
+			{
+				sortedVariables.add(new StringsSortedByDoubles(varImp.get(s), s));
+			}
+			Collections.sort(sortedVariables);
+			Collections.reverse(sortedVariables);
+
+			for (int j = 0; j < varImp.size(); j++)
+			{
+				String featureImp = sortedVariables.get(j).getId();
+				importanceRanking.get(featureImp).add(j + 1);
+			}
+		}
+
+		// Write out the results.
+		String resultsLocation = outputLocation + "/Results.txt";
+		try
+		{
+			FileWriter resultsOutputFile = new FileWriter(resultsLocation);
+			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
+			for (String s : featuresUsed)
+			{
+				resultsOutputWriter.write(s);
+				for (Integer i : importanceRanking.get(s))
+				{
+					resultsOutputWriter.write("\t" + Integer.toString(i));
+				}
+				resultsOutputWriter.newLine();
+			}
+			resultsOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
 	}
 
 	double calcMCC(String posClass, String negClass, Map<String, Map<String, Double>> confMatrix, List<String> responseData)
@@ -493,7 +732,8 @@ public class Controller
 					matrixOutputWriter.write(Integer.toString(individualsValue));
 					matrixOutputWriter.write("\t");
 				}
-				matrixOutputWriter.write(Integer.toString(featureOccurreces));
+				double featureFractions = ((double) featureOccurreces) / bestIndividuals.size();
+				matrixOutputWriter.write(Double.toString(featureFractions));
 				matrixOutputWriter.newLine();
 				featureSums.add(featureOccurreces);
 			}

@@ -26,7 +26,7 @@ public class TestDriver
 	{
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 10;
+		ctrl.numberOfTreesToGrow = 100;
 		ctrl.mtry = 10;
 		int gaRepetitions = 20;
 		boolean isXValUsed = false;
@@ -34,7 +34,7 @@ public class TestDriver
 
 		weights.put("Unlabelled", 1.0);
 		weights.put("Positive", 2.0);
-		new Controller(args, ctrl, weights);
+		new Controller(args, ctrl, weights, true);
 		System.exit(0);
 //		Forest forest = new Forest(args[0], ctrl, weights);
 //		forest.save("C:\\Users\\Simonial\\Documents\\PhD\\FeatureSelection\\TreeSave");
