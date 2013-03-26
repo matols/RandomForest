@@ -26,41 +26,15 @@ public class TestDriver
 	{
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 2000;
+		ctrl.numberOfTreesToGrow = 10;
 		ctrl.mtry = 10;
 		int gaRepetitions = 20;
 		boolean isXValUsed = false;
 		Map<String, Double> weights = new HashMap<String, Double>();
 
-		Forest forest;
-
-		forest = new Forest(args[0], ctrl, weights);
-		Map<String, Double> varImp = forest.variableImportance();
-		System.out.println(varImp);
-		double maxImp = 0.0;
-		String maxVar = "";
-		for (String s : varImp.keySet())
-		{
-			if (varImp.get(s) > maxImp)
-			{
-				maxImp = varImp.get(s);
-				maxVar = s;
-			}
-		}
-		System.out.println(maxVar);
-		System.out.println(maxImp);
-
-		List<Double> oobs = new ArrayList<Double>();
-		double errorSum = 0.0;
-		for (int i = 0; i < 100; i++)
-		{
-			forest = new Forest(args[0], ctrl, weights);
-			oobs.add(forest.oobErrorEstimate);
-			errorSum += forest.oobErrorEstimate;
-		}
-		System.out.println(oobs);
-		System.out.println(Collections.min(oobs));
-		System.out.println(errorSum / 100);
+		weights.put("Unlabelled", 1.0);
+		weights.put("Positive", 2.0);
+		new Controller(args, ctrl, weights);
 		System.exit(0);
 //		Forest forest = new Forest(args[0], ctrl, weights);
 //		forest.save("C:\\Users\\Simonial\\Documents\\PhD\\FeatureSelection\\TreeSave");

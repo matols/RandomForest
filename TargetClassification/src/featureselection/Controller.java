@@ -11,10 +11,18 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
+import datasetgeneration.CrossValidationFoldGeneration;
+
+import tree.Forest;
+import tree.ImmutableTwoValues;
+import tree.IndexedDoubleData;
+import tree.ProcessDataForGrowing;
 import tree.TreeGrowthControl;
 
 /**
@@ -28,137 +36,31 @@ public class Controller
 	{
 	}
 
-	public Controller(String[] args)
+	public Controller(String[] args, boolean isGA)
 	{
 		// Initialise the controller for the dataset determination and forest growing.
 		TreeGrowthControl ctrl = new TreeGrowthControl();
-		ctrl.isReplacementUsed = false;
+		ctrl.isReplacementUsed = true;
 		ctrl.numberOfTreesToGrow = 100;
-		gaSelection(args, ctrl, 10, false, new HashMap<String, Double>());
+		if (isGA)
+		{
+			gaSelection(args, ctrl, 10, false, new HashMap<String, Double>());
+		}
+		else
+		{
+			recursiveFeatureElimination(args, ctrl, new HashMap<String, Double>());
+		}
+	}
+
+	public Controller(String[] args, TreeGrowthControl ctrl, Map<String, Double> weights)
+	{
+		recursiveFeatureElimination(args, ctrl, weights);
 	}
 
 	public Controller(String[] args, TreeGrowthControl ctrl, int gaRepetitions, boolean isXValUsed, Map<String, Double> weights)
 	{
 		gaSelection(args, ctrl, gaRepetitions, isXValUsed, weights);
 	}
-
-//	void backwardSelection(String[] args, TreeGrowthControl ctrl)
-//	{
-//
-//		// Required inputs.
-//		String inputLocation = args[0];  // The location of the file containing the data to use in the feature selection.
-//		File inputFile = new File(inputLocation);
-//		if (!inputFile.isFile())
-//		{
-//			System.out.println("The first argument must be a valid file location, and must contain the data for feature selection.");
-//			System.exit(0);
-//		}
-//		String outputLocation = args[1];  // The location to store any and all results.
-//		File outputDirectory = new File(outputLocation);
-//		if (outputDirectory.isDirectory())
-//		{
-//			removeDirectoryContent(outputDirectory);
-//		}
-//		boolean isDirCreated = outputDirectory.mkdirs();
-//		if (!isDirCreated)
-//		{
-//			System.out.println("The second argument must be a valid directory location or location where a directory can be created.");
-//			System.exit(0);
-//		}
-//
-//		ProcessDataForGrowing inpData = new ProcessDataForGrowing(inputLocation, ctrl);
-//		List<String> availableCovars = new ArrayList<String>(inpData.covariablesGrownFrom);
-//		List<String> covarsRemoved = new ArrayList<String>();
-//		double bestOverallOobError = 100.0;
-//		List<String> bestFeatureSet = null;
-//		while (!availableCovars.isEmpty())
-//		{
-//			double bestOobError = 100.0;
-//			String worstCovar = null;
-//			Double weightVector[] = new Double[inpData.numberObservations];
-//			Arrays.fill(weightVector, 1.0);
-//			for (String s : availableCovars)
-//			{
-//				// Knock out each remaining variable, and determine which knock out gives the best oob error.
-//				// Remove the feature that when knocked out gave the best error.
-//				ctrl.variablesToIgnore = new ArrayList<String>(covarsRemoved);
-//				ctrl.variablesToIgnore.add(s);
-//				Forest forest = new Forest(inputLocation, ctrl, weightVector);
-//				if (forest.oobErrorEstimate < bestOobError)
-//				{
-//					bestOobError = forest.oobErrorEstimate;
-//					worstCovar = s;
-//				}
-//			}
-//			covarsRemoved.add(worstCovar);
-//			availableCovars.remove(worstCovar);
-//			if (bestOobError < bestOverallOobError)
-//			{
-//				bestFeatureSet = new ArrayList<String>(availableCovars);
-//				bestOverallOobError = bestOobError;
-//			}
-//			System.out.print(bestFeatureSet);
-//			System.out.println(bestOverallOobError);
-//		}
-//	}
-
-//	void forwardSelection(String[] args, TreeGrowthControl ctrl)
-//	{
-//
-//		// Required inputs.
-//		String inputLocation = args[0];  // The location of the file containing the data to use in the feature selection.
-//		File inputFile = new File(inputLocation);
-//		if (!inputFile.isFile())
-//		{
-//			System.out.println("The first argument must be a valid file location, and must contain the data for feature selection.");
-//			System.exit(0);
-//		}
-//		String outputLocation = args[1];  // The location to store any and all results.
-//		File outputDirectory = new File(outputLocation);
-//		if (outputDirectory.isDirectory())
-//		{
-//			removeDirectoryContent(outputDirectory);
-//		}
-//		boolean isDirCreated = outputDirectory.mkdirs();
-//		if (!isDirCreated)
-//		{
-//			System.out.println("The second argument must be a valid directory location or location where a directory can be created.");
-//			System.exit(0);
-//		}
-//
-//		ProcessDataForGrowing inpData = new ProcessDataForGrowing(inputLocation, ctrl);
-//		List<String> availableCovars = new ArrayList<String>(inpData.covariablesGrownFrom);
-//		List<String> covarsUsed = new ArrayList<String>();
-//		double bestOverallOobError = 100.0;
-//		List<String> bestFeatureSet = null;
-//		while (!availableCovars.isEmpty())
-//		{
-//			double bestOobError = 100.0;
-//			String bestCovar = null;
-//			Double weightVector[] = new Double[inpData.numberObservations];
-//			Arrays.fill(weightVector, 1.0);
-//			for (String s : availableCovars)
-//			{
-//				ctrl.variablesToIgnore = new ArrayList<String>(availableCovars);
-//				ctrl.variablesToIgnore.remove(s);
-//				Forest forest = new Forest(inputLocation, ctrl, weightVector);
-//				if (forest.oobErrorEstimate < bestOobError)
-//				{
-//					bestOobError = forest.oobErrorEstimate;
-//					bestCovar = s;
-//				}
-//			}
-//			covarsUsed.add(bestCovar);
-//			availableCovars.remove(bestCovar);
-//			if (bestOobError < bestOverallOobError)
-//			{
-//				bestFeatureSet = new ArrayList<String>(covarsUsed);
-//				bestOverallOobError = bestOobError;
-//			}
-//			System.out.print(bestFeatureSet);
-//			System.out.println(bestOverallOobError);
-//		}
-//	}
 
 	void gaSelection(String[] args, TreeGrowthControl ctrl, int gaRepetitions, boolean isXValUsed, Map<String, Double> weights)
 	{
@@ -272,71 +174,211 @@ public class Controller
 
 	}
 
-//	void recursiveFeatureElimination(String[] args, TreeGrowthControl ctrl)
-//	{
-//		// Required inputs.
-//		String inputLocation = args[0];  // The location of the file containing the data to use in the feature selection.
-//		File inputFile = new File(inputLocation);
-//		if (!inputFile.isFile())
-//		{
-//			System.out.println("The first argument must be a valid file location, and must contain the data for feature selection.");
-//			System.exit(0);
-//		}
-//		String outputLocation = args[1];  // The location to store any and all results.
-//		File outputDirectory = new File(outputLocation);
-//		if (outputDirectory.isDirectory())
-//		{
-//			removeDirectoryContent(outputDirectory);
-//		}
-//		boolean isDirCreated = outputDirectory.mkdirs();
-//		if (!isDirCreated)
-//		{
-//			System.out.println("The second argument must be a valid directory location or location where a directory can be created.");
-//			System.exit(0);
-//		}
-//
-//		ProcessDataForGrowing inpData = new ProcessDataForGrowing(inputLocation, ctrl);
-//		List<String> availableCovars = new ArrayList<String>(inpData.covariablesGrownFrom);
-//		double bestOverallOobError = 100.0;
-//		List<String> bestFeatureSet = null;
-//		while (!availableCovars.isEmpty())
-//		{
-//			Forest forest = new Forest(inputLocation, ctrl);
-//			System.out.format("Forest OOB error rate : %f\n", forest.oobErrorEstimate);
-//			System.out.println(availableCovars);
-//			if (forest.oobErrorEstimate < bestOverallOobError)
-//			{
-//				bestOverallOobError = forest.oobErrorEstimate;
-//				bestFeatureSet = new ArrayList<String>(availableCovars);
-//			}
-//			VariableImportance varImpCalculator = new VariableImportance();
-//			Map<String, Double> varImp = varImpCalculator.conditionalVariableImportance(forest, ctrl, 0.2, 2, false);
-//			double lowestImportance = Double.MAX_VALUE;
-//			double maxImportance = -Double.MAX_VALUE;
-//			String leastImportantCovariable = null;
-//			String mostImportantCovar = null;
-//			for (String s : varImp.keySet())
-//			{
-//				if (varImp.get(s) < lowestImportance)
-//				{
-//					lowestImportance = varImp.get(s);
-//					leastImportantCovariable = s;
-//				}
-//				if (varImp.get(s) > maxImportance)
-//				{
-//					maxImportance = varImp.get(s);
-//					mostImportantCovar = s;
-//				}
-//			}
-//			System.out.format("%s - %f\n", leastImportantCovariable, lowestImportance);
-//			System.out.format("%s - %f\n", mostImportantCovar, maxImportance);
-//			ctrl.variablesToIgnore.add(leastImportantCovariable);
-//			availableCovars.remove(leastImportantCovariable);
-//		}
-//		System.out.println("\n=======================\n");
-//		System.out.println(bestOverallOobError);
-//		System.out.println(bestFeatureSet);
-//	}
+	void recursiveFeatureElimination(String[] args, TreeGrowthControl ctrl, Map<String, Double> weights)
+	{
+		String inputLocation = args[0];  // The location of the file containing the data to use in the feature selection.
+		File inputFile = new File(inputLocation);
+		if (!inputFile.isFile())
+		{
+			System.out.println("The first argument must be a valid file location, and must contain the data for feature selection.");
+			System.exit(0);
+		}
+		String outputLocation = args[1];  // The location to store any and all results.
+		File outputDirectory = new File(outputLocation);
+		if (!outputDirectory.exists())
+		{
+			boolean isDirCreated = outputDirectory.mkdirs();
+			if (!isDirCreated)
+			{
+				System.out.println("The output directory could not be created.");
+				System.exit(0);
+			}
+		}
+		else if (!outputDirectory.isDirectory())
+		{
+			// Exists and is not a directory.
+			System.out.println("The second argument must be a valid directory location or location where a directory can be created.");
+			System.exit(0);
+		}
+		String externalCVDir = outputLocation + "/ExternalCV";
+		File externalCVDirectory = new File(externalCVDir);
+		if (!externalCVDirectory.exists())
+		{
+			boolean isDirCreated = externalCVDirectory.mkdirs();
+			if (!isDirCreated)
+			{
+				System.out.println("The external cross validation directory could not be created.");
+				System.exit(0);
+			}
+		}
+		else if (!externalCVDirectory.isDirectory())
+		{
+			// Exists and is not a directory.
+			System.out.println("ERROR: The output directory contains a non-directory called ExternalCV.");
+			System.exit(0);
+		}
+		String internalCVDir = outputLocation + "/InternalCV";
+		File internalCVDirectory = new File(internalCVDir);
+		if (!internalCVDirectory.exists())
+		{
+			boolean isDirCreated = internalCVDirectory.mkdirs();
+			if (!isDirCreated)
+			{
+				System.out.println("The internal cross validation directory could not be created.");
+				System.exit(0);
+			}
+		}
+		else if (!internalCVDirectory.isDirectory())
+		{
+			// Exists and is not a directory.
+			System.out.println("ERROR: The output directory contains a non-directory called InternalCV.");
+			System.exit(0);
+		}
+
+		ProcessDataForGrowing fullDataset = new ProcessDataForGrowing(inputLocation, ctrl);
+		String negClass = "Unlabelled";
+		String posClass = "Positive";
+
+		int externalRepetitions = 10;
+		int externalFolds = 2;
+		int internalRepetitions = 10;
+		int internalFolds = 2;
+
+		double overallMCC = 0.0;
+		double overallErrorRate = 0.0;
+
+		for (int exRep = 0; exRep < externalRepetitions; exRep++)
+		{
+			// Generate external cross validation folds.
+			CrossValidationFoldGeneration.main(inputLocation, externalCVDir, externalFolds);
+
+			for (int exFold = 0; exFold < externalFolds; exFold++)
+			{
+				Map<Integer, Double> externalMCC = new HashMap<Integer, Double>();
+				for (int i = 1; i <= fullDataset.covariableData.size(); i++)
+				{
+					externalMCC.put(i, 0.0);
+				}
+
+				for (int inRep = 0; inRep < internalRepetitions; inRep++)
+				{
+					// Generate the internal cross validation folds.
+					CrossValidationFoldGeneration.main(externalCVDir + "\\" + Integer.toString(exFold) + "\\Train.txt", internalCVDir, internalFolds);
+
+					for (int inFold = 0; inFold < internalFolds; inFold++)
+					{
+						TreeGrowthControl tempCtrl = new TreeGrowthControl(ctrl);
+						ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predictionResults;
+						Forest forest;
+						ProcessDataForGrowing testData = new ProcessDataForGrowing(internalCVDir + "\\" + Integer.toString(inFold) + "\\Test.txt", tempCtrl);
+
+						forest = new Forest(internalCVDir + "\\" + Integer.toString(inFold) + "\\Train.txt", tempCtrl, weights);
+						predictionResults = forest.predict(testData);
+						double MCC = calcMCC(posClass, negClass, predictionResults.second, fullDataset.responseData);  // Calculate the MCC.
+						double oldMCC = externalMCC.get(fullDataset.covariableData.size());
+						externalMCC.put(fullDataset.covariableData.size(), oldMCC + Math.abs(MCC));
+
+						// Determine the importance ordering for the variables.
+						Map<String, Double> varImp = forest.variableImportance();
+						List<StringsSortedByDoubles> sortedVariables = new ArrayList<StringsSortedByDoubles>();
+						for (String s : varImp.keySet())
+						{
+							sortedVariables.add(new StringsSortedByDoubles(varImp.get(s), s));
+						}
+						Collections.sort(sortedVariables);
+
+						for (int i = 0; i < varImp.size() - 1; i++)
+						{
+							tempCtrl.variablesToIgnore.add(sortedVariables.get(i).getId());
+							forest.regrowForest(tempCtrl);
+							predictionResults = forest.predict(testData);
+							MCC = calcMCC(posClass, negClass, predictionResults.second, fullDataset.responseData);  // Calculate the MCC.
+							oldMCC = externalMCC.get(fullDataset.covariableData.size() - (i + 1));
+							externalMCC.put(fullDataset.covariableData.size() - (i + 1), oldMCC + Math.abs(MCC));
+						}
+					}
+				}
+
+				// Find subset size F that gives the greatest absolute MCC.
+				List<IndexedDoubleData> sortedSubsetSizes = new ArrayList<IndexedDoubleData>();
+				for (Integer i : externalMCC.keySet())
+				{
+					sortedSubsetSizes.add(new IndexedDoubleData(externalMCC.get(i) / (internalFolds * internalRepetitions), i));
+				}
+				Collections.sort(sortedSubsetSizes);
+				Collections.reverse(sortedSubsetSizes);
+				int bestSubsetSize = sortedSubsetSizes.get(0).getIndex();
+
+				// Train a forest on all the training data, and select the F most important features to return as the feature subset for these repetitions.
+				Forest forest = new Forest(externalCVDir + "\\" + Integer.toString(exFold) + "\\Train.txt", ctrl, weights);
+				Map<String, Double> varImp = forest.variableImportance();
+				List<StringsSortedByDoubles> sortedVariables = new ArrayList<StringsSortedByDoubles>();
+				for (String s : varImp.keySet())
+				{
+					sortedVariables.add(new StringsSortedByDoubles(varImp.get(s), s));
+				}
+				Collections.sort(sortedVariables);
+
+				List<String> chosenSubset = new ArrayList<String>();
+				for (int i = 0; i < bestSubsetSize; i++)
+				{
+					chosenSubset.add(sortedVariables.get(i).getId());
+				}
+				TreeGrowthControl tempCtrl = new TreeGrowthControl(ctrl);
+				for (int i = bestSubsetSize; i < varImp.size(); i++)
+				{
+					tempCtrl.variablesToIgnore.add(sortedVariables.get(i).getId());
+				}
+				forest.regrowForest(tempCtrl);
+
+				ProcessDataForGrowing testData = new ProcessDataForGrowing(externalCVDir + "\\" + Integer.toString(exFold) + "\\Test.txt", ctrl);
+				ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predictionResults = forest.predict(testData);
+				double MCC = calcMCC(posClass, negClass, predictionResults.second, fullDataset.responseData);  // Calculate the MCC.
+
+				System.out.println(bestSubsetSize);
+				System.out.println(chosenSubset);
+				System.out.println(tempCtrl.variablesToIgnore);
+				System.out.println(MCC);
+				System.out.println(predictionResults.first);
+
+				overallErrorRate += predictionResults.first;
+				overallMCC += MCC;
+			}
+		}
+
+		overallErrorRate /= (externalFolds * externalRepetitions);
+		overallMCC /= (externalFolds * externalRepetitions);
+
+		System.out.println(overallErrorRate);
+		System.out.println(overallMCC);
+	}
+
+	double calcMCC(String posClass, String negClass, Map<String, Map<String, Double>> confMatrix, List<String> responseData)
+	{
+		Map<String, Map<String, Double>> confusionMatrix = new HashMap<String, Map<String, Double>>();
+		for (String s : new HashSet<String>(responseData))
+		{
+			confusionMatrix.put(s, new HashMap<String, Double>());
+			confusionMatrix.get(s).put("TruePositive", 0.0);
+			confusionMatrix.get(s).put("FalsePositive", 0.0);
+		}
+		for (String s : confMatrix.keySet())
+		{
+			Double oldTruePos = confusionMatrix.get(s).get("TruePositive");
+			Double newTruePos = oldTruePos + confMatrix.get(s).get("TruePositive");
+			confusionMatrix.get(s).put("TruePositive", newTruePos);
+			Double oldFalsePos = confusionMatrix.get(s).get("FalsePositive");
+			Double newFalsePos = oldFalsePos + confMatrix.get(s).get("FalsePositive");
+			confusionMatrix.get(s).put("FalsePositive", newFalsePos);
+		}
+		Double TP = confusionMatrix.get(posClass).get("TruePositive");
+		Double FP = confusionMatrix.get(posClass).get("FalsePositive");
+		Double TN = confusionMatrix.get(negClass).get("TruePositive");
+		Double FN = confusionMatrix.get(negClass).get("FalsePositive");
+		Double MCC = (((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN)));
+
+		return MCC;
+	}
 
 	/**
 	 * @param inputLocation
