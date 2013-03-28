@@ -491,7 +491,7 @@ public class Controller
 			System.exit(0);
 		}
 
-		int repetitions = 5;
+		int repetitions = 10;
 		// Write out the parameters.
 		String parameterLocation = outputLocation + "/Parameters.txt";
 		try
@@ -546,11 +546,32 @@ public class Controller
 		{
 			importanceRanking.put(s, new ArrayList<Integer>());
 		}
+		ProcessDataForGrowing inputData = new ProcessDataForGrowing(inputLocation, ctrl);
+		Map<Integer, Map<Integer, Double>> proximities = new HashMap<Integer, Map<Integer, Double>>();
+		for (int i = 0; i < inputData.numberObservations; i++)
+		{
+			Map<Integer, Double> proxims = new HashMap<Integer, Double>();
+			for (int j = 0; j < inputData.numberObservations; j++)
+			{
+				proxims.put(j, 0.0);
+			}
+			proximities.put(i, proxims);
+		}
 
 		for (int i = 0; i < repetitions; i++)
 		{
 			Forest forest = new Forest(inputLocation, ctrl, weights);
 			Map<String, Double> varImp = forest.variableImportance();
+			Map<Integer, Map<Integer, Double>> prox = forest.calculatProximities();
+			for (int j : prox.keySet())
+			{
+				Map<Integer, Double> currentProx = proximities.get(j);
+				Map<Integer, Double> newProx = prox.get(j);
+				for (int k : prox.get(j).keySet())
+				{
+					currentProx.put(k, currentProx.get(k) + newProx.get(k));
+				}
+			}
 
 			// Determine the importance ordering for the variables, largest importance first.
 			List<StringsSortedByDoubles> sortedVariables = new ArrayList<StringsSortedByDoubles>();
@@ -568,22 +589,58 @@ public class Controller
 			}
 		}
 
+		// Normalise the proximities.
+		for (int j : proximities.keySet())
+		{
+			Map<Integer, Double> currentProx = proximities.get(j);
+			for (int k : currentProx.keySet())
+			{
+				currentProx.put(k, currentProx.get(k) / repetitions);
+			}
+		}
+
 		// Write out the results.
-		String resultsLocation = outputLocation + "/Results.txt";
+		String varImpLocation = outputLocation + "/VariableImportances.txt";
 		try
 		{
-			FileWriter resultsOutputFile = new FileWriter(resultsLocation);
-			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
+			FileWriter varImpOutputFile = new FileWriter(varImpLocation);
+			BufferedWriter varImpOutputWriter = new BufferedWriter(varImpOutputFile);
 			for (String s : featuresUsed)
 			{
-				resultsOutputWriter.write(s);
+				varImpOutputWriter.write(s);
 				for (Integer i : importanceRanking.get(s))
 				{
-					resultsOutputWriter.write("\t" + Integer.toString(i));
+					varImpOutputWriter.write("\t" + Integer.toString(i));
 				}
-				resultsOutputWriter.newLine();
+				varImpOutputWriter.newLine();
 			}
-			resultsOutputWriter.close();
+			varImpOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+		String proximitiesLocation = outputLocation + "/Proximities.txt";
+		try
+		{
+			FileWriter proximitiesOutputFile = new FileWriter(proximitiesLocation);
+			BufferedWriter proximitiesOutputWriter = new BufferedWriter(proximitiesOutputFile);
+			for (int i = 0; i < inputData.numberObservations; i++)
+			{
+				proximitiesOutputWriter.write("\t" + Integer.toString(i));
+			}
+			proximitiesOutputWriter.newLine();
+			for (int i = 0; i < inputData.numberObservations; i++)
+			{
+				proximitiesOutputWriter.write(Integer.toString(i));
+				for (int j = 0; j < inputData.numberObservations; j++)
+				{
+					proximitiesOutputWriter.write("\t" + Double.toString(proximities.get(i).get(j)));
+				}
+				proximitiesOutputWriter.newLine();
+			}
+			proximitiesOutputWriter.close();
 		}
 		catch (Exception e)
 		{

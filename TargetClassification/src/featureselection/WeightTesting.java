@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -112,7 +113,7 @@ public class WeightTesting
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 500;
+		ctrl.numberOfTreesToGrow = 10;
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
@@ -121,14 +122,10 @@ public class WeightTesting
 		String negClass = "Unlabelled";
 		String posClass = "Positive";
 
-		int repetitions = 50;
-		int crossValFolds = 10;
-		double startWeight = 1.0;
-		double weightStep = 0.2;
-		double stopWeight = 4.0;
-		int startMtry = 5;
-		int stopMtry = 40;//procData.covariableData.keySet().size();
-		int mtryStep = 5;
+		int repetitions = 5;
+		int crossValFolds = 2;
+		Double[] weightsToUse = {1.0, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0};
+		Integer[] mtryToUse = {5, 10, 15, 20, 25, 30, 35, 40};
 
 		// Generate the seeds for the repetitions, and the CV folds for each repetition.
 		Random randGen = new Random();
@@ -204,15 +201,10 @@ public class WeightTesting
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.write("Cross val folds used - " + Integer.toString(crossValFolds));
 			parameterOutputWriter.newLine();
-			parameterOutputWriter.write("Starting weight - " + Double.toString(startWeight));
+			parameterOutputWriter.write("Weights used - " + Arrays.toString(weightsToUse));
 			parameterOutputWriter.newLine();
-			parameterOutputWriter.write("Ending weight - " + Double.toString(stopWeight));
+			parameterOutputWriter.write("Mtry used - " + Arrays.toString(mtryToUse));
 			parameterOutputWriter.newLine();
-			parameterOutputWriter.write("Weight increment - " + Double.toString(weightStep));
-			parameterOutputWriter.newLine();
-			parameterOutputWriter.write("Starting mtry value - " + Integer.toString(startMtry));
-			parameterOutputWriter.newLine();
-			parameterOutputWriter.write("Greatest mtry value - " + Integer.toString(stopMtry));
 			parameterOutputWriter.close();
 		}
 		catch (Exception e)
@@ -221,16 +213,16 @@ public class WeightTesting
 			System.exit(0);
 		}
 
-		while (startMtry <= stopMtry)
+		for (Integer mtry : mtryToUse)
 		{
 			Map<String, Map<String, Double>> confusionMatrix;
-			ctrl.mtry = startMtry;
-			subsetCtrl.mtry = startMtry;
+			ctrl.mtry = mtry;
+			subsetCtrl.mtry = mtry;
 
 			// Generate the results for this weighting.
-			for (double i = startWeight; i <= stopWeight; i += weightStep)
+			for (Double posWeight : weightsToUse)
 			{
-				weights.put("Positive", i);
+				weights.put("Positive", posWeight);
 
 				// Setup the confusion matrix.
 				confusionMatrix = new HashMap<String, Map<String, Double>>();
@@ -253,20 +245,6 @@ public class WeightTesting
 					}
 					forestTraining(crossValData, confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, subsetResultsLocation);
 				}
-			}
-
-			// Increment the mtry value while also ensuring that stopMtry gets used.
-			if (startMtry != stopMtry)
-			{
-				startMtry += mtryStep;
-				if (startMtry > stopMtry)
-				{
-					startMtry = stopMtry;
-				}
-			}
-			else
-			{
-				startMtry += mtryStep;
 			}
 		}
 	}

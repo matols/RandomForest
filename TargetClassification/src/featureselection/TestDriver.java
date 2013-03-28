@@ -33,7 +33,7 @@ public class TestDriver
 		Map<String, Double> weights = new HashMap<String, Double>();
 
 		weights.put("Unlabelled", 1.0);
-		weights.put("Positive", 2.0);
+		weights.put("Positive", 1.6);
 		new Controller(args, ctrl, weights, true);
 		System.exit(0);
 //		Forest forest = new Forest(args[0], ctrl, weights);
