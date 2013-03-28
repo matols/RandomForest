@@ -113,7 +113,7 @@ public class WeightTesting
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 10;
+		ctrl.numberOfTreesToGrow = 500;
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
@@ -122,8 +122,8 @@ public class WeightTesting
 		String negClass = "Unlabelled";
 		String posClass = "Positive";
 
-		int repetitions = 5;
-		int crossValFolds = 2;
+		int repetitions = 50;
+		int crossValFolds = 10;
 		Double[] weightsToUse = {1.0, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0};
 		Integer[] mtryToUse = {5, 10, 15, 20, 25, 30, 35, 40};
 

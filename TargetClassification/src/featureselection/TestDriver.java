@@ -26,7 +26,7 @@ public class TestDriver
 	{
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 100;
+		ctrl.numberOfTreesToGrow = 10;
 		ctrl.mtry = 10;
 		int gaRepetitions = 20;
 		boolean isXValUsed = false;

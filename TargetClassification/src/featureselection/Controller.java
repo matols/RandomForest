@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import datasetgeneration.CrossValidationFoldGeneration;
 
@@ -236,9 +237,9 @@ public class Controller
 		String posClass = "Positive";
 
 		int externalRepetitions = 10;
-		int externalFolds = 2;
-		int internalRepetitions = 10;
-		int internalFolds = 2;
+		int externalFolds = 10;
+		int internalRepetitions = 50;
+		int internalFolds = 10;
 		// Write out the parameters.
 		String parameterLocation = outputLocation + "/Parameters.txt";
 		try
@@ -265,6 +266,9 @@ public class Controller
 		List<Double> overallMCC = new ArrayList<Double>();
 		List<Double> overallErrorRate = new ArrayList<Double>();
 		List<List<String>> bestSubsets = new ArrayList<List<String>>();
+		// Determine the seeds that will be used.
+		Random randGen = new Random();
+		List<Long> seedsUsed = new ArrayList<Long>();
 
 		for (int exRep = 0; exRep < externalRepetitions; exRep++)
 		{
@@ -286,12 +290,20 @@ public class Controller
 
 					for (int inFold = 0; inFold < internalFolds; inFold++)
 					{
+						Long seedToUse = randGen.nextLong();
+						while (seedsUsed.contains(seedToUse))
+						{
+							// Ensure a unique seed each time.
+							seedToUse = randGen.nextLong();
+						}
+						seedsUsed.add(seedToUse);
+
 						TreeGrowthControl tempCtrl = new TreeGrowthControl(ctrl);
 						ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predictionResults;
 						Forest forest;
 						ProcessDataForGrowing testData = new ProcessDataForGrowing(internalCVDir + "\\" + Integer.toString(inFold) + "\\Test.txt", tempCtrl);
 
-						forest = new Forest(internalCVDir + "\\" + Integer.toString(inFold) + "\\Train.txt", tempCtrl, weights);
+						forest = new Forest(internalCVDir + "\\" + Integer.toString(inFold) + "\\Train.txt", tempCtrl, weights, seedToUse);
 						predictionResults = forest.predict(testData);
 						double MCC = calcMCC(posClass, negClass, predictionResults.second, fullDataset.responseData);  // Calculate the MCC.
 						double oldMCC = externalMCC.get(fullDataset.covariableData.size());
@@ -392,24 +404,6 @@ public class Controller
 			featuresUsed.add(featureNames[i]);
 		}
 
-		// Record the feature fractions.
-		Map<String, Double> featureFractions = new HashMap<String, Double>();
-		for (String s : featuresUsed)
-		{
-			featureFractions.put(s, 0.0);
-		}
-		for (List<String> l : bestSubsets)
-		{
-			for (String s : l)
-			{
-				featureFractions.put(s, featureFractions.get(s) + 1.0);
-			}
-		}
-		for (String s : featureFractions.keySet())
-		{
-			featureFractions.put(s, featureFractions.get(s) / bestSubsets.size());
-		}
-
 		// Write out the results.
 		String errorRatesLocation = outputLocation + "/ErrorRates.txt";
 		try
@@ -445,15 +439,38 @@ public class Controller
 			e.printStackTrace();
 			System.exit(0);
 		}
-		String featureFractionsLocation = outputLocation + "/FeatureFractions.txt";
+		String featureFractionsLocation = outputLocation + "/FeatureSubsets.txt";
 		try
 		{
 			FileWriter featureFractionsOutputFile = new FileWriter(featureFractionsLocation);
 			BufferedWriter featureFractionsOutputWriter = new BufferedWriter(featureFractionsOutputFile);
 			for (String s : featuresUsed)
 			{
-				featureFractionsOutputWriter.write(s + "\t" + Double.toString(featureFractions.get(s)));
+				featureFractionsOutputWriter.write(s);
+				for (List<String> subset : bestSubsets)
+				{
+					if (subset.contains(s))
+					{
+						featureFractionsOutputWriter.write("\t1");
+					}
+					else
+					{
+						featureFractionsOutputWriter.write("\t0");
+					}
+				}
 				featureFractionsOutputWriter.newLine();
+			}
+			featureFractionsOutputWriter.newLine();
+			featureFractionsOutputWriter.write("MCC");
+			for (Double mcc : overallMCC)
+			{
+				featureFractionsOutputWriter.write("\t" + Double.toString(mcc));
+			}
+			featureFractionsOutputWriter.newLine();
+			featureFractionsOutputWriter.write("ErrorRate");
+			for (Double error : overallErrorRate)
+			{
+				featureFractionsOutputWriter.write("\t" + Double.toString(error));
 			}
 			featureFractionsOutputWriter.close();
 		}
@@ -491,7 +508,7 @@ public class Controller
 			System.exit(0);
 		}
 
-		int repetitions = 10;
+		int repetitions = 50;
 		// Write out the parameters.
 		String parameterLocation = outputLocation + "/Parameters.txt";
 		try
@@ -558,9 +575,20 @@ public class Controller
 			proximities.put(i, proxims);
 		}
 
+		// Determine the seeds that will be used.
+		Random randGen = new Random();
+		List<Long> seedsUsed = new ArrayList<Long>();
+
 		for (int i = 0; i < repetitions; i++)
 		{
-			Forest forest = new Forest(inputLocation, ctrl, weights);
+			Long seedToUse = randGen.nextLong();
+			while (seedsUsed.contains(seedToUse))
+			{
+				// Ensure a unique seed each time.
+				seedToUse = randGen.nextLong();
+			}
+			seedsUsed.add(seedToUse);
+			Forest forest = new Forest(inputLocation, ctrl, weights, seedToUse);
 			Map<String, Double> varImp = forest.variableImportance();
 			Map<Integer, Map<Integer, Double>> prox = forest.calculatProximities();
 			for (int j : prox.keySet())
@@ -641,6 +669,23 @@ public class Controller
 				proximitiesOutputWriter.newLine();
 			}
 			proximitiesOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+		String seedsLocation = outputLocation + "/SeedsUsed.txt";
+		try
+		{
+			FileWriter seedsOutputFile = new FileWriter(seedsLocation);
+			BufferedWriter seedsOutputWriter = new BufferedWriter(seedsOutputFile);
+			for (Long l : seedsUsed)
+			{
+				seedsOutputWriter.write(Long.toString(l));
+				seedsOutputWriter.newLine();
+			}
+			seedsOutputWriter.close();
 		}
 		catch (Exception e)
 		{
