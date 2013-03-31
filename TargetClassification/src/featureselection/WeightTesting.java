@@ -124,13 +124,13 @@ public class WeightTesting
 
 		int repetitions = 50;
 		int crossValFolds = 10;
-		Double[] weightsToUse = {1.0, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0};
+		Double[] weightsToUse = {1.1, 1.3, 1.5};
 		Integer[] mtryToUse = {5, 10, 15, 20, 25, 30, 35, 40};
 
 		// Generate the seeds for the repetitions, and the CV folds for each repetition.
 		Random randGen = new Random();
 		List<Long> seeds = new ArrayList<Long>();
-		List<List<List<Object>>> crossValData = new ArrayList<List<List<Object>>>();
+		List<List<List<String>>> crossValData = new ArrayList<List<List<String>>>();
 		for (int i = 0; i < repetitions; i++)
 		{
 			seeds.add(randGen.nextLong());
@@ -141,12 +141,12 @@ public class WeightTesting
 			// Get the cross validation information
 			File crossValDir = new File(currentCVDir);
 			String subDirs[] = crossValDir.list();
-			List<List<Object>> subsetFeaturCrossValFiles = new ArrayList<List<Object>>();
+			List<List<String>> subsetFeaturCrossValFiles = new ArrayList<List<String>>();
 			for (String s : subDirs)
 			{
-				List<Object> subsetFeatureTrainTestLocs = new ArrayList<Object>();
+				List<String> subsetFeatureTrainTestLocs = new ArrayList<String>();
 				subsetFeatureTrainTestLocs.add(currentCVDir + "/" + s + "/Train.txt");
-				subsetFeatureTrainTestLocs.add(new ProcessDataForGrowing(currentCVDir + "/" + s + "/Test.txt", ctrl));
+				subsetFeatureTrainTestLocs.add(currentCVDir + "/" + s + "/Test.txt");
 				subsetFeaturCrossValFiles.add(subsetFeatureTrainTestLocs);
 			}
 			crossValData.add(subsetFeaturCrossValFiles);
@@ -172,7 +172,7 @@ public class WeightTesting
 			{
 				FileWriter subsetResultsOutputFile = new FileWriter(subsetResultsLocation);
 				BufferedWriter subsetResultsOutputWriter = new BufferedWriter(subsetResultsOutputFile);
-				subsetResultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tPredictiveError\tCVOOBError\tSingleTreeOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
+				subsetResultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tPredictiveError\tCVOOBError\tSingleForestOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
 				subsetResultsOutputWriter.newLine();
 				subsetResultsOutputWriter.close();
 			}
@@ -249,7 +249,7 @@ public class WeightTesting
 		}
 	}
 
-	static void forestTraining(List<List<List<Object>>> crossValData, Map<String, Map<String, Double>> confusionMatrix, Map<String, Double> weights,
+	static void forestTraining(List<List<List<String>>> crossValData, Map<String, Map<String, Double>> confusionMatrix, Map<String, Double> weights,
 			TreeGrowthControl ctrl, String inputFile, List<Long> seeds, int repetitions, int crossValFolds, String negClass,
 			String posClass, String resultsLocation)
 	{
@@ -265,12 +265,13 @@ public class WeightTesting
 			Forest forest;
 			forest = new Forest(inputFile, ctrl, weights, seed);
 			cumulativeOOBError += forest.oobErrorEstimate;
-			for (List<Object> l : crossValData.get(j))
+			for (List<String> l : crossValData.get(j))
 	    	{
 	    		forest = new Forest((String) l.get(0), ctrl, weights, seed);
-	    		cumulativeError += forest.predict((ProcessDataForGrowing) l.get(1)).first;
+	    		ProcessDataForGrowing testDataset = new ProcessDataForGrowing(l.get(1), ctrl);
+	    		cumulativeError += forest.predict(testDataset).first;
 	    		cumulativeCVOOBError += forest.oobErrorEstimate;
-	    		Map<String, Map<String, Double>> confMatrix = forest.predict((ProcessDataForGrowing) l.get(1)).second;
+	    		Map<String, Map<String, Double>> confMatrix = forest.predict(testDataset).second;
 	    		for (String s : confMatrix.keySet())
 	    		{
 	    			Double oldTruePos = confusionMatrix.get(s).get("TruePositive");
