@@ -508,7 +508,7 @@ public class Controller
 			System.exit(0);
 		}
 
-		int repetitions = 50;
+		int repetitions = 200;
 		// Write out the parameters.
 		String parameterLocation = outputLocation + "/Parameters.txt";
 		try
@@ -581,6 +581,8 @@ public class Controller
 
 		for (int i = 0; i < repetitions; i++)
 		{
+			System.out.format("Now working on repetition - %d\n", i);
+
 			Long seedToUse = randGen.nextLong();
 			while (seedsUsed.contains(seedToUse))
 			{

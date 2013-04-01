@@ -124,8 +124,8 @@ public class WeightTesting
 
 		int repetitions = 50;
 		int crossValFolds = 10;
-		Double[] weightsToUse = {1.1, 1.3, 1.5};
-		Integer[] mtryToUse = {5, 10, 15, 20, 25, 30, 35, 40};
+		Double[] weightsToUse = {1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0};
+		Integer[] mtryToUse = {5, 10, 15, 20, 25, 30};
 
 		// Generate the seeds for the repetitions, and the CV folds for each repetition.
 		Random randGen = new Random();
@@ -219,10 +219,14 @@ public class WeightTesting
 			ctrl.mtry = mtry;
 			subsetCtrl.mtry = mtry;
 
+			System.out.format("Now working on mtry - %d\n", mtry);
+
 			// Generate the results for this weighting.
 			for (Double posWeight : weightsToUse)
 			{
 				weights.put("Positive", posWeight);
+
+				System.out.format("\tNow working on weight - %f\n", posWeight);
 
 				// Setup the confusion matrix.
 				confusionMatrix = new HashMap<String, Map<String, Double>>();
