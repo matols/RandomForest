@@ -26,7 +26,7 @@ public class TestDriver
 	{
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 500;
+		ctrl.numberOfTreesToGrow = 10;
 		ctrl.mtry = 10;
 		int gaRepetitions = 20;
 		boolean isXValUsed = false;
@@ -34,8 +34,15 @@ public class TestDriver
 		weights.put("Unlabelled", 1.0);
 		weights.put("Positive", 1.6);
 
-		new Controller(args, ctrl, weights, true);
-		System.exit(0);
+
+//		new Controller(args, ctrl, weights, true);
+//		System.exit(0);
+
+
+//		new Controller(args, ctrl, gaRepetitions, isXValUsed, weights);
+//		System.exit(0);
+
+
 //		Forest forest = new Forest(args[0], ctrl, weights);
 //		forest.save("C:\\Users\\Simonial\\Documents\\PhD\\FeatureSelection\\TreeSave");
 //		Forest loadForest = new Forest("C:\\Users\\Simonial\\Documents\\PhD\\FeatureSelection\\TreeSave", true);
@@ -61,7 +68,7 @@ public class TestDriver
 //		System.out.println(isWeightsEqual);
 //		System.out.println(isOobObsEqual);
 //		System.out.println(isForestEqual);
-		new Controller(args, ctrl, gaRepetitions, isXValUsed, weights);
+//		System.exit(0);
 	}
 
 }

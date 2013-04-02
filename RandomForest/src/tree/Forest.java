@@ -46,6 +46,11 @@ public class Forest
 	public double oobErrorEstimate = 0.0;
 
 	/**
+	 * The oob confusion matrix.
+	 */
+	public Map<String, Map<String, Double>> oobConfusionMatrix = new HashMap<String, Map<String, Double>>();
+
+	/**
 	 * The file containing the data that the forest was grown from.
 	 */
 	public String dataFileGrownFrom = "";
@@ -109,14 +114,27 @@ public class Forest
 					this.oobObservations.add(currentOobs);
 				}
 				this.oobErrorEstimate = Double.parseDouble(splitLine[1]);
-				this.dataFileGrownFrom = splitLine[2];
-				String[] weightSplits = splitLine[3].split(";");
+				String[] confMatSplits = splitLine[2].split("#");
+				for (String s : confMatSplits)
+				{
+					String[] subMapSplit = s.split("-");
+					String topLevelKey = subMapSplit[0];
+					this.oobConfusionMatrix.put(topLevelKey, new HashMap<String, Double>());
+					String[] subDirSplit = subMapSplit[1].split(";");
+					for (String p : subDirSplit)
+					{
+						String[] indivValues = p.split(",");
+						this.oobConfusionMatrix.get(topLevelKey).put(indivValues[0], Double.parseDouble(indivValues[1]));
+					}
+				}
+				this.dataFileGrownFrom = splitLine[3];
+				String[] weightSplits = splitLine[4].split(";");
 				for (String s : weightSplits)
 				{
 					String[] indivWeights = s.split(",");
 					this.weights.put(indivWeights[0], Double.parseDouble(indivWeights[1]));
 				}
-				this.seed = Long.parseLong(splitLine[4]);
+				this.seed = Long.parseLong(splitLine[5]);
 			}
 			catch (Exception e)
 			{
@@ -409,6 +427,15 @@ public class Forest
 
 		// Calculate the oob error. This is done by putting each observation down the trees where it is oob.
 		double cumulativeErrorRate = 0.0;
+		Map<String, Map<String, Double>> confusionMatrix = new HashMap<String, Map<String, Double>>();
+		Set<String> responsePossibilities = new HashSet<String>(this.processedData.responseData);
+		for (String s : responsePossibilities)
+		{
+			Map<String, Double> classEntry = new HashMap<String, Double>();
+			classEntry.put("TruePositive", 0.0);
+			classEntry.put("FalsePositive", 0.0);
+			confusionMatrix.put(s, classEntry);
+		}
 		int numberOobObservations = 0;
 		for (int i = 0; i < this.processedData.numberObservations; i++)
 		{
@@ -429,10 +456,20 @@ public class Forest
 			if (isIOob)
 			{
 				numberOobObservations += 1;
-				cumulativeErrorRate += predict(this.processedData, obsToPredict, treesToPredictFrom).first;
+				ImmutableTwoValues<Double, Map<String, Map<String, Double>>> oobPrediction = predict(this.processedData, obsToPredict, treesToPredictFrom);
+				cumulativeErrorRate += oobPrediction.first;
+				for (String s : oobPrediction.second.keySet())
+				{
+					for (String p : oobPrediction.second.get(s).keySet())
+					{
+						Double oldValue = confusionMatrix.get(s).get(p);
+						confusionMatrix.get(s).put(p, oldValue + oobPrediction.second.get(s).get(p));
+					}
+				}
 			}			
 		}
 		this.oobErrorEstimate = cumulativeErrorRate / numberOobObservations;
+		this.oobConfusionMatrix = confusionMatrix;
 	}
 
 
@@ -657,6 +694,19 @@ public class Forest
 			}
 			outputWriter.write(oobObsOutput + "\t");
 			outputWriter.write(Double.toString(this.oobErrorEstimate) + "\t");
+			String oobConfMatOutput = "";
+			for (String s : this.oobConfusionMatrix.keySet())
+			{
+				oobConfMatOutput += s + "-";
+				for (String p : this.oobConfusionMatrix.get(s).keySet())
+				{
+					oobConfMatOutput += p + "," + Double.toString(this.oobConfusionMatrix.get(s).get(p)) + ";";
+				}
+				oobConfMatOutput = oobConfMatOutput.substring(0, oobConfMatOutput.length() - 1);  // Chop off the last ';'.
+				oobConfMatOutput += "#";
+			}
+			oobConfMatOutput = oobConfMatOutput.substring(0, oobConfMatOutput.length() - 1);  // Chop off the last '#'.
+			outputWriter.write(oobConfMatOutput + "\t");
 			outputWriter.write(this.dataFileGrownFrom + "\t");
 			String weightsOutput = "";
 			for (String s : this.weights.keySet())

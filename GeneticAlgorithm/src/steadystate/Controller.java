@@ -223,7 +223,7 @@ public class Controller
 		{
 			FileWriter genStatsOutputFile = new FileWriter(genStatsOutputLocation);
 			BufferedWriter genStatsOutputWriter = new BufferedWriter(genStatsOutputFile);
-			genStatsOutputWriter.write("Generation\tBestErrorRate\tMeanErrorRate\tMedianErrorRate\tStdDevErrorRate");
+			genStatsOutputWriter.write("Generation\tBestMCC\tMeanMCC\tMedianMCC\tStdDevMCC");
 			genStatsOutputWriter.newLine();
 			genStatsOutputWriter.close();
 		}
@@ -288,11 +288,15 @@ public class Controller
 			parentSelector.add(i);
 		}
 
+		// Setup the negative and positive classes.
+		String posClass = "Positive";
+		String negClass = "Unlabelled";
+
 	    // Set the number of individuals to replace each round.
 	    double numbertoReplace = Math.round(populationSize * replacementRate);
 
 	    // Initialise the number of generations since the fitness last changed.
-	    this.currentBestFitness = 100.0;
+	    this.currentBestFitness = 0.0;
 	    int generationsOfStagnation = 0;
 
 	    // Select all the chromosomes that are made up entirely of 0s, i.e. no features used, and alter them to include a 1.
@@ -354,7 +358,13 @@ public class Controller
 	    	}
 	    	ctrl.variablesToIgnore = variablesToIgnore;
 	    	Forest forest = new Forest(inputLocation, ctrl, weights);
-	    	fitness.add(forest.oobErrorEstimate);
+	    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
+	    	Double oobTP = oobConfusionMatrix.get(posClass).get("TruePositive");
+			Double oobFP = oobConfusionMatrix.get(posClass).get("FalsePositive");
+			Double oobTN = oobConfusionMatrix.get(negClass).get("TruePositive");
+			Double oobFN = oobConfusionMatrix.get(negClass).get("FalsePositive");
+			Double oobMCC = (((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN)));
+	    	fitness.add(oobMCC);
 	    	populationSeeds.add(forest.seed);
 	    	numberEvaluations += 1;
 	    }
@@ -365,7 +375,7 @@ public class Controller
 	    {
 	    	sortedInitialPopulation.add(new IndexedDoubleLongData(fitness.get(j), populationSeeds.get(j), j));
 	    }
-	    Collections.sort(sortedInitialPopulation);  // Sort the indices of the list in ascending order by error rate.
+	    Collections.sort(sortedInitialPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by OOB MCC.
 	    List<Integer[]> newInitialPopulation = new ArrayList<Integer[]>();
 	    List<Double> newInitialFitness = new ArrayList<Double>();
 	    List<Long> newInitialSeeds = new ArrayList<Long>();
@@ -447,7 +457,13 @@ public class Controller
 		    	}
 		    	ctrl.variablesToIgnore = variablesToIgnore;
 		    	Forest forest = new Forest(inputLocation, ctrl, weights);
-		    	offspringFitness.add(forest.oobErrorEstimate);
+		    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
+		    	Double oobTP = oobConfusionMatrix.get(posClass).get("TruePositive");
+				Double oobFP = oobConfusionMatrix.get(posClass).get("FalsePositive");
+				Double oobTN = oobConfusionMatrix.get(negClass).get("TruePositive");
+				Double oobFN = oobConfusionMatrix.get(negClass).get("FalsePositive");
+				Double oobMCC = (((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN)));
+		    	offspringFitness.add(oobMCC);
 		    	offspringSeeds.add(forest.seed);
 		    	numberEvaluations += 1;
 		    }
@@ -465,7 +481,7 @@ public class Controller
 		    {
 		    	sortedPopulation.add(new IndexedDoubleLongData(fitness.get(j), populationSeeds.get(j), j));
 		    }
-		    Collections.sort(sortedPopulation);  // Sort the indices of the list in ascending order by error rate.
+		    Collections.sort(sortedPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by OOB MCC.
 		    List<Integer[]> newPopulation = new ArrayList<Integer[]>();
 		    List<Double> newFitness = new ArrayList<Double>();
 		    List<Long> newSeeds = new ArrayList<Long>();

@@ -88,20 +88,34 @@ public class WeightTesting
 				System.exit(0);
 			}
 		}
-		else if (!cvDirectory.isDirectory())
+		else
 		{
 			// Exists and is not a directory.
-			System.out.println("ERROR: The output directory contains a non-directory called CV.");
+			System.out.println("ERROR: The output directory contains a file or directory called CV.");
 			System.exit(0);
 		}
 
 		// Setup the results output file.
-		String resultsLocation = resultsDir + "/Results.txt";
+		String cvResultsLocation = resultsDir + "/CVResults.txt";
 		try
 		{
-			FileWriter resultsOutputFile = new FileWriter(resultsLocation);
+			FileWriter resultsOutputFile = new FileWriter(cvResultsLocation);
 			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tPredictiveError\tCVOOBError\tSingleTreeOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
+			resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tPredictiveError\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
+			resultsOutputWriter.newLine();
+			resultsOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+		String oobResultsLocation = resultsDir + "/OOBResults.txt";
+		try
+		{
+			FileWriter resultsOutputFile = new FileWriter(oobResultsLocation);
+			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
+			resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
 			resultsOutputWriter.newLine();
 			resultsOutputWriter.close();
 		}
@@ -154,7 +168,8 @@ public class WeightTesting
 
 		// Determine the subset of feature to remove.
 		boolean isSubsetUsed = false;
-		String subsetResultsLocation = resultsDir + "/SubsetResults.txt";
+		String subsetCVResultsLocation = resultsDir + "/SubsetCVResults.txt";
+		String subsetOOBResultsLocation = resultsDir + "/SubsetOOBResults.txt";
 		List<String> covarsToRemove = new ArrayList<String>();
 		if (!covarsToKeep.isEmpty())
 		{
@@ -170,11 +185,24 @@ public class WeightTesting
 			// Setup the subset results output file.
 			try
 			{
-				FileWriter subsetResultsOutputFile = new FileWriter(subsetResultsLocation);
-				BufferedWriter subsetResultsOutputWriter = new BufferedWriter(subsetResultsOutputFile);
-				subsetResultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tPredictiveError\tCVOOBError\tSingleForestOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
-				subsetResultsOutputWriter.newLine();
-				subsetResultsOutputWriter.close();
+				FileWriter resultsOutputFile = new FileWriter(subsetCVResultsLocation);
+				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
+				resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tPredictiveError\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
+				resultsOutputWriter.newLine();
+				resultsOutputWriter.close();
+			}
+			catch (Exception e)
+			{
+				e.printStackTrace();
+				System.exit(0);
+			}
+			try
+			{
+				FileWriter resultsOutputFile = new FileWriter(subsetOOBResultsLocation);
+				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
+				resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
+				resultsOutputWriter.newLine();
+				resultsOutputWriter.close();
 			}
 			catch (Exception e)
 			{
@@ -216,6 +244,7 @@ public class WeightTesting
 		for (Integer mtry : mtryToUse)
 		{
 			Map<String, Map<String, Double>> confusionMatrix;
+			Map<String, Map<String, Double>> oobConfusionMatrix;
 			ctrl.mtry = mtry;
 			subsetCtrl.mtry = mtry;
 
@@ -228,34 +257,43 @@ public class WeightTesting
 
 				System.out.format("\tNow working on weight - %f\n", posWeight);
 
-				// Setup the confusion matrix.
+				// Setup the confusion matrices.
 				confusionMatrix = new HashMap<String, Map<String, Double>>();
+				oobConfusionMatrix = new HashMap<String, Map<String, Double>>();
 				for (String s : new HashSet<String>(procData.responseData))
 				{
 					confusionMatrix.put(s, new HashMap<String, Double>());
 					confusionMatrix.get(s).put("TruePositive", 0.0);
 					confusionMatrix.get(s).put("FalsePositive", 0.0);
+					oobConfusionMatrix.put(s, new HashMap<String, Double>());
+					oobConfusionMatrix.get(s).put("TruePositive", 0.0);
+					oobConfusionMatrix.get(s).put("FalsePositive", 0.0);
 				}
-				forestTraining(crossValData, confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, resultsLocation);
+				forestTraining(crossValData, oobConfusionMatrix, confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, cvResultsLocation, oobResultsLocation);
 				if (isSubsetUsed)
 				{
-					// Setup the confusion matrix.
+					// Setup the confusion matrices.
 					confusionMatrix = new HashMap<String, Map<String, Double>>();
+					oobConfusionMatrix = new HashMap<String, Map<String, Double>>();
 					for (String s : new HashSet<String>(procData.responseData))
 					{
 						confusionMatrix.put(s, new HashMap<String, Double>());
 						confusionMatrix.get(s).put("TruePositive", 0.0);
 						confusionMatrix.get(s).put("FalsePositive", 0.0);
+						oobConfusionMatrix.put(s, new HashMap<String, Double>());
+						oobConfusionMatrix.get(s).put("TruePositive", 0.0);
+						oobConfusionMatrix.get(s).put("FalsePositive", 0.0);
 					}
-					forestTraining(crossValData, confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, subsetResultsLocation);
+					forestTraining(crossValData, oobConfusionMatrix, confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, subsetCVResultsLocation, subsetOOBResultsLocation);
 				}
 			}
 		}
 	}
 
-	static void forestTraining(List<List<List<String>>> crossValData, Map<String, Map<String, Double>> confusionMatrix, Map<String, Double> weights,
+	static void forestTraining(List<List<List<String>>> crossValData, Map<String, Map<String, Double>> oobConfusionMatrix,
+			Map<String, Map<String, Double>> confusionMatrix, Map<String, Double> weights,
 			TreeGrowthControl ctrl, String inputFile, List<Long> seeds, int repetitions, int crossValFolds, String negClass,
-			String posClass, String resultsLocation)
+			String posClass, String cvResultsLocation, String oobResultsLocation)
 	{
 		double cumulativeError = 0.0;
 		double cumulativeCVOOBError = 0.0;
@@ -269,6 +307,17 @@ public class WeightTesting
 			Forest forest;
 			forest = new Forest(inputFile, ctrl, weights, seed);
 			cumulativeOOBError += forest.oobErrorEstimate;
+			Map<String, Map<String, Double>> oobConfMatrix = forest.oobConfusionMatrix;
+    		for (String s : oobConfMatrix.keySet())
+    		{
+    			Double oldTruePos = oobConfusionMatrix.get(s).get("TruePositive");
+    			Double newTruePos = oldTruePos + oobConfMatrix.get(s).get("TruePositive");
+    			oobConfusionMatrix.get(s).put("TruePositive", newTruePos);
+    			Double oldFalsePos = oobConfusionMatrix.get(s).get("FalsePositive");
+    			Double newFalsePos = oldFalsePos + oobConfMatrix.get(s).get("FalsePositive");
+    			oobConfusionMatrix.get(s).put("FalsePositive", newFalsePos);
+    		}
+
 			for (List<String> l : crossValData.get(j))
 	    	{
 	    		forest = new Forest((String) l.get(0), ctrl, weights, seed);
@@ -287,10 +336,9 @@ public class WeightTesting
 	    		}
 	    	}
 		}
-		// Aggregate results over all the repetitions.
+		// Aggregate predicted results over all the repetitions.
 		cumulativeError /= (crossValFolds * repetitions);
 		cumulativeCVOOBError /= (crossValFolds * repetitions);
-		cumulativeOOBError /= repetitions;
 		Double TP = confusionMatrix.get(posClass).get("TruePositive");
 		Double FP = confusionMatrix.get(posClass).get("FalsePositive");
 		Double TN = confusionMatrix.get(negClass).get("TruePositive");
@@ -305,10 +353,26 @@ public class WeightTesting
 		Double fTwo = (1 + (2 * 2)) * ((precisionOrPPV * sensitivityOrRecall) / ((2 * 2 * precisionOrPPV) + sensitivityOrRecall));
 		Double MCC = (((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN)));
 
-		// Write out the results for this weighting.
+		// Aggregate OOB results over all the repetitions.
+		cumulativeOOBError /= repetitions;
+		Double oobTP = oobConfusionMatrix.get(posClass).get("TruePositive");
+		Double oobFP = oobConfusionMatrix.get(posClass).get("FalsePositive");
+		Double oobTN = oobConfusionMatrix.get(negClass).get("TruePositive");
+		Double oobFN = oobConfusionMatrix.get(negClass).get("FalsePositive");
+		Double oobSensitivityOrRecall = oobTP / (oobTP + oobFN);
+		Double oobSpecificity = oobTN / (oobTN + oobFP);
+		Double oobAccuracy = (oobTP + oobTN) / (oobTP + oobTN + oobFP + oobFN);
+		Double oobPrecisionOrPPV = oobTP / (oobTP + oobFP);
+		Double oobNegPredictiveVal = oobTN / (oobTN + oobFN);
+		Double oobFHalf = (1 + (0.5 * 0.5)) * ((oobPrecisionOrPPV * oobSensitivityOrRecall) / ((0.5 * 0.5 * oobPrecisionOrPPV) + oobSensitivityOrRecall));;
+		Double oobFOne = 2 * ((oobPrecisionOrPPV * oobSensitivityOrRecall) / (oobPrecisionOrPPV + oobSensitivityOrRecall));
+		Double oobFTwo = (1 + (2 * 2)) * ((oobPrecisionOrPPV * oobSensitivityOrRecall) / ((2 * 2 * oobPrecisionOrPPV) + oobSensitivityOrRecall));
+		Double oobMCC = (((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN)));
+
+		// Write out the CV results for this weighting.
 		try
 		{
-			FileWriter resultsOutputFile = new FileWriter(resultsLocation, true);
+			FileWriter resultsOutputFile = new FileWriter(cvResultsLocation, true);
 			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
 			resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
 			resultsOutputWriter.write("\t");
@@ -328,8 +392,6 @@ public class WeightTesting
 			resultsOutputWriter.write("\t");
 			resultsOutputWriter.write(String.format("%.5f", cumulativeCVOOBError));
 			resultsOutputWriter.write("\t");
-			resultsOutputWriter.write(String.format("%.5f", cumulativeOOBError));
-			resultsOutputWriter.write("\t");
 			resultsOutputWriter.write(String.format("%.5f", precisionOrPPV));
 			resultsOutputWriter.write("\t");
 			resultsOutputWriter.write(String.format("%.5f", sensitivityOrRecall));
@@ -345,6 +407,51 @@ public class WeightTesting
 			resultsOutputWriter.write(String.format("%.5f", TN));
 			resultsOutputWriter.write("\t");
 			resultsOutputWriter.write(String.format("%.5f", FN));
+			resultsOutputWriter.newLine();
+			resultsOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+
+		// Write out the OOB results for this weighting.
+		try
+		{
+			FileWriter resultsOutputFile = new FileWriter(oobResultsLocation, true);
+			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
+			resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
+			resultsOutputWriter.write("\t");
+			resultsOutputWriter.write(Integer.toString(ctrl.mtry));
+			resultsOutputWriter.write("\t");
+			resultsOutputWriter.write(String.format("%.5f", oobMCC));
+			resultsOutputWriter.write("\t");
+			resultsOutputWriter.write(String.format("%.5f", oobFHalf));
+			resultsOutputWriter.write("\t");
+			resultsOutputWriter.write(String.format("%.5f", oobFOne));
+			resultsOutputWriter.write("\t");
+			resultsOutputWriter.write(String.format("%.5f", oobFTwo));
+			resultsOutputWriter.write("\t");
+			resultsOutputWriter.write(String.format("%.5f", oobAccuracy));
+			resultsOutputWriter.write("\t");
+			resultsOutputWriter.write(String.format("%.5f", cumulativeOOBError));
+			resultsOutputWriter.write("\t");
+			resultsOutputWriter.write(String.format("%.5f", oobPrecisionOrPPV));
+			resultsOutputWriter.write("\t");
+			resultsOutputWriter.write(String.format("%.5f", oobSensitivityOrRecall));
+			resultsOutputWriter.write("\t");
+			resultsOutputWriter.write(String.format("%.5f", oobSpecificity));
+			resultsOutputWriter.write("\t");
+			resultsOutputWriter.write(String.format("%.5f", oobNegPredictiveVal));
+			resultsOutputWriter.write("\t");
+			resultsOutputWriter.write(String.format("%.5f", oobTP));
+			resultsOutputWriter.write("\t");
+			resultsOutputWriter.write(String.format("%.5f", oobFP));
+			resultsOutputWriter.write("\t");
+			resultsOutputWriter.write(String.format("%.5f", oobTN));
+			resultsOutputWriter.write("\t");
+			resultsOutputWriter.write(String.format("%.5f", oobFN));
 			resultsOutputWriter.newLine();
 			resultsOutputWriter.close();
 		}
