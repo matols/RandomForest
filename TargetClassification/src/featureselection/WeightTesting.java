@@ -138,7 +138,7 @@ public class WeightTesting
 
 		int repetitions = 50;
 		int crossValFolds = 10;
-		Double[] weightsToUse = {1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0};
+		Double[] weightsToUse = {1.0, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.0};
 		Integer[] mtryToUse = {5, 10, 15, 20, 25, 30};
 
 		// Generate the seeds for the repetitions, and the CV folds for each repetition.
@@ -241,6 +241,8 @@ public class WeightTesting
 			System.exit(0);
 		}
 
+		System.out.format("Working on file %s.\n", inputFile);
+
 		for (Integer mtry : mtryToUse)
 		{
 			Map<String, Map<String, Double>> confusionMatrix;
@@ -318,23 +320,23 @@ public class WeightTesting
     			oobConfusionMatrix.get(s).put("FalsePositive", newFalsePos);
     		}
 
-			for (List<String> l : crossValData.get(j))
-	    	{
-	    		forest = new Forest((String) l.get(0), ctrl, weights, seed);
-	    		ProcessDataForGrowing testDataset = new ProcessDataForGrowing(l.get(1), ctrl);
-	    		cumulativeError += forest.predict(testDataset).first;
-	    		cumulativeCVOOBError += forest.oobErrorEstimate;
-	    		Map<String, Map<String, Double>> confMatrix = forest.predict(testDataset).second;
-	    		for (String s : confMatrix.keySet())
-	    		{
-	    			Double oldTruePos = confusionMatrix.get(s).get("TruePositive");
-	    			Double newTruePos = oldTruePos + confMatrix.get(s).get("TruePositive");
-	    			confusionMatrix.get(s).put("TruePositive", newTruePos);
-	    			Double oldFalsePos = confusionMatrix.get(s).get("FalsePositive");
-	    			Double newFalsePos = oldFalsePos + confMatrix.get(s).get("FalsePositive");
-	    			confusionMatrix.get(s).put("FalsePositive", newFalsePos);
-	    		}
-	    	}
+//			for (List<String> l : crossValData.get(j))
+//	    	{
+//	    		forest = new Forest((String) l.get(0), ctrl, weights, seed);
+//	    		ProcessDataForGrowing testDataset = new ProcessDataForGrowing(l.get(1), ctrl);
+//	    		cumulativeError += forest.predict(testDataset).first;
+//	    		cumulativeCVOOBError += forest.oobErrorEstimate;
+//	    		Map<String, Map<String, Double>> confMatrix = forest.predict(testDataset).second;
+//	    		for (String s : confMatrix.keySet())
+//	    		{
+//	    			Double oldTruePos = confusionMatrix.get(s).get("TruePositive");
+//	    			Double newTruePos = oldTruePos + confMatrix.get(s).get("TruePositive");
+//	    			confusionMatrix.get(s).put("TruePositive", newTruePos);
+//	    			Double oldFalsePos = confusionMatrix.get(s).get("FalsePositive");
+//	    			Double newFalsePos = oldFalsePos + confMatrix.get(s).get("FalsePositive");
+//	    			confusionMatrix.get(s).put("FalsePositive", newFalsePos);
+//	    		}
+//	    	}
 		}
 		// Aggregate predicted results over all the repetitions.
 		cumulativeError /= (crossValFolds * repetitions);
