@@ -359,17 +359,24 @@ public class Forest
 			this.processedData = procData;
 		}
 
-		// Determine is sub sampling is used, and if so record the reponse of each observation.
+		// Determine is sub sampling is used, and if so record the response of each observation.
 		boolean isSampSizeUsed = this.ctrl.sampSize.size() > 0;
 		Set<String> responseClasses = new HashSet<String>(this.processedData.responseData);
-		if (isSampSizeUsed && !this.ctrl.sampSize.keySet().containsAll(responseClasses))
+		if (ctrl.isStratifiedBootstrapUsed)
+		{
+			for (String s : responseClasses)
+			{
+				ctrl.sampSize.put(s, Collections.frequency(this.processedData.responseData, s));
+			}
+		}
+		else if (isSampSizeUsed && !this.ctrl.sampSize.keySet().containsAll(responseClasses))
 		{
 			// Raise an error if sampSize is being used and does not contain all of the response classes.
 			System.out.println("ERROR : sampSize in the control object does not contain all of the response classes in the data.");
 			System.exit(0);
 		}
 		Map<String, List<Integer>> responseSplits = new HashMap<String, List<Integer>>();
-		if (isSampSizeUsed)
+		if (isSampSizeUsed || ctrl.isStratifiedBootstrapUsed)
 		{
 			for (String s : responseClasses)
 			{

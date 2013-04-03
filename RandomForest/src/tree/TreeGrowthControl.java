@@ -50,6 +50,11 @@ public class TreeGrowthControl
 	 */
 	public Map<String, Integer> sampSize = new HashMap<String, Integer>();
 
+	/**
+	 * Controls whether the bootstrap sample should be stratified. This takes precedence over any values in sampSize.
+	 */
+	boolean isStratifiedBootstrapUsed = false;
+
 	public TreeGrowthControl()
 	{
 	}

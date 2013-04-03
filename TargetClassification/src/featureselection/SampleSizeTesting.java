@@ -108,6 +108,11 @@ public class SampleSizeTesting
 			System.exit(0);
 		}
 
+		int repetitions = 50;
+		int crossValFolds = 10;
+		Integer[] sizeOfDatasets = {};
+		Double[] fractionOfPositives = {};
+
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
 		ctrl.numberOfTreesToGrow = 500;
@@ -134,11 +139,6 @@ public class SampleSizeTesting
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Positive", 1.0);
 		weights.put("Unlabelled", 1.0);
-
-		int repetitions = 50;
-		int crossValFolds = 10;
-		Integer[] sizeOfDatasets = {};
-		Double[] fractionOfPositives = {};
 
 		// Generate the seeds for the repetitions, and the CV folds for each repetition.
 		Random randGen = new Random();
