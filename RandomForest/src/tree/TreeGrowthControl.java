@@ -7,7 +7,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class TreeGrowthControl
 {
@@ -42,6 +44,11 @@ public class TreeGrowthControl
 	 * The fraction of observations to select if replacement is not used (only use for growing a forest).
 	 */
 	public double selectionFraction = 0.632;
+
+	/**
+	 * Controls for the size of and fraction of each class in the bootstrap sample.
+	 */
+	public Map<String, Integer> sampSize = new HashMap<String, Integer>();
 
 	public TreeGrowthControl()
 	{

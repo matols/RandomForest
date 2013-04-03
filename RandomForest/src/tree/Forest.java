@@ -359,6 +359,28 @@ public class Forest
 			this.processedData = procData;
 		}
 
+		// Determine is sub sampling is used, and if so record the reponse of each observation.
+		boolean isSampSizeUsed = this.ctrl.sampSize.size() > 0;
+		Set<String> responseClasses = new HashSet<String>(this.processedData.responseData);
+		if (isSampSizeUsed && !this.ctrl.sampSize.keySet().containsAll(responseClasses))
+		{
+			// Raise an error if sampSize is being used and does not contain all of the response classes.
+			System.out.println("ERROR : sampSize in the control object does not contain all of the response classes in the data.");
+			System.exit(0);
+		}
+		Map<String, List<Integer>> responseSplits = new HashMap<String, List<Integer>>();
+		if (isSampSizeUsed)
+		{
+			for (String s : responseClasses)
+			{
+				responseSplits.put(s, new ArrayList<Integer>());
+			}
+			for (int i = 0; i < this.processedData.numberObservations; i++)
+			{
+				responseSplits.get(this.processedData.responseData.get(i)).add(i);
+			}
+		}
+
 		// Generate the default weightings.
 		for (String s : this.processedData.responseData)
 		{
@@ -390,21 +412,49 @@ public class Forest
 		{
 			// Randomly determine the observations used for growing this tree.
 			List<Integer> observationsForTheTree = new ArrayList<Integer>();
-			if (!ctrl.isReplacementUsed)
+			if (isSampSizeUsed)
 			{
-				Collections.shuffle(observations, new Random(randGenerator.nextLong()));
-				for (int j = 0; j < numberObservationsToSelect; j++)
+				for (String s : responseClasses)
 				{
-					observationsForTheTree.add(observations.get(j));
+					int observationsToSelect = this.ctrl.sampSize.get(s);
+					List<Integer> thisClassObservations = new ArrayList<Integer>(responseSplits.get(s));
+					if (!ctrl.isReplacementUsed)
+					{
+						Collections.shuffle(thisClassObservations, new Random(randGenerator.nextLong()));
+						for (int j = 0; j < observationsToSelect; j++)
+						{
+							observationsForTheTree.add(thisClassObservations.get(j));
+						}
+					}
+					else
+					{
+						int selectedObservation;
+						for (int j = 0; j < observationsToSelect; j++)
+						{
+							selectedObservation = randGenerator.nextInt(thisClassObservations.size());
+							observationsForTheTree.add(thisClassObservations.get(selectedObservation));
+						}
+					}
 				}
 			}
 			else
 			{
-				int selectedObservation;
-				for (int j = 0; j < numberObservationsToSelect; j++)
+				if (!ctrl.isReplacementUsed)
 				{
-					selectedObservation = randGenerator.nextInt(this.processedData.numberObservations);
-					observationsForTheTree.add(observations.get(selectedObservation));
+					Collections.shuffle(observations, new Random(randGenerator.nextLong()));
+					for (int j = 0; j < numberObservationsToSelect; j++)
+					{
+						observationsForTheTree.add(observations.get(j));
+					}
+				}
+				else
+				{
+					int selectedObservation;
+					for (int j = 0; j < numberObservationsToSelect; j++)
+					{
+						selectedObservation = randGenerator.nextInt(this.processedData.numberObservations);
+						observationsForTheTree.add(observations.get(selectedObservation));
+					}
 				}
 			}
 

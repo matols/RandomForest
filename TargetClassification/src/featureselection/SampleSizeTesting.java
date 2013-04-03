@@ -7,6 +7,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -14,13 +15,11 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-import datasetgeneration.CrossValidationFoldGeneration;
-
 import tree.Forest;
 import tree.ProcessDataForGrowing;
 import tree.TreeGrowthControl;
 
-public class WeightTesting
+public class SampleSizeTesting
 {
 
 	/**
@@ -78,25 +77,8 @@ public class WeightTesting
 			System.out.println("The second argument must be a valid directory location or location where a directory can be created.");
 			System.exit(0);
 		}
-		String cvDir = resultsDir + "/CV";
-		File cvDirectory = new File(cvDir);
-		if (!cvDirectory.exists())
-		{
-			boolean isDirCreated = cvDirectory.mkdirs();
-			if (!isDirCreated)
-			{
-				System.out.println("The cross validation directory could not be created.");
-				System.exit(0);
-			}
-		}
-		else
-		{
-			// Exists and is not a directory.
-			System.out.println("ERROR: The output directory contains a file or directory called CV.");
-			System.exit(0);
-		}
 
-		// Setup the results output files.
+		// Setup the results output file.
 		String cvResultsLocation = resultsDir + "/CVResults.txt";
 		try
 		{
@@ -125,47 +107,13 @@ public class WeightTesting
 			e.printStackTrace();
 			System.exit(0);
 		}
-		String cvEvenSampResultsLocation = resultsDir + "/EvenSampleCVResults.txt";
-		try
-		{
-			FileWriter resultsOutputFile = new FileWriter(cvEvenSampResultsLocation);
-			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tPredictiveError\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
-			resultsOutputWriter.newLine();
-			resultsOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
-		String oobEvenSampleResultsLocation = resultsDir + "/EvenSampleOOBResults.txt";
-		try
-		{
-			FileWriter resultsOutputFile = new FileWriter(oobEvenSampleResultsLocation);
-			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
-			resultsOutputWriter.newLine();
-			resultsOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
-
-		int repetitions = 50;
-		int crossValFolds = 10;
-		Double[] weightsToUse = {1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0};
-		Integer[] mtryToUse = {5, 10, 15, 20, 25, 30};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
 		ctrl.numberOfTreesToGrow = 500;
+		ctrl.mtry = 10;
 
-		Map<String, Double> weights = new HashMap<String, Double>();
-		weights.put("Unlabelled", 1.0);
-
+		// Determine the observations of each class.
 		ProcessDataForGrowing procData = new ProcessDataForGrowing(inputFile, ctrl);
 		String negClass = "Unlabelled";
 		String posClass = "Positive";
@@ -179,8 +127,18 @@ public class WeightTesting
 		{
 			responseSplits.get(procData.responseData.get(i)).add(i);
 		}
+		int numberOfObservations = procData.numberObservations;
 		int numberPosObs = responseSplits.get(posClass).size();
 		int numberUnlabObs = responseSplits.get(negClass).size();
+
+		Map<String, Double> weights = new HashMap<String, Double>();
+		weights.put("Positive", 1.0);
+		weights.put("Unlabelled", 1.0);
+
+		int repetitions = 50;
+		int crossValFolds = 10;
+		Integer[] sizeOfDatasets = {};
+		Double[] fractionOfPositives = {};
 
 		// Generate the seeds for the repetitions, and the CV folds for each repetition.
 		Random randGen = new Random();
@@ -197,7 +155,7 @@ public class WeightTesting
 
 //			String currentCVDir = cvDir + "\\" + Integer.toString(i);
 //			CrossValidationFoldGeneration.main(inputFile, currentCVDir, crossValFolds);
-//	
+//
 //			// Get the cross validation information
 //			File crossValDir = new File(currentCVDir);
 //			String subDirs[] = crossValDir.list();
@@ -216,8 +174,6 @@ public class WeightTesting
 		boolean isSubsetUsed = false;
 		String subsetCVResultsLocation = resultsDir + "/SubsetCVResults.txt";
 		String subsetOOBResultsLocation = resultsDir + "/SubsetOOBResults.txt";
-		String subsetCVEvenSampleResultsLocation = resultsDir + "/EvenSampleSubsetCVResults.txt";
-		String subsetOOBEvenSampleResultsLocation = resultsDir + "/EvenSampleSubsetOOBResults.txt";
 		List<String> covarsToRemove = new ArrayList<String>();
 		if (!covarsToKeep.isEmpty())
 		{
@@ -230,7 +186,7 @@ public class WeightTesting
 					covarsToRemove.add(s);
 				}
 			}
-			// Setup the subset results output files.
+			// Setup the subset results output file.
 			try
 			{
 				FileWriter resultsOutputFile = new FileWriter(subsetCVResultsLocation);
@@ -257,50 +213,12 @@ public class WeightTesting
 				e.printStackTrace();
 				System.exit(0);
 			}
-			try
-			{
-				FileWriter resultsOutputFile = new FileWriter(subsetCVEvenSampleResultsLocation);
-				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-				resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tPredictiveError\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
-				resultsOutputWriter.newLine();
-				resultsOutputWriter.close();
-			}
-			catch (Exception e)
-			{
-				e.printStackTrace();
-				System.exit(0);
-			}
-			try
-			{
-				FileWriter resultsOutputFile = new FileWriter(subsetOOBEvenSampleResultsLocation);
-				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-				resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
-				resultsOutputWriter.newLine();
-				resultsOutputWriter.close();
-			}
-			catch (Exception e)
-			{
-				e.printStackTrace();
-				System.exit(0);
-			}
 		}
-
-		// Setup alternate forest growth control objects.
 		TreeGrowthControl subsetCtrl = new TreeGrowthControl();
 		subsetCtrl.isReplacementUsed = ctrl.isReplacementUsed;
 		subsetCtrl.numberOfTreesToGrow = ctrl.numberOfTreesToGrow;
+		subsetCtrl.mtry = ctrl.mtry;
 		subsetCtrl.variablesToIgnore = covarsToRemove;
-		TreeGrowthControl evenSampCtrl = new TreeGrowthControl();
-		evenSampCtrl.isReplacementUsed = ctrl.isReplacementUsed;
-		evenSampCtrl.numberOfTreesToGrow = ctrl.numberOfTreesToGrow;
-		evenSampCtrl.sampSize.put(posClass, numberPosObs);
-		evenSampCtrl.sampSize.put(negClass, numberUnlabObs);
-		TreeGrowthControl evenSampSubsetCtrl = new TreeGrowthControl();
-		evenSampSubsetCtrl.isReplacementUsed = subsetCtrl.isReplacementUsed;
-		evenSampSubsetCtrl.numberOfTreesToGrow = subsetCtrl.numberOfTreesToGrow;
-		evenSampSubsetCtrl.sampSize.put(posClass, numberPosObs);
-		evenSampSubsetCtrl.sampSize.put(negClass, numberUnlabObs);
-		evenSampSubsetCtrl.variablesToIgnore = subsetCtrl.variablesToIgnore;
 
 		// Write out the parameters used.
 		String parameterLocation = resultsDir + "/Parameters.txt";
@@ -316,9 +234,13 @@ public class WeightTesting
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.write("Cross val folds used - " + Integer.toString(crossValFolds));
 			parameterOutputWriter.newLine();
-			parameterOutputWriter.write("Weights used - " + Arrays.toString(weightsToUse));
+			parameterOutputWriter.write("Weights used - " + weights.toString());
 			parameterOutputWriter.newLine();
-			parameterOutputWriter.write("Mtry used - " + Arrays.toString(mtryToUse));
+			parameterOutputWriter.write("Mtry used - " + Integer.toString(ctrl.mtry));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("Sizes of datasets used - " + Arrays.toString(sizeOfDatasets));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("Fractions of dataset that is positive observations used - " + Arrays.toString(fractionOfPositives));
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.close();
 		}
@@ -330,25 +252,32 @@ public class WeightTesting
 
 		Map<String, Map<String, Double>> confusionMatrix;
 		Map<String, Map<String, Double>> oobConfusionMatrix;
-		Map<String, Map<String, Double>> evenSampleConfusionMatrix;
 
-		for (Integer mtry : mtryToUse)
+		// Generate the subsets.
+		for (Integer datasetSize : sizeOfDatasets)
 		{
-			ctrl.mtry = mtry;
-			evenSampCtrl.mtry = mtry;
-			subsetCtrl.mtry = mtry;
-			evenSampSubsetCtrl.mtry = mtry;
+			System.out.format("\tNow working on dataset size - %d\n", datasetSize);
 
-			System.out.format("Now working on mtry - %d\n", mtry);
-
-			// Generate the results for this weighting.
-			for (Double posWeight : weightsToUse)
+			for (Double positiveFraction : fractionOfPositives)
 			{
-				weights.put("Positive", posWeight);
+				System.out.format("Now working on positive fraction - %f\n", positiveFraction);
 
-				System.out.format("\tNow working on weight - %f\n", posWeight);
+				if (positiveFraction == 0)
+				{
+					// If the fraction of the minority class to include is 0, then set the minority class to be the same fraction as it is in the whole dataset.
+					positiveFraction = ((double) numberPosObs) / numberOfObservations;
+				}
+				int positiveObservationsToUse = (int) Math.floor(positiveFraction * datasetSize);
+				positiveObservationsToUse = Math.min(positiveObservationsToUse, numberPosObs);  // Can't have more positive observations than there are.
+				int unlabelledObservationsToUse = datasetSize - positiveObservationsToUse;
 
-				// Perform the regular bootstrap forest growth.
+				// Setup the sample size constraints.
+				ctrl.sampSize.put(posClass, positiveObservationsToUse);
+				ctrl.sampSize.put(negClass, unlabelledObservationsToUse);
+				subsetCtrl.sampSize.put(posClass, positiveObservationsToUse);
+				subsetCtrl.sampSize.put(negClass, unlabelledObservationsToUse);
+
+				// Setup the confusion matrices.
 				confusionMatrix = new HashMap<String, Map<String, Double>>();
 				oobConfusionMatrix = new HashMap<String, Map<String, Double>>();
 				for (String s : new HashSet<String>(procData.responseData))
@@ -361,24 +290,9 @@ public class WeightTesting
 					oobConfusionMatrix.get(s).put("FalsePositive", 0.0);
 				}
 				forestTraining(crossValData, oobConfusionMatrix, confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, cvResultsLocation, oobResultsLocation);
-
-				// Perform the bootstrap sampling by number of observations in each class.
-				confusionMatrix = new HashMap<String, Map<String, Double>>();
-				evenSampleConfusionMatrix = new HashMap<String, Map<String, Double>>();
-				for (String s : new HashSet<String>(procData.responseData))
-				{
-					confusionMatrix.put(s, new HashMap<String, Double>());
-					confusionMatrix.get(s).put("TruePositive", 0.0);
-					confusionMatrix.get(s).put("FalsePositive", 0.0);
-					evenSampleConfusionMatrix.put(s, new HashMap<String, Double>());
-					evenSampleConfusionMatrix.get(s).put("TruePositive", 0.0);
-					evenSampleConfusionMatrix.get(s).put("FalsePositive", 0.0);
-				}
-				forestTraining(crossValData, evenSampleConfusionMatrix, confusionMatrix, weights, evenSampCtrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, cvEvenSampResultsLocation, oobEvenSampleResultsLocation);
-
 				if (isSubsetUsed)
 				{
-					// Perform the regular bootstrap forest growth.
+					// Setup the confusion matrices.
 					confusionMatrix = new HashMap<String, Map<String, Double>>();
 					oobConfusionMatrix = new HashMap<String, Map<String, Double>>();
 					for (String s : new HashSet<String>(procData.responseData))
@@ -391,20 +305,11 @@ public class WeightTesting
 						oobConfusionMatrix.get(s).put("FalsePositive", 0.0);
 					}
 					forestTraining(crossValData, oobConfusionMatrix, confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, subsetCVResultsLocation, subsetOOBResultsLocation);
+				}
 
-					// Perform the bootstrap sampling by number of observations in each class.
-					confusionMatrix = new HashMap<String, Map<String, Double>>();
-					evenSampleConfusionMatrix = new HashMap<String, Map<String, Double>>();
-					for (String s : new HashSet<String>(procData.responseData))
-					{
-						confusionMatrix.put(s, new HashMap<String, Double>());
-						confusionMatrix.get(s).put("TruePositive", 0.0);
-						confusionMatrix.get(s).put("FalsePositive", 0.0);
-						evenSampleConfusionMatrix.put(s, new HashMap<String, Double>());
-						evenSampleConfusionMatrix.get(s).put("TruePositive", 0.0);
-						evenSampleConfusionMatrix.get(s).put("FalsePositive", 0.0);
-					}
-					forestTraining(crossValData, oobConfusionMatrix, confusionMatrix, weights, evenSampSubsetCtrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, subsetCVEvenSampleResultsLocation, subsetOOBEvenSampleResultsLocation);
+				for (int i = 0; i < repetitions; i++)
+				{
+					Forest forest = new Forest(inputFile, ctrl, weights, seeds.get(i));
 				}
 			}
 		}
