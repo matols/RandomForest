@@ -125,7 +125,6 @@ public class SampleSizeTesting
 		ctrl.mtry = 10;
 
 		Map<String, Double> weights = new HashMap<String, Double>();
-		weights.put("Positive", 1.0);
 		weights.put("Unlabelled", 1.0);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
@@ -273,6 +272,8 @@ public class SampleSizeTesting
 			    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			    String strDate = sdfDate.format(startTime);
 				System.out.format("\tNow starting positive fraction %f at %s.\n", positiveFraction, strDate);
+
+				weights.put("Positive", (1 - positiveFraction) / positiveFraction);
 
 				if (positiveFraction == 0)
 				{

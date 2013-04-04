@@ -178,18 +178,6 @@ public class WeightTesting
 		ProcessDataForGrowing procData = new ProcessDataForGrowing(inputFile, ctrl);
 		String negClass = "Unlabelled";
 		String posClass = "Positive";
-		Set<String> responseClasses = new HashSet<String>(procData.responseData);
-		Map<String, List<Integer>> responseSplits = new HashMap<String, List<Integer>>();
-		for (String s : responseClasses)
-		{
-			responseSplits.put(s, new ArrayList<Integer>());
-		}
-		for (int i = 0; i < procData.numberObservations; i++)
-		{
-			responseSplits.get(procData.responseData.get(i)).add(i);
-		}
-		int numberPosObs = responseSplits.get(posClass).size();
-		int numberUnlabObs = responseSplits.get(negClass).size();
 
 		// Generate the seeds for the repetitions, and the CV folds for each repetition.
 		Random randGen = new Random();
@@ -302,13 +290,11 @@ public class WeightTesting
 		TreeGrowthControl evenSampCtrl = new TreeGrowthControl();
 		evenSampCtrl.isReplacementUsed = ctrl.isReplacementUsed;
 		evenSampCtrl.numberOfTreesToGrow = ctrl.numberOfTreesToGrow;
-		evenSampCtrl.sampSize.put(posClass, numberPosObs);
-		evenSampCtrl.sampSize.put(negClass, numberUnlabObs);
+		evenSampCtrl.isStratifiedBootstrapUsed = true;
 		TreeGrowthControl evenSampSubsetCtrl = new TreeGrowthControl();
 		evenSampSubsetCtrl.isReplacementUsed = subsetCtrl.isReplacementUsed;
 		evenSampSubsetCtrl.numberOfTreesToGrow = subsetCtrl.numberOfTreesToGrow;
-		evenSampSubsetCtrl.sampSize.put(posClass, numberPosObs);
-		evenSampSubsetCtrl.sampSize.put(negClass, numberUnlabObs);
+		evenSampSubsetCtrl.isStratifiedBootstrapUsed = true;
 		evenSampSubsetCtrl.variablesToIgnore = subsetCtrl.variablesToIgnore;
 
 		// Write out the parameters used.
@@ -360,19 +346,19 @@ public class WeightTesting
 			    String strDate = sdfDate.format(startTime);
 				System.out.format("\tNow starting weight - %f at %s.\n", posWeight, strDate);
 
-				// Perform the regular bootstrap forest growth.
-				confusionMatrix = new HashMap<String, Map<String, Double>>();
-				oobConfusionMatrix = new HashMap<String, Map<String, Double>>();
-				for (String s : new HashSet<String>(procData.responseData))
-				{
-					confusionMatrix.put(s, new HashMap<String, Double>());
-					confusionMatrix.get(s).put("TruePositive", 0.0);
-					confusionMatrix.get(s).put("FalsePositive", 0.0);
-					oobConfusionMatrix.put(s, new HashMap<String, Double>());
-					oobConfusionMatrix.get(s).put("TruePositive", 0.0);
-					oobConfusionMatrix.get(s).put("FalsePositive", 0.0);
-				}
-				forestTraining(crossValData, oobConfusionMatrix, confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, cvResultsLocation, oobResultsLocation);
+//				// Perform the regular bootstrap forest growth.
+//				confusionMatrix = new HashMap<String, Map<String, Double>>();
+//				oobConfusionMatrix = new HashMap<String, Map<String, Double>>();
+//				for (String s : new HashSet<String>(procData.responseData))
+//				{
+//					confusionMatrix.put(s, new HashMap<String, Double>());
+//					confusionMatrix.get(s).put("TruePositive", 0.0);
+//					confusionMatrix.get(s).put("FalsePositive", 0.0);
+//					oobConfusionMatrix.put(s, new HashMap<String, Double>());
+//					oobConfusionMatrix.get(s).put("TruePositive", 0.0);
+//					oobConfusionMatrix.get(s).put("FalsePositive", 0.0);
+//				}
+//				forestTraining(crossValData, oobConfusionMatrix, confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, cvResultsLocation, oobResultsLocation);
 
 				// Perform the bootstrap sampling by number of observations in each class.
 				confusionMatrix = new HashMap<String, Map<String, Double>>();
@@ -390,19 +376,19 @@ public class WeightTesting
 
 				if (isSubsetUsed)
 				{
-					// Perform the regular bootstrap forest growth.
-					confusionMatrix = new HashMap<String, Map<String, Double>>();
-					oobConfusionMatrix = new HashMap<String, Map<String, Double>>();
-					for (String s : new HashSet<String>(procData.responseData))
-					{
-						confusionMatrix.put(s, new HashMap<String, Double>());
-						confusionMatrix.get(s).put("TruePositive", 0.0);
-						confusionMatrix.get(s).put("FalsePositive", 0.0);
-						oobConfusionMatrix.put(s, new HashMap<String, Double>());
-						oobConfusionMatrix.get(s).put("TruePositive", 0.0);
-						oobConfusionMatrix.get(s).put("FalsePositive", 0.0);
-					}
-					forestTraining(crossValData, oobConfusionMatrix, confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, subsetCVResultsLocation, subsetOOBResultsLocation);
+//					// Perform the regular bootstrap forest growth.
+//					confusionMatrix = new HashMap<String, Map<String, Double>>();
+//					oobConfusionMatrix = new HashMap<String, Map<String, Double>>();
+//					for (String s : new HashSet<String>(procData.responseData))
+//					{
+//						confusionMatrix.put(s, new HashMap<String, Double>());
+//						confusionMatrix.get(s).put("TruePositive", 0.0);
+//						confusionMatrix.get(s).put("FalsePositive", 0.0);
+//						oobConfusionMatrix.put(s, new HashMap<String, Double>());
+//						oobConfusionMatrix.get(s).put("TruePositive", 0.0);
+//						oobConfusionMatrix.get(s).put("FalsePositive", 0.0);
+//					}
+//					forestTraining(crossValData, oobConfusionMatrix, confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, subsetCVResultsLocation, subsetOOBResultsLocation);
 
 					// Perform the bootstrap sampling by number of observations in each class.
 					confusionMatrix = new HashMap<String, Map<String, Double>>();
@@ -416,7 +402,7 @@ public class WeightTesting
 						evenSampleConfusionMatrix.get(s).put("TruePositive", 0.0);
 						evenSampleConfusionMatrix.get(s).put("FalsePositive", 0.0);
 					}
-					forestTraining(crossValData, oobConfusionMatrix, confusionMatrix, weights, evenSampSubsetCtrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, subsetCVEvenSampleResultsLocation, subsetOOBEvenSampleResultsLocation);
+					forestTraining(crossValData, evenSampleConfusionMatrix, confusionMatrix, weights, evenSampSubsetCtrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, subsetCVEvenSampleResultsLocation, subsetOOBEvenSampleResultsLocation);
 				}
 			}
 		}
