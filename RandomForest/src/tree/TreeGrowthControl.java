@@ -53,7 +53,7 @@ public class TreeGrowthControl
 	/**
 	 * Controls whether the bootstrap sample should be stratified. This takes precedence over any values in sampSize.
 	 */
-	boolean isStratifiedBootstrapUsed = false;
+	public boolean isStratifiedBootstrapUsed = false;
 
 	public TreeGrowthControl()
 	{
@@ -76,7 +76,7 @@ public class TreeGrowthControl
 		{
 			String line = reader.readLine();
 			line = line.replaceAll("\n", "");
-			String ctrlVariables[] = line.split("\t");
+			String[] ctrlVariables = line.split("\t");
 
 			this.minNodeSize = Integer.parseInt(ctrlVariables[0]);
 			this.mtry = Integer.parseInt(ctrlVariables[1]);
@@ -84,7 +84,7 @@ public class TreeGrowthControl
 			this.variablesToIgnore = new ArrayList<String>();
 			if (!ctrlVariables[3].equals(""))
 			{
-				String covToIgnore[] = ctrlVariables[10].split(",");
+				String[] covToIgnore = ctrlVariables[3].split(",");
 				for (String s : covToIgnore)
 				{
 					this.variablesToIgnore.add(s);
@@ -92,6 +92,18 @@ public class TreeGrowthControl
 			}
 			this.isReplacementUsed = Boolean.parseBoolean(ctrlVariables[4]);
 			this.selectionFraction = Double.parseDouble(ctrlVariables[5]);
+			this.sampSize = new HashMap<String, Integer>();
+			if (!ctrlVariables[6].equals(""))
+			{
+				String[] mappings = ctrlVariables[6].split(",");
+				for (String s : mappings)
+				{
+					System.out.println(s);
+					String[] keyValueSplit = s.split("-");
+					this.sampSize.put(keyValueSplit[0], Integer.parseInt(keyValueSplit[1]));
+				}
+			}
+			this.isStratifiedBootstrapUsed = Boolean.parseBoolean(ctrlVariables[7]);
 		}
 		catch (Exception e)
 		{
@@ -125,6 +137,18 @@ public class TreeGrowthControl
 			outputWriter.write("\t");
 			outputWriter.write(Boolean.toString(this.isReplacementUsed) + "\t");
 			outputWriter.write(Double.toString(this.selectionFraction) + "\t");
+			if (!this.sampSize.isEmpty())
+			{
+				List<String> classes = new ArrayList<String>(this.sampSize.keySet());
+				outputWriter.write(classes.get(0) + "-" + Integer.toString(this.sampSize.get(classes.get(0))));
+				for (int i = 1; i < classes.size(); i++)
+				{
+					outputWriter.write("," + classes.get(i) + "-" + Integer.toString(this.sampSize.get(classes.get(i))));
+				}
+				
+			}
+			outputWriter.write("\t");
+			outputWriter.write(Boolean.toString(this.isStratifiedBootstrapUsed) + "\t");
 			outputWriter.close();
 		}
 		catch (Exception e)

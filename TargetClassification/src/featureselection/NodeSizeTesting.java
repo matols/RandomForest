@@ -22,7 +22,7 @@ import tree.Forest;
 import tree.ProcessDataForGrowing;
 import tree.TreeGrowthControl;
 
-public class SampleSizeTesting
+public class NodeSizeTesting
 {
 
 	/**
@@ -116,13 +116,17 @@ public class SampleSizeTesting
 		//===================================================================
 		int repetitions = 50;
 		int crossValFolds = 10;
-		Integer[] sizeOfDatasets = {};
-		Double[] fractionOfPositives = {};
+		Integer[] nodeSizeValues = {};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
 		ctrl.numberOfTreesToGrow = 500;
 		ctrl.mtry = 10;
+		ctrl.isStratifiedBootstrapUsed = true;
+
+		ProcessDataForGrowing procData = new ProcessDataForGrowing(inputFile, ctrl);
+		String negClass = "Unlabelled";
+		String posClass = "Positive";
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Positive", 1.0);
@@ -130,24 +134,6 @@ public class SampleSizeTesting
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-
-		// Determine the observations of each class.
-		ProcessDataForGrowing procData = new ProcessDataForGrowing(inputFile, ctrl);
-		String negClass = "Unlabelled";
-		String posClass = "Positive";
-		Set<String> responseClasses = new HashSet<String>(procData.responseData);
-		Map<String, List<Integer>> responseSplits = new HashMap<String, List<Integer>>();
-		for (String s : responseClasses)
-		{
-			responseSplits.put(s, new ArrayList<Integer>());
-		}
-		for (int i = 0; i < procData.numberObservations; i++)
-		{
-			responseSplits.get(procData.responseData.get(i)).add(i);
-		}
-		int numberOfObservations = procData.numberObservations;
-		int numberPosObs = responseSplits.get(posClass).size();
-		int numberUnlabObs = responseSplits.get(negClass).size();
 
 		// Generate the seeds for the repetitions, and the CV folds for each repetition.
 		Random randGen = new Random();
@@ -247,9 +233,7 @@ public class SampleSizeTesting
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.write("Mtry used - " + Integer.toString(ctrl.mtry));
 			parameterOutputWriter.newLine();
-			parameterOutputWriter.write("Sizes of datasets used - " + Arrays.toString(sizeOfDatasets));
-			parameterOutputWriter.newLine();
-			parameterOutputWriter.write("Fractions of dataset that is positive observations used - " + Arrays.toString(fractionOfPositives));
+			parameterOutputWriter.write("Sizes of datasets used - " + Arrays.toString(nodeSizeValues));
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.close();
 		}
@@ -263,32 +247,33 @@ public class SampleSizeTesting
 		Map<String, Map<String, Double>> oobConfusionMatrix;
 
 		// Generate the subsets.
-		for (Integer datasetSize : sizeOfDatasets)
+		for (Integer nodeSize : nodeSizeValues)
 		{
-			System.out.format("Now working on dataset size - %d.\n", datasetSize);
+			Date startTime = new Date();
+		    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		    String strDate = sdfDate.format(startTime);
+			System.out.format("Now working on node size %d at %s.\n", nodeSize, strDate);
 
-			for (Double positiveFraction : fractionOfPositives)
+			// Setup the sample size constraints.
+			ctrl.minNodeSize = nodeSize;
+			subsetCtrl.minNodeSize = nodeSize;
+
+			// Setup the confusion matrices.
+			confusionMatrix = new HashMap<String, Map<String, Double>>();
+			oobConfusionMatrix = new HashMap<String, Map<String, Double>>();
+			for (String s : new HashSet<String>(procData.responseData))
 			{
-			    Date startTime = new Date();
-			    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-			    String strDate = sdfDate.format(startTime);
-				System.out.format("\tNow starting positive fraction %f at %s.\n", positiveFraction, strDate);
+				confusionMatrix.put(s, new HashMap<String, Double>());
+				confusionMatrix.get(s).put("TruePositive", 0.0);
+				confusionMatrix.get(s).put("FalsePositive", 0.0);
+				oobConfusionMatrix.put(s, new HashMap<String, Double>());
+				oobConfusionMatrix.get(s).put("TruePositive", 0.0);
+				oobConfusionMatrix.get(s).put("FalsePositive", 0.0);
+			}
+			forestTraining(crossValData, oobConfusionMatrix, confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, cvResultsLocation, oobResultsLocation);
 
-				if (positiveFraction == 0)
-				{
-					// If the fraction of the minority class to include is 0, then set the minority class to be the same fraction as it is in the whole dataset.
-					positiveFraction = ((double) numberPosObs) / numberOfObservations;
-				}
-				int positiveObservationsToUse = (int) Math.floor(positiveFraction * datasetSize);
-				positiveObservationsToUse = Math.min(positiveObservationsToUse, numberPosObs);  // Can't have more positive observations than there are.
-				int unlabelledObservationsToUse = datasetSize - positiveObservationsToUse;
-
-				// Setup the sample size constraints.
-				ctrl.sampSize.put(posClass, positiveObservationsToUse);
-				ctrl.sampSize.put(negClass, unlabelledObservationsToUse);
-				subsetCtrl.sampSize.put(posClass, positiveObservationsToUse);
-				subsetCtrl.sampSize.put(negClass, unlabelledObservationsToUse);
-
+			if (isSubsetUsed)
+			{
 				// Setup the confusion matrices.
 				confusionMatrix = new HashMap<String, Map<String, Double>>();
 				oobConfusionMatrix = new HashMap<String, Map<String, Double>>();
@@ -301,24 +286,7 @@ public class SampleSizeTesting
 					oobConfusionMatrix.get(s).put("TruePositive", 0.0);
 					oobConfusionMatrix.get(s).put("FalsePositive", 0.0);
 				}
-				forestTraining(crossValData, oobConfusionMatrix, confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, cvResultsLocation, oobResultsLocation);
-
-				if (isSubsetUsed)
-				{
-					// Setup the confusion matrices.
-					confusionMatrix = new HashMap<String, Map<String, Double>>();
-					oobConfusionMatrix = new HashMap<String, Map<String, Double>>();
-					for (String s : new HashSet<String>(procData.responseData))
-					{
-						confusionMatrix.put(s, new HashMap<String, Double>());
-						confusionMatrix.get(s).put("TruePositive", 0.0);
-						confusionMatrix.get(s).put("FalsePositive", 0.0);
-						oobConfusionMatrix.put(s, new HashMap<String, Double>());
-						oobConfusionMatrix.get(s).put("TruePositive", 0.0);
-						oobConfusionMatrix.get(s).put("FalsePositive", 0.0);
-					}
-					forestTraining(crossValData, oobConfusionMatrix, confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, subsetCVResultsLocation, subsetOOBResultsLocation);
-				}
+				forestTraining(crossValData, oobConfusionMatrix, confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, crossValFolds, negClass, posClass, subsetCVResultsLocation, subsetOOBResultsLocation);
 			}
 		}
 	}

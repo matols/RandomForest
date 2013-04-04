@@ -5,8 +5,11 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -102,7 +105,7 @@ public class WeightTesting
 		{
 			FileWriter resultsOutputFile = new FileWriter(cvResultsLocation);
 			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tPredictiveError\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
+			resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tPredictiveError\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN\tTimeTaken");
 			resultsOutputWriter.newLine();
 			resultsOutputWriter.close();
 		}
@@ -116,7 +119,7 @@ public class WeightTesting
 		{
 			FileWriter resultsOutputFile = new FileWriter(oobResultsLocation);
 			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
+			resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN\tTimeTaken");
 			resultsOutputWriter.newLine();
 			resultsOutputWriter.close();
 		}
@@ -130,7 +133,7 @@ public class WeightTesting
 		{
 			FileWriter resultsOutputFile = new FileWriter(cvEvenSampResultsLocation);
 			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tPredictiveError\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
+			resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tPredictiveError\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN\tTimeTaken");
 			resultsOutputWriter.newLine();
 			resultsOutputWriter.close();
 		}
@@ -144,7 +147,7 @@ public class WeightTesting
 		{
 			FileWriter resultsOutputFile = new FileWriter(oobEvenSampleResultsLocation);
 			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
+			resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN\tTimeTaken");
 			resultsOutputWriter.newLine();
 			resultsOutputWriter.close();
 		}
@@ -154,6 +157,9 @@ public class WeightTesting
 			System.exit(0);
 		}
 
+		//===================================================================
+		//==================== CONTROL PARAMETER SETTING ====================
+		//===================================================================
 		int repetitions = 50;
 		int crossValFolds = 10;
 		Double[] weightsToUse = {1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0};
@@ -162,6 +168,9 @@ public class WeightTesting
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
 		ctrl.numberOfTreesToGrow = 500;
+		//===================================================================
+		//==================== CONTROL PARAMETER SETTING ====================
+		//===================================================================
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
@@ -235,7 +244,7 @@ public class WeightTesting
 			{
 				FileWriter resultsOutputFile = new FileWriter(subsetCVResultsLocation);
 				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-				resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tPredictiveError\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
+				resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tPredictiveError\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN\tTimeTaken");
 				resultsOutputWriter.newLine();
 				resultsOutputWriter.close();
 			}
@@ -248,7 +257,7 @@ public class WeightTesting
 			{
 				FileWriter resultsOutputFile = new FileWriter(subsetOOBResultsLocation);
 				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-				resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
+				resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN\tTimeTaken");
 				resultsOutputWriter.newLine();
 				resultsOutputWriter.close();
 			}
@@ -261,7 +270,7 @@ public class WeightTesting
 			{
 				FileWriter resultsOutputFile = new FileWriter(subsetCVEvenSampleResultsLocation);
 				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-				resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tPredictiveError\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
+				resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tPredictiveError\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN\tTimeTaken");
 				resultsOutputWriter.newLine();
 				resultsOutputWriter.close();
 			}
@@ -274,7 +283,7 @@ public class WeightTesting
 			{
 				FileWriter resultsOutputFile = new FileWriter(subsetOOBEvenSampleResultsLocation);
 				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-				resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN");
+				resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN\tTimeTaken");
 				resultsOutputWriter.newLine();
 				resultsOutputWriter.close();
 			}
@@ -339,14 +348,17 @@ public class WeightTesting
 			subsetCtrl.mtry = mtry;
 			evenSampSubsetCtrl.mtry = mtry;
 
-			System.out.format("Now working on mtry - %d\n", mtry);
+			System.out.format("Now working on mtry - %d.\n", mtry);
 
 			// Generate the results for this weighting.
 			for (Double posWeight : weightsToUse)
 			{
 				weights.put("Positive", posWeight);
 
-				System.out.format("\tNow working on weight - %f\n", posWeight);
+				DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			    Date startTime = new Date();
+			    String strDate = sdfDate.format(startTime);
+				System.out.format("\tNow starting weight - %f at %s.\n", posWeight, strDate);
 
 				// Perform the regular bootstrap forest growth.
 				confusionMatrix = new HashMap<String, Map<String, Double>>();
@@ -418,12 +430,17 @@ public class WeightTesting
 		double cumulativeError = 0.0;
 		double cumulativeCVOOBError = 0.0;
 		double cumulativeOOBError = 0.0;
+		long oobTime = 0l;
+		long cvTime = 0l;
 
+		Date startTime;
+		Date endTime;
 		for (int j = 0; j < repetitions; j++)
 		{
 			// Get the seed for this repetition.
 			long seed = seeds.get(j);
 
+			startTime = new Date();
 			Forest forest;
 			forest = new Forest(inputFile, ctrl, weights, seed);
 			cumulativeOOBError += forest.oobErrorEstimate;
@@ -437,7 +454,10 @@ public class WeightTesting
     			Double newFalsePos = oldFalsePos + oobConfMatrix.get(s).get("FalsePositive");
     			oobConfusionMatrix.get(s).put("FalsePositive", newFalsePos);
     		}
+    		endTime = new Date();
+    		oobTime += endTime.getTime() - startTime.getTime();
 
+//    		startTime = new Date();
 //			for (List<String> l : crossValData.get(j))
 //	    	{
 //	    		forest = new Forest((String) l.get(0), ctrl, weights, seed);
@@ -455,7 +475,10 @@ public class WeightTesting
 //	    			confusionMatrix.get(s).put("FalsePositive", newFalsePos);
 //	    		}
 //	    	}
+//    		endTime = new Date();
+//    		cvTime += endTime.getTime() - startTime.getTime();
 		}
+
 		// Aggregate predicted results over all the repetitions.
 		cumulativeError /= (crossValFolds * repetitions);
 		cumulativeCVOOBError /= (crossValFolds * repetitions);
@@ -528,6 +551,8 @@ public class WeightTesting
 			resultsOutputWriter.write("\t");
 			resultsOutputWriter.write(String.format("%.5f", FN));
 			resultsOutputWriter.newLine();
+			resultsOutputWriter.write(Long.toString(cvTime));
+			resultsOutputWriter.newLine();
 			resultsOutputWriter.close();
 		}
 		catch (Exception e)
@@ -572,6 +597,8 @@ public class WeightTesting
 			resultsOutputWriter.write(String.format("%.5f", oobTN));
 			resultsOutputWriter.write("\t");
 			resultsOutputWriter.write(String.format("%.5f", oobFN));
+			resultsOutputWriter.newLine();
+			resultsOutputWriter.write(Long.toString(oobTime));
 			resultsOutputWriter.newLine();
 			resultsOutputWriter.close();
 		}

@@ -43,8 +43,8 @@ public class TestDriver
 //		System.exit(0);
 
 //		Forest forest = new Forest(args[0], ctrl, weights);
-//		forest.save("C:\\Users\\Simonial\\Documents\\PhD\\FeatureSelection\\TreeSave");
-//		Forest loadForest = new Forest("C:\\Users\\Simonial\\Documents\\PhD\\FeatureSelection\\TreeSave", true);
+//		forest.save("C:\\Users\\Simon\\Documents\\PhD\\FeatureSelection\\TreeSave");
+//		Forest loadForest = new Forest("C:\\Users\\Simon\\Documents\\PhD\\FeatureSelection\\TreeSave", true);
 //		boolean isSeedEqual = forest.seed == loadForest.seed;
 //		boolean isOobEstEqual = forest.oobErrorEstimate == loadForest.oobErrorEstimate;
 //		boolean isDataFileEqual = forest.dataFileGrownFrom.equals(loadForest.dataFileGrownFrom);
