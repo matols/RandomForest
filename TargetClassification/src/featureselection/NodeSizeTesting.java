@@ -347,6 +347,8 @@ public class NodeSizeTesting
 //    		endTime = new Date();
 //    		cvTime += endTime.getTime() - startTime.getTime();
 		}
+		oobTime /= (double) repetitions;
+		cvTime /= (double) repetitions;
 
 		// Aggregate predicted results over all the repetitions.
 		cumulativeError /= (crossValFolds * repetitions);
