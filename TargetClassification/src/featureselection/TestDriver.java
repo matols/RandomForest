@@ -26,13 +26,14 @@ public class TestDriver
 	{
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 100;
+		ctrl.numberOfTreesToGrow = 5000;
 		ctrl.mtry = 10;
+		ctrl.isStratifiedBootstrapUsed = true;
 		int gaRepetitions = 20;
 		boolean isXValUsed = false;
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
-		weights.put("Positive", 1.6);
+		weights.put("Positive", 1.4);
 
 
 //		new Controller(args, ctrl, weights, true);
