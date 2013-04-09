@@ -99,10 +99,12 @@ public class MultipleForestRunAndTest
 				{
 					sampleSize += ctrl.sampSize.get(s);
 				}
-				double posClassFraction = ctrl.sampSize.get(posClass) / sampleSize;
+				double posClassFraction = ((double) ctrl.sampSize.get(posClass)) / sampleSize;
 				resultsOutputWriter.write(Integer.toString(sampleSize));
 				resultsOutputWriter.write("\t");
 				resultsOutputWriter.write(String.format("%.5f", posClassFraction));
+				resultsOutputWriter.write("\t");
+				resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
 				resultsOutputWriter.write("\t");
 			}
 			else if (analysisBeingRun == 3)

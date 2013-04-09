@@ -359,7 +359,7 @@ public class Forest
 			this.processedData = procData;
 		}
 
-		// Determine is sub sampling is used, and if so record the response of each observation.
+		// Determine if sub sampling is used, and if so record the response of each observation.
 		boolean isSampSizeUsed = this.ctrl.sampSize.size() > 0;
 		Set<String> responseClasses = new HashSet<String>(this.processedData.responseData);
 		if (ctrl.isStratifiedBootstrapUsed)

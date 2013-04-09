@@ -3,8 +3,11 @@
  */
 package featureselection;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,7 +29,7 @@ public class TestDriver
 	{
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 5000;
+		ctrl.numberOfTreesToGrow = 50;
 		ctrl.mtry = 10;
 		ctrl.isStratifiedBootstrapUsed = true;
 		int gaRepetitions = 20;
@@ -36,12 +39,29 @@ public class TestDriver
 		weights.put("Positive", 1.4);
 
 
-//		new Controller(args, ctrl, weights, true);
-//		System.exit(0);
+		new Controller(args, ctrl, weights, false);
+		System.exit(0);
 
 
 //		new Controller(args, ctrl, gaRepetitions, isXValUsed, weights);
 //		System.exit(0);
+
+//		ctrl.numberOfTreesToGrow = 500;
+//		weights.put("Positive", 20.0);
+//		Map<String, Integer> sampSize = new HashMap<String, Integer>();
+//		sampSize.put("Unlabelled", 3000);
+//		sampSize.put("Positive", 1000);
+//		ctrl.sampSize = sampSize;
+//		ctrl.isStratifiedBootstrapUsed = false;
+//		ctrl.minNodeSize = 1;
+//		Forest forest = new Forest(args[0], ctrl, weights);
+//		Date startTime = new Date();
+//	    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+//	    String strDate = sdfDate.format(startTime);
+//		System.out.println("\tDone - " + strDate);
+//		System.out.println(weights.get("Positive"));
+//		System.out.println(forest.oobErrorEstimate);
+//		System.out.println(forest.oobConfusionMatrix);
 
 //		Forest forest = new Forest(args[0], ctrl, weights);
 //		forest.save("C:\\Users\\Simon\\Documents\\PhD\\FeatureSelection\\TreeSave");

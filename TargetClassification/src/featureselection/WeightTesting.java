@@ -129,8 +129,8 @@ public class WeightTesting
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
 		int repetitions = 5;
-		Double[] weightsToUse = {1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0};
-		Integer[] mtryToUse = {5, 10, 15, 20, 25, 30};
+		Double[] weightsToUse = {5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0};
+		Integer[] mtryToUse = {10};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;

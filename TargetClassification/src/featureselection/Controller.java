@@ -10,8 +10,11 @@ import java.io.FileWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -236,10 +239,17 @@ public class Controller
 		String negClass = "Unlabelled";
 		String posClass = "Positive";
 
-		int externalRepetitions = 10;
+		//===================================================================
+		//==================== CONTROL PARAMETER SETTING ====================
+		//===================================================================
+		int externalRepetitions = 5;
 		int externalFolds = 10;
-		int internalRepetitions = 50;
+		int internalRepetitions = 5;
 		int internalFolds = 10;
+		//===================================================================
+		//==================== CONTROL PARAMETER SETTING ====================
+		//===================================================================
+
 		// Write out the parameters.
 		String parameterLocation = outputLocation + "/Parameters.txt";
 		try
@@ -264,27 +274,60 @@ public class Controller
 		ctrl.save(outputLocation + "/RandomForestCtrl.txt");
 
 		List<Double> overallMCC = new ArrayList<Double>();
-		List<Double> overallErrorRate = new ArrayList<Double>();
-		List<List<String>> bestSubsets = new ArrayList<List<String>>();
+		List<Double> overallMCCErrorRate = new ArrayList<Double>();
+		List<List<String>> bestMCCSubsets = new ArrayList<List<String>>();
+
+		List<Double> overallFHalfScore = new ArrayList<Double>();
+		List<Double> overallFHalfScoreErrorRate = new ArrayList<Double>();
+		List<List<String>> bestFHalfScoreSubsets = new ArrayList<List<String>>();
+
+		List<Double> overallFScore = new ArrayList<Double>();
+		List<Double> overallFScoreErrorRate = new ArrayList<Double>();
+		List<List<String>> bestFScoreSubsets = new ArrayList<List<String>>();
+
+		List<Double> overallFTwoScore = new ArrayList<Double>();
+		List<Double> overallFTwoScoreErrorRate = new ArrayList<Double>();
+		List<List<String>> bestFTwoScoreSubsets = new ArrayList<List<String>>();
 		// Determine the seeds that will be used.
 		Random randGen = new Random();
 		List<Long> seedsUsed = new ArrayList<Long>();
 
 		for (int exRep = 0; exRep < externalRepetitions; exRep++)
 		{
+			Date startTime = new Date();
+		    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		    String strDate = sdfDate.format(startTime);
+		    System.out.format("Now working on external repetition %d at %s.\n", exRep, strDate);
+
 			// Generate external cross validation folds.
 			CrossValidationFoldGeneration.main(inputLocation, externalCVDir, externalFolds);
 
 			for (int exFold = 0; exFold < externalFolds; exFold++)
 			{
+				startTime = new Date();
+			    sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			    strDate = sdfDate.format(startTime);
+			    System.out.format("\tNow working on external fold %d at %s.\n", exFold, strDate);
+
 				Map<Integer, Double> externalMCC = new HashMap<Integer, Double>();
+				Map<Integer, Double> externalFHalf = new HashMap<Integer, Double>();
+				Map<Integer, Double> externalF = new HashMap<Integer, Double>();
+				Map<Integer, Double> externalFTwo = new HashMap<Integer, Double>();
 				for (int i = 1; i <= fullDataset.covariableData.size(); i++)
 				{
 					externalMCC.put(i, 0.0);
+					externalFHalf.put(i, 0.0);
+					externalF.put(i, 0.0);
+					externalFTwo.put(i, 0.0);
 				}
 
 				for (int inRep = 0; inRep < internalRepetitions; inRep++)
 				{
+					startTime = new Date();
+				    sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+				    strDate = sdfDate.format(startTime);
+				    System.out.format("\t\tNow working on internal repetition %d at %s.\n", inRep, strDate);
+
 					// Generate the internal cross validation folds.
 					CrossValidationFoldGeneration.main(externalCVDir + "\\" + Integer.toString(exFold) + "\\Train.txt", internalCVDir, internalFolds);
 
@@ -308,6 +351,15 @@ public class Controller
 						double MCC = calcMCC(posClass, negClass, predictionResults.second, fullDataset.responseData);  // Calculate the MCC.
 						double oldMCC = externalMCC.get(fullDataset.covariableData.size());
 						externalMCC.put(fullDataset.covariableData.size(), oldMCC + Math.abs(MCC));
+						double fHalfScore = calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 0.5);  // Calculate the F0.5 score.
+						double oldFHalfScore = externalFHalf.get(fullDataset.covariableData.size());
+						externalFHalf.put(fullDataset.covariableData.size(), fHalfScore + oldFHalfScore);
+						double fScore = calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 1.0);  // Calculate the F score.
+						double oldFScore = externalF.get(fullDataset.covariableData.size());
+						externalF.put(fullDataset.covariableData.size(), fScore + oldFScore);
+						double fTwoScore = calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 2.0);  // Calculate the F2 score.
+						double oldTwoScore = externalFTwo.get(fullDataset.covariableData.size());
+						externalFTwo.put(fullDataset.covariableData.size(), fTwoScore + oldTwoScore);
 
 						// Determine the importance ordering for the variables.
 						Map<String, Double> varImp = forest.variableImportance();
@@ -326,19 +378,43 @@ public class Controller
 							MCC = calcMCC(posClass, negClass, predictionResults.second, fullDataset.responseData);  // Calculate the MCC.
 							oldMCC = externalMCC.get(fullDataset.covariableData.size() - (i + 1));
 							externalMCC.put(fullDataset.covariableData.size() - (i + 1), oldMCC + Math.abs(MCC));
+							fHalfScore = calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 0.5);  // Calculate the F0.5 score.
+							oldFHalfScore = externalFHalf.get(fullDataset.covariableData.size() - (i + 1));
+							externalFHalf.put(fullDataset.covariableData.size() - (i + 1), fHalfScore + oldFHalfScore);
+							fScore = calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 1.0);  // Calculate the F score.
+							oldFScore = externalF.get(fullDataset.covariableData.size() - (i + 1));
+							externalF.put(fullDataset.covariableData.size() - (i + 1), fScore + oldFScore);
+							fTwoScore = calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 2.0);  // Calculate the F2 score.
+							oldTwoScore = externalFTwo.get(fullDataset.covariableData.size() - (i + 1));
+							externalFTwo.put(fullDataset.covariableData.size() - (i + 1), fTwoScore + oldTwoScore);
 						}
 					}
 				}
 
 				// Find subset size F that gives the greatest absolute MCC.
-				List<IndexedDoubleData> sortedSubsetSizes = new ArrayList<IndexedDoubleData>();
+				List<IndexedDoubleData> sortedMCCSubsetSizes = new ArrayList<IndexedDoubleData>();
+				List<IndexedDoubleData> sortedFHalfScoreSubsetSizes = new ArrayList<IndexedDoubleData>();
+				List<IndexedDoubleData> sortedFScoreSubsetSizes = new ArrayList<IndexedDoubleData>();
+				List<IndexedDoubleData> sortedFTwoScoreSubsetSizes = new ArrayList<IndexedDoubleData>();
 				for (Integer i : externalMCC.keySet())
 				{
-					sortedSubsetSizes.add(new IndexedDoubleData(externalMCC.get(i) / (internalFolds * internalRepetitions), i));
+					sortedMCCSubsetSizes.add(new IndexedDoubleData(externalMCC.get(i) / (internalFolds * internalRepetitions), i));
+					sortedFHalfScoreSubsetSizes.add(new IndexedDoubleData(externalFHalf.get(i) / (internalFolds * internalRepetitions), i));
+					sortedFScoreSubsetSizes.add(new IndexedDoubleData(externalF.get(i) / (internalFolds * internalRepetitions), i));
+					sortedFTwoScoreSubsetSizes.add(new IndexedDoubleData(externalFTwo.get(i) / (internalFolds * internalRepetitions), i));
 				}
-				Collections.sort(sortedSubsetSizes);
-				Collections.reverse(sortedSubsetSizes);
-				int bestSubsetSize = sortedSubsetSizes.get(0).getIndex();
+				Collections.sort(sortedMCCSubsetSizes);
+				Collections.reverse(sortedMCCSubsetSizes);
+				int bestMCCSubsetSize = sortedMCCSubsetSizes.get(0).getIndex();
+				Collections.sort(sortedFHalfScoreSubsetSizes);
+				Collections.reverse(sortedFHalfScoreSubsetSizes);
+				int bestFHalfScoreSubsetSize = sortedFHalfScoreSubsetSizes.get(0).getIndex();
+				Collections.sort(sortedFScoreSubsetSizes);
+				Collections.reverse(sortedFScoreSubsetSizes);
+				int bestFScoreSubsetSize = sortedFScoreSubsetSizes.get(0).getIndex();
+				Collections.sort(sortedFTwoScoreSubsetSizes);
+				Collections.reverse(sortedFTwoScoreSubsetSizes);
+				int bestFTwoScoreSubsetSize = sortedFTwoScoreSubsetSizes.get(0).getIndex();
 
 				// Train a forest on all the training data, and select the F most important features to return as the feature subset for these repetitions.
 				Forest forest = new Forest(externalCVDir + "\\" + Integer.toString(exFold) + "\\Train.txt", ctrl, weights);
@@ -351,24 +427,76 @@ public class Controller
 				Collections.sort(sortedVariables);
 
 				List<String> chosenSubset = new ArrayList<String>();
-				for (int i = 0; i < bestSubsetSize; i++)
+				for (int i = 0; i < bestMCCSubsetSize; i++)
 				{
 					chosenSubset.add(sortedVariables.get(i).getId());
 				}
 				TreeGrowthControl tempCtrl = new TreeGrowthControl(ctrl);
-				for (int i = bestSubsetSize; i < varImp.size(); i++)
+				for (int i = bestMCCSubsetSize; i < varImp.size(); i++)
 				{
 					tempCtrl.variablesToIgnore.add(sortedVariables.get(i).getId());
 				}
 				forest.regrowForest(tempCtrl);
-
 				ProcessDataForGrowing testData = new ProcessDataForGrowing(externalCVDir + "\\" + Integer.toString(exFold) + "\\Test.txt", ctrl);
 				ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predictionResults = forest.predict(testData);
 				double MCC = calcMCC(posClass, negClass, predictionResults.second, fullDataset.responseData);  // Calculate the MCC.
-
-				overallErrorRate.add(predictionResults.first);
+				overallMCCErrorRate.add(predictionResults.first);
 				overallMCC.add(MCC);
-				bestSubsets.add(chosenSubset);
+				bestMCCSubsets.add(chosenSubset);
+
+				chosenSubset = new ArrayList<String>();
+				for (int i = 0; i < bestFHalfScoreSubsetSize; i++)
+				{
+					chosenSubset.add(sortedVariables.get(i).getId());
+				}
+				tempCtrl = new TreeGrowthControl(ctrl);
+				for (int i = bestFHalfScoreSubsetSize; i < varImp.size(); i++)
+				{
+					tempCtrl.variablesToIgnore.add(sortedVariables.get(i).getId());
+				}
+				forest.regrowForest(tempCtrl);
+				testData = new ProcessDataForGrowing(externalCVDir + "\\" + Integer.toString(exFold) + "\\Test.txt", ctrl);
+				predictionResults = forest.predict(testData);
+				double fHalfScore = calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 0.5);  // Calculate the F0.5 score.
+				overallFHalfScoreErrorRate.add(predictionResults.first);
+				overallFHalfScore.add(fHalfScore);
+				bestFHalfScoreSubsets.add(chosenSubset);
+
+				chosenSubset = new ArrayList<String>();
+				for (int i = 0; i < bestFScoreSubsetSize; i++)
+				{
+					chosenSubset.add(sortedVariables.get(i).getId());
+				}
+				tempCtrl = new TreeGrowthControl(ctrl);
+				for (int i = bestFScoreSubsetSize; i < varImp.size(); i++)
+				{
+					tempCtrl.variablesToIgnore.add(sortedVariables.get(i).getId());
+				}
+				forest.regrowForest(tempCtrl);
+				testData = new ProcessDataForGrowing(externalCVDir + "\\" + Integer.toString(exFold) + "\\Test.txt", ctrl);
+				predictionResults = forest.predict(testData);
+				double fScore = calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 1.0);  // Calculate the F score.
+				overallFScoreErrorRate.add(predictionResults.first);
+				overallFScore.add(fScore);
+				bestFScoreSubsets.add(chosenSubset);
+
+				chosenSubset = new ArrayList<String>();
+				for (int i = 0; i < bestFTwoScoreSubsetSize; i++)
+				{
+					chosenSubset.add(sortedVariables.get(i).getId());
+				}
+				tempCtrl = new TreeGrowthControl(ctrl);
+				for (int i = bestFTwoScoreSubsetSize; i < varImp.size(); i++)
+				{
+					tempCtrl.variablesToIgnore.add(sortedVariables.get(i).getId());
+				}
+				forest.regrowForest(tempCtrl);
+				testData = new ProcessDataForGrowing(externalCVDir + "\\" + Integer.toString(exFold) + "\\Test.txt", ctrl);
+				predictionResults = forest.predict(testData);
+				double fTwoScore = calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 2.0);  // Calculate the F2 score.
+				overallFTwoScoreErrorRate.add(predictionResults.first);
+				overallFTwoScore.add(fTwoScore);
+				bestFTwoScoreSubsets.add(chosenSubset);
 			}
 		}
 
@@ -392,7 +520,7 @@ public class Controller
 			System.exit(0);
 		}
 
-		// Determine the features that are used in the GAs.
+		// Determine the features that are used in the training.
 		List<String> featuresUsed = new ArrayList<String>();
 		for (int i = 0; i < featureNames.length; i++)
 		{
@@ -410,9 +538,17 @@ public class Controller
 		{
 			FileWriter errorRatesOutputFile = new FileWriter(errorRatesLocation);
 			BufferedWriter errorRatesOutputWriter = new BufferedWriter(errorRatesOutputFile);
-			for (Double d : overallErrorRate)
+			errorRatesOutputWriter.write("MCC\tF0.5\tF\tF2");
+			errorRatesOutputWriter.newLine();
+			for (int i = 0; i < overallMCCErrorRate.size(); i++)
 			{
-				errorRatesOutputWriter.write(Double.toString(d));
+				errorRatesOutputWriter.write(Double.toString(overallMCCErrorRate.get(i)));
+				errorRatesOutputWriter.write("\t");
+				errorRatesOutputWriter.write(Double.toString(overallFHalfScoreErrorRate.get(i)));
+				errorRatesOutputWriter.write("\t");
+				errorRatesOutputWriter.write(Double.toString(overallFScoreErrorRate.get(i)));
+				errorRatesOutputWriter.write("\t");
+				errorRatesOutputWriter.write(Double.toString(overallFTwoScoreErrorRate.get(i)));
 				errorRatesOutputWriter.newLine();
 			}
 			errorRatesOutputWriter.close();
@@ -422,24 +558,32 @@ public class Controller
 			e.printStackTrace();
 			System.exit(0);
 		}
-		String MCCsLocation = outputLocation + "/MCCs.txt";
+		String scoreLocation = outputLocation + "/ClassifierQuality.txt";
 		try
 		{
-			FileWriter MCCsOutputFile = new FileWriter(MCCsLocation);
-			BufferedWriter MCCsOutputWriter = new BufferedWriter(MCCsOutputFile);
-			for (Double d : overallMCC)
+			FileWriter scoreOutputFile = new FileWriter(scoreLocation);
+			BufferedWriter scoreOutputWriter = new BufferedWriter(scoreOutputFile);
+			scoreOutputWriter.write("MCC\tF0.5\tF\tF2");
+			scoreOutputWriter.newLine();
+			for (int i = 0; i < overallMCC.size(); i++)
 			{
-				MCCsOutputWriter.write(Double.toString(d));
-				MCCsOutputWriter.newLine();
+				scoreOutputWriter.write(Double.toString(overallMCC.get(i)));
+				scoreOutputWriter.write("\t");
+				scoreOutputWriter.write(Double.toString(overallFHalfScore.get(i)));
+				scoreOutputWriter.write("\t");
+				scoreOutputWriter.write(Double.toString(overallFScore.get(i)));
+				scoreOutputWriter.write("\t");
+				scoreOutputWriter.write(Double.toString(overallFTwoScore.get(i)));
+				scoreOutputWriter.newLine();
 			}
-			MCCsOutputWriter.close();
+			scoreOutputWriter.close();
 		}
 		catch (Exception e)
 		{
 			e.printStackTrace();
 			System.exit(0);
 		}
-		String featureFractionsLocation = outputLocation + "/FeatureSubsets.txt";
+		String featureFractionsLocation = outputLocation + "/MCCFeatureSubsets.txt";
 		try
 		{
 			FileWriter featureFractionsOutputFile = new FileWriter(featureFractionsLocation);
@@ -447,7 +591,7 @@ public class Controller
 			for (String s : featuresUsed)
 			{
 				featureFractionsOutputWriter.write(s);
-				for (List<String> subset : bestSubsets)
+				for (List<String> subset : bestMCCSubsets)
 				{
 					if (subset.contains(s))
 					{
@@ -468,7 +612,127 @@ public class Controller
 			}
 			featureFractionsOutputWriter.newLine();
 			featureFractionsOutputWriter.write("ErrorRate");
-			for (Double error : overallErrorRate)
+			for (Double error : overallMCCErrorRate)
+			{
+				featureFractionsOutputWriter.write("\t" + Double.toString(error));
+			}
+			featureFractionsOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+		featureFractionsLocation = outputLocation + "/FHalfFeatureSubsets.txt";
+		try
+		{
+			FileWriter featureFractionsOutputFile = new FileWriter(featureFractionsLocation);
+			BufferedWriter featureFractionsOutputWriter = new BufferedWriter(featureFractionsOutputFile);
+			for (String s : featuresUsed)
+			{
+				featureFractionsOutputWriter.write(s);
+				for (List<String> subset : bestFHalfScoreSubsets)
+				{
+					if (subset.contains(s))
+					{
+						featureFractionsOutputWriter.write("\t1");
+					}
+					else
+					{
+						featureFractionsOutputWriter.write("\t0");
+					}
+				}
+				featureFractionsOutputWriter.newLine();
+			}
+			featureFractionsOutputWriter.newLine();
+			featureFractionsOutputWriter.write("F0.5");
+			for (Double fHalf : overallFHalfScore)
+			{
+				featureFractionsOutputWriter.write("\t" + Double.toString(fHalf));
+			}
+			featureFractionsOutputWriter.newLine();
+			featureFractionsOutputWriter.write("ErrorRate");
+			for (Double error : overallFHalfScoreErrorRate)
+			{
+				featureFractionsOutputWriter.write("\t" + Double.toString(error));
+			}
+			featureFractionsOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+		featureFractionsLocation = outputLocation + "/FOneFeatureSubsets.txt";
+		try
+		{
+			FileWriter featureFractionsOutputFile = new FileWriter(featureFractionsLocation);
+			BufferedWriter featureFractionsOutputWriter = new BufferedWriter(featureFractionsOutputFile);
+			for (String s : featuresUsed)
+			{
+				featureFractionsOutputWriter.write(s);
+				for (List<String> subset : bestFScoreSubsets)
+				{
+					if (subset.contains(s))
+					{
+						featureFractionsOutputWriter.write("\t1");
+					}
+					else
+					{
+						featureFractionsOutputWriter.write("\t0");
+					}
+				}
+				featureFractionsOutputWriter.newLine();
+			}
+			featureFractionsOutputWriter.newLine();
+			featureFractionsOutputWriter.write("F1");
+			for (Double fOne : overallFScore)
+			{
+				featureFractionsOutputWriter.write("\t" + Double.toString(fOne));
+			}
+			featureFractionsOutputWriter.newLine();
+			featureFractionsOutputWriter.write("ErrorRate");
+			for (Double error : overallFScoreErrorRate)
+			{
+				featureFractionsOutputWriter.write("\t" + Double.toString(error));
+			}
+			featureFractionsOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+		featureFractionsLocation = outputLocation + "/FTwoFeatureSubsets.txt";
+		try
+		{
+			FileWriter featureFractionsOutputFile = new FileWriter(featureFractionsLocation);
+			BufferedWriter featureFractionsOutputWriter = new BufferedWriter(featureFractionsOutputFile);
+			for (String s : featuresUsed)
+			{
+				featureFractionsOutputWriter.write(s);
+				for (List<String> subset : bestFTwoScoreSubsets)
+				{
+					if (subset.contains(s))
+					{
+						featureFractionsOutputWriter.write("\t1");
+					}
+					else
+					{
+						featureFractionsOutputWriter.write("\t0");
+					}
+				}
+				featureFractionsOutputWriter.newLine();
+			}
+			featureFractionsOutputWriter.newLine();
+			featureFractionsOutputWriter.write("F2");
+			for (Double fTwo : overallFTwoScore)
+			{
+				featureFractionsOutputWriter.write("\t" + Double.toString(fTwo));
+			}
+			featureFractionsOutputWriter.newLine();
+			featureFractionsOutputWriter.write("ErrorRate");
+			for (Double error : overallFTwoScoreErrorRate)
 			{
 				featureFractionsOutputWriter.write("\t" + Double.toString(error));
 			}
@@ -581,7 +845,10 @@ public class Controller
 
 		for (int i = 0; i < repetitions; i++)
 		{
-			System.out.format("Now working on repetition - %d\n", i);
+			Date startTime = new Date();
+		    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		    String strDate = sdfDate.format(startTime);
+		    System.out.format("Now working on repetition %d at %s.\n", i, strDate);
 
 			Long seedToUse = randGen.nextLong();
 			while (seedsUsed.contains(seedToUse))
@@ -721,6 +988,34 @@ public class Controller
 		Double MCC = (((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN)));
 
 		return MCC;
+	}
+
+	double calcFBeta(String posClass, String negClass, Map<String, Map<String, Double>> confMatrix, List<String> responseData, Double fBeta)
+	{
+		Map<String, Map<String, Double>> confusionMatrix = new HashMap<String, Map<String, Double>>();
+		for (String s : new HashSet<String>(responseData))
+		{
+			confusionMatrix.put(s, new HashMap<String, Double>());
+			confusionMatrix.get(s).put("TruePositive", 0.0);
+			confusionMatrix.get(s).put("FalsePositive", 0.0);
+		}
+		for (String s : confMatrix.keySet())
+		{
+			Double oldTruePos = confusionMatrix.get(s).get("TruePositive");
+			Double newTruePos = oldTruePos + confMatrix.get(s).get("TruePositive");
+			confusionMatrix.get(s).put("TruePositive", newTruePos);
+			Double oldFalsePos = confusionMatrix.get(s).get("FalsePositive");
+			Double newFalsePos = oldFalsePos + confMatrix.get(s).get("FalsePositive");
+			confusionMatrix.get(s).put("FalsePositive", newFalsePos);
+		}
+		Double TP = confusionMatrix.get(posClass).get("TruePositive");
+		Double FP = confusionMatrix.get(posClass).get("FalsePositive");
+		Double FN = confusionMatrix.get(negClass).get("FalsePositive");
+		Double sensitivityOrRecall = TP / (TP + FN);
+		Double precisionOrPPV = TP / (TP + FP);
+		double fScore = (1 + Math.pow(fBeta, 2)) * ((precisionOrPPV * sensitivityOrRecall) / ((Math.pow(fBeta, 2) * precisionOrPPV) + sensitivityOrRecall));
+
+		return fScore;
 	}
 
 	/**
