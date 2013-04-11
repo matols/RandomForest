@@ -246,6 +246,7 @@ public class Controller
 		int externalFolds = 10;
 		int internalRepetitions = 5;
 		int internalFolds = 10;
+		int numberToElim = 1;
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -370,7 +371,7 @@ public class Controller
 						}
 						Collections.sort(sortedVariables);
 
-						for (int i = 0; i < varImp.size() - 1; i++)
+						for (int i = 0; i < varImp.size() - 1; i = i + numberToElim)
 						{
 							tempCtrl.variablesToIgnore.add(sortedVariables.get(i).getId());
 							forest.regrowForest(tempCtrl);
