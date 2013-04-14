@@ -112,7 +112,7 @@ public class NodeSizeTesting
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
 		int repetitions = 50;
-		Integer[] nodeSizeValues = {};
+		Integer[] nodeSizeValues = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
@@ -125,8 +125,8 @@ public class NodeSizeTesting
 		String posClass = "Positive";
 
 		Map<String, Double> weights = new HashMap<String, Double>();
-		weights.put("Positive", 1.0);
 		weights.put("Unlabelled", 1.0);
+		weights.put("Positive", 1.1);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================

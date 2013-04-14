@@ -112,15 +112,16 @@ public class SampleSizeTesting
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int repetitions = 5;
+		int repetitions = 2;
 		Integer[] sizeOfDatasets = {2000};
-		Double[] fractionOfPositives = {0.5, 0.75};
-		Double[] weightsToUse = {0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75};
+		Double[] fractionOfPositives = {0.0};
+		Double[] weightsToUse = {10.0, 20.0, 30.0, 40.0, 50.0};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
 		ctrl.numberOfTreesToGrow = 500;
 		ctrl.mtry = 10;
+		ctrl.minNodeSize = 1;
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
@@ -255,7 +256,7 @@ public class SampleSizeTesting
 					positiveFraction = ((double) numberPosObs) / numberOfObservations;
 				}
 				int positiveObservationsToUse = (int) Math.floor(positiveFraction * datasetSize);
-				positiveObservationsToUse = Math.min(positiveObservationsToUse, numberPosObs);  // Can't have more positive observations than there are.
+//				positiveObservationsToUse = Math.min(positiveObservationsToUse, numberPosObs);  // Can't have more positive observations than there are.
 				int unlabelledObservationsToUse = datasetSize - positiveObservationsToUse;
 //				weights.put("Positive", (1 - positiveFraction) / positiveFraction);
 
