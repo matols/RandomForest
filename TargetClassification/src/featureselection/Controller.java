@@ -9,10 +9,12 @@ import java.io.File;
 import java.io.FileWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -242,11 +244,11 @@ public class Controller
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int externalRepetitions = 5;
+		int externalRepetitions = 10;
 		int externalFolds = 10;
-		int internalRepetitions = 5;
+		int internalRepetitions = 20;
 		int internalFolds = 10;
-		int numberToElim = 1;
+		double fractionToElim = 0.1;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -371,23 +373,39 @@ public class Controller
 						}
 						Collections.sort(sortedVariables);
 
-						for (int i = 0; i < varImp.size() - 1; i = i + numberToElim)
+						int variablesRemaining = varImp.size();
+						int currentVariablePointer = 0;
+						int varsToElimThisRound = (int) Math.ceil(variablesRemaining * fractionToElim);
+						variablesRemaining -= varsToElimThisRound;
+						for (int i = 0; i < varsToElimThisRound; i++)
 						{
-							tempCtrl.variablesToIgnore.add(sortedVariables.get(i).getId());
+							tempCtrl.variablesToIgnore.add(sortedVariables.get(currentVariablePointer).getId());
+							currentVariablePointer++;
+						}
+						while (variablesRemaining > 0)
+						{
 							forest.regrowForest(tempCtrl);
 							predictionResults = forest.predict(testData);
 							MCC = calcMCC(posClass, negClass, predictionResults.second, fullDataset.responseData);  // Calculate the MCC.
-							oldMCC = externalMCC.get(fullDataset.covariableData.size() - (i + 1));
-							externalMCC.put(fullDataset.covariableData.size() - (i + 1), oldMCC + Math.abs(MCC));
+							oldMCC = externalMCC.get(variablesRemaining);
+							externalMCC.put(variablesRemaining, oldMCC + Math.abs(MCC));
 							fHalfScore = calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 0.5);  // Calculate the F0.5 score.
-							oldFHalfScore = externalFHalf.get(fullDataset.covariableData.size() - (i + 1));
-							externalFHalf.put(fullDataset.covariableData.size() - (i + 1), fHalfScore + oldFHalfScore);
+							oldFHalfScore = externalFHalf.get(variablesRemaining);
+							externalFHalf.put(variablesRemaining, fHalfScore + oldFHalfScore);
 							fScore = calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 1.0);  // Calculate the F score.
-							oldFScore = externalF.get(fullDataset.covariableData.size() - (i + 1));
-							externalF.put(fullDataset.covariableData.size() - (i + 1), fScore + oldFScore);
+							oldFScore = externalF.get(variablesRemaining);
+							externalF.put(variablesRemaining, fScore + oldFScore);
 							fTwoScore = calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 2.0);  // Calculate the F2 score.
-							oldTwoScore = externalFTwo.get(fullDataset.covariableData.size() - (i + 1));
-							externalFTwo.put(fullDataset.covariableData.size() - (i + 1), fTwoScore + oldTwoScore);
+							oldTwoScore = externalFTwo.get(variablesRemaining);
+							externalFTwo.put(variablesRemaining, fTwoScore + oldTwoScore);
+
+							varsToElimThisRound = (int) Math.ceil(variablesRemaining * fractionToElim);
+							variablesRemaining -= varsToElimThisRound;
+							for (int i = 0; i < varsToElimThisRound; i++)
+							{
+								tempCtrl.variablesToIgnore.add(sortedVariables.get(currentVariablePointer).getId());
+								currentVariablePointer++;
+							}
 						}
 					}
 				}
@@ -773,7 +791,14 @@ public class Controller
 			System.exit(0);
 		}
 
-		int repetitions = 200;
+		//===================================================================
+		//==================== CONTROL PARAMETER SETTING ====================
+		//===================================================================
+		int repetitions = 50;
+		//===================================================================
+		//==================== CONTROL PARAMETER SETTING ====================
+		//===================================================================
+
 		// Write out the parameters.
 		String parameterLocation = outputLocation + "/Parameters.txt";
 		try
@@ -828,17 +853,6 @@ public class Controller
 		{
 			importanceRanking.put(s, new ArrayList<Integer>());
 		}
-		ProcessDataForGrowing inputData = new ProcessDataForGrowing(inputLocation, ctrl);
-		Map<Integer, Map<Integer, Double>> proximities = new HashMap<Integer, Map<Integer, Double>>();
-		for (int i = 0; i < inputData.numberObservations; i++)
-		{
-			Map<Integer, Double> proxims = new HashMap<Integer, Double>();
-			for (int j = 0; j < inputData.numberObservations; j++)
-			{
-				proxims.put(j, 0.0);
-			}
-			proximities.put(i, proxims);
-		}
 
 		// Determine the seeds that will be used.
 		Random randGen = new Random();
@@ -859,17 +873,17 @@ public class Controller
 			}
 			seedsUsed.add(seedToUse);
 			Forest forest = new Forest(inputLocation, ctrl, weights, seedToUse);
-			Map<String, Double> varImp = forest.variableImportance();
-			Map<Integer, Map<Integer, Double>> prox = forest.calculatProximities();
-			for (int j : prox.keySet())
-			{
-				Map<Integer, Double> currentProx = proximities.get(j);
-				Map<Integer, Double> newProx = prox.get(j);
-				for (int k : prox.get(j).keySet())
-				{
-					currentProx.put(k, currentProx.get(k) + newProx.get(k));
-				}
-			}
+			startTime = new Date();
+		    sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		    strDate = sdfDate.format(startTime);
+			System.out.format("\tNow determining variable importances at %s.\n", strDate);
+//			Map<String, Double> varImp = forest.variableImportance();
+			Map<String, Double> varImp = new HashMap<String, Double>();
+			startTime = new Date();
+		    sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		    strDate = sdfDate.format(startTime);
+			System.out.format("\tNow determining proximities at %s.\n", strDate);
+			Map<Integer, Map<Integer, Double>> prox = forest.calculatProximities(outputLocation + "/TempProximities.txt");
 
 			// Determine the importance ordering for the variables, largest importance first.
 			List<StringsSortedByDoubles> sortedVariables = new ArrayList<StringsSortedByDoubles>();
@@ -884,16 +898,6 @@ public class Controller
 			{
 				String featureImp = sortedVariables.get(j).getId();
 				importanceRanking.get(featureImp).add(j + 1);
-			}
-		}
-
-		// Normalise the proximities.
-		for (int j : proximities.keySet())
-		{
-			Map<Integer, Double> currentProx = proximities.get(j);
-			for (int k : currentProx.keySet())
-			{
-				currentProx.put(k, currentProx.get(k) / repetitions);
 			}
 		}
 
@@ -919,32 +923,6 @@ public class Controller
 			e.printStackTrace();
 			System.exit(0);
 		}
-		String proximitiesLocation = outputLocation + "/Proximities.txt";
-		try
-		{
-			FileWriter proximitiesOutputFile = new FileWriter(proximitiesLocation);
-			BufferedWriter proximitiesOutputWriter = new BufferedWriter(proximitiesOutputFile);
-			for (int i = 0; i < inputData.numberObservations; i++)
-			{
-				proximitiesOutputWriter.write("\t" + Integer.toString(i));
-			}
-			proximitiesOutputWriter.newLine();
-			for (int i = 0; i < inputData.numberObservations; i++)
-			{
-				proximitiesOutputWriter.write(Integer.toString(i));
-				for (int j = 0; j < inputData.numberObservations; j++)
-				{
-					proximitiesOutputWriter.write("\t" + Double.toString(proximities.get(i).get(j)));
-				}
-				proximitiesOutputWriter.newLine();
-			}
-			proximitiesOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
 		String seedsLocation = outputLocation + "/SeedsUsed.txt";
 		try
 		{
@@ -956,6 +934,73 @@ public class Controller
 				seedsOutputWriter.newLine();
 			}
 			seedsOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+		ProcessDataForGrowing procInputData = new ProcessDataForGrowing(inputLocation, ctrl);
+		int numberOfObservations = procInputData.numberObservations;
+		int numberOfTrees = 0;
+		Path dataPath = Paths.get(outputLocation + "/TempProximities.txt");
+		try
+		{
+			FileWriter proxOutputFile = new FileWriter(outputLocation + "/Proximities.txt");
+			BufferedWriter proxOutputWriter = new BufferedWriter(proxOutputFile);
+			for (int i = 0; i < numberOfObservations; i++)
+			{
+				proxOutputWriter.write("\t" + Integer.toString(i));
+			}
+			proxOutputWriter.newLine();
+			for (int i = 0; i < numberOfObservations; i++)
+			{
+				// For each observation
+				String currentObs = Integer.toString(i);
+				Map<String, Double> sameTermNodeWithI = new HashMap<String, Double>();
+				for (int j = 0; j < numberOfObservations; j++)
+				{
+					// Set up coocurences where obs appears in same terminal node with other obs
+					sameTermNodeWithI.put(Integer.toString(j), 0.0);
+				}
+				try (BufferedReader reader = Files.newBufferedReader(dataPath, StandardCharsets.UTF_8))
+				{
+					String line;
+					numberOfTrees = 0;
+					while ((line = reader.readLine()) != null)
+					{
+						numberOfTrees += 1;
+						String[] proxims = line.trim().split("\t");
+						for (String s : proxims)
+						{
+							List<String> termNodeObs = Arrays.asList(s.split(","));
+							if (termNodeObs.contains(currentObs))
+							{
+								for (String p : termNodeObs)
+								{
+									sameTermNodeWithI.put(p, sameTermNodeWithI.get(p) + 1.0);
+								}
+							}
+						}
+					}
+				}
+				catch (Exception e)
+				{
+					e.printStackTrace();
+					System.exit(0);
+				}
+				for (String s : sameTermNodeWithI.keySet())
+				{
+					sameTermNodeWithI.put(s, sameTermNodeWithI.get(s) / numberOfTrees);
+				}
+				proxOutputWriter.write(currentObs);
+				for (int j = 0; j < numberOfObservations; j++)
+				{
+					proxOutputWriter.write("\t" + Double.toString(sameTermNodeWithI.get(Integer.toString(j))));
+				}
+				proxOutputWriter.newLine();
+			}
+			proxOutputWriter.close();
 		}
 		catch (Exception e)
 		{
