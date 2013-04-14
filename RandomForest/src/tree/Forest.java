@@ -217,7 +217,7 @@ public class Forest
 			List<List<Integer>> treeProximities = t.getProximities(procData);  // Get the proximities for the tree.
 			for (List<Integer> l : treeProximities)
 			{
-				Collections.sort(l);  // Sort the list of observation indices o that you only have to keep half the matrix.
+				Collections.sort(l);  // Sort the list of observation indices so that you only have to keep half the matrix.
 				for (int i = 0; i < l.size(); i++)
 				{
 					Integer obsI = l.get(i);
@@ -251,6 +251,47 @@ public class Forest
 		}
 
 		return proximities;
+	}
+
+	public Map<Integer, Map<Integer, Double>> calculatProximities(String outputLocation)
+	{
+		return calculatProximities(this.processedData, outputLocation);
+	}
+
+	public Map<Integer, Map<Integer, Double>> calculatProximities(ProcessDataForGrowing procData, String outputLocation)
+	{
+		try
+		{
+			FileWriter proxOutputFile = new FileWriter(outputLocation, true);
+			BufferedWriter proxOutputWriter = new BufferedWriter(proxOutputFile);
+			
+			for (CARTTree t : this.forest)
+			{
+				String treeProxString = "";
+				List<List<Integer>> treeProximities = t.getProximities(procData);  // Get the proximities for the tree.
+				for (List<Integer> l : treeProximities)
+				{
+					for (Integer i : l)
+					{
+						treeProxString += Integer.toString(i) + ",";
+					}
+					treeProxString = treeProxString.substring(0, treeProxString.length() - 1);
+					treeProxString += "\t";
+				}
+				treeProxString = treeProxString.substring(0, treeProxString.length() - 1);
+				proxOutputWriter.write(treeProxString);
+				proxOutputWriter.newLine();
+			}
+
+			proxOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+
+		return null;
 	}
 
 
@@ -482,51 +523,54 @@ public class Forest
 			this.forest.add(new CARTTree(this.processedData, this.ctrl, weights, observationsForTheTree, seedForTree));
 		}
 
-		// Calculate the oob error. This is done by putting each observation down the trees where it is oob.
-		double cumulativeErrorRate = 0.0;
-		Map<String, Map<String, Double>> confusionMatrix = new HashMap<String, Map<String, Double>>();
-		Set<String> responsePossibilities = new HashSet<String>(this.processedData.responseData);
-		for (String s : responsePossibilities)
+		if (this.ctrl.calculateOOB)
 		{
-			Map<String, Double> classEntry = new HashMap<String, Double>();
-			classEntry.put("TruePositive", 0.0);
-			classEntry.put("FalsePositive", 0.0);
-			confusionMatrix.put(s, classEntry);
-		}
-		int numberOobObservations = 0;
-		for (int i = 0; i < this.processedData.numberObservations; i++)
-		{
-			boolean isIOob = false;
-			List<Integer> obsToPredict = new ArrayList<Integer>();
-			obsToPredict.add(i);
-			// Gather the trees or which observation i is oob.
-			List<Integer> treesToPredictFrom = new ArrayList<Integer>();
-			for (int j = 0; j < this.ctrl.numberOfTreesToGrow; j++)
+			// Calculate the oob error. This is done by putting each observation down the trees where it is oob.
+			double cumulativeErrorRate = 0.0;
+			Map<String, Map<String, Double>> confusionMatrix = new HashMap<String, Map<String, Double>>();
+			Set<String> responsePossibilities = new HashSet<String>(this.processedData.responseData);
+			for (String s : responsePossibilities)
 			{
-				if (this.oobObservations.get(j).contains(i))
-				{
-					// If the jth tree contains the ith observation as an oob observation.
-					treesToPredictFrom.add(j);
-					isIOob = true;
-				}
+				Map<String, Double> classEntry = new HashMap<String, Double>();
+				classEntry.put("TruePositive", 0.0);
+				classEntry.put("FalsePositive", 0.0);
+				confusionMatrix.put(s, classEntry);
 			}
-			if (isIOob)
+			int numberOobObservations = 0;
+			for (int i = 0; i < this.processedData.numberObservations; i++)
 			{
-				numberOobObservations += 1;
-				ImmutableTwoValues<Double, Map<String, Map<String, Double>>> oobPrediction = predict(this.processedData, obsToPredict, treesToPredictFrom);
-				cumulativeErrorRate += oobPrediction.first;
-				for (String s : oobPrediction.second.keySet())
+				boolean isIOob = false;
+				List<Integer> obsToPredict = new ArrayList<Integer>();
+				obsToPredict.add(i);
+				// Gather the trees or which observation i is oob.
+				List<Integer> treesToPredictFrom = new ArrayList<Integer>();
+				for (int j = 0; j < this.ctrl.numberOfTreesToGrow; j++)
 				{
-					for (String p : oobPrediction.second.get(s).keySet())
+					if (this.oobObservations.get(j).contains(i))
 					{
-						Double oldValue = confusionMatrix.get(s).get(p);
-						confusionMatrix.get(s).put(p, oldValue + oobPrediction.second.get(s).get(p));
+						// If the jth tree contains the ith observation as an oob observation.
+						treesToPredictFrom.add(j);
+						isIOob = true;
 					}
 				}
-			}			
+				if (isIOob)
+				{
+					numberOobObservations += 1;
+					ImmutableTwoValues<Double, Map<String, Map<String, Double>>> oobPrediction = predict(this.processedData, obsToPredict, treesToPredictFrom);
+					cumulativeErrorRate += oobPrediction.first;
+					for (String s : oobPrediction.second.keySet())
+					{
+						for (String p : oobPrediction.second.get(s).keySet())
+						{
+							Double oldValue = confusionMatrix.get(s).get(p);
+							confusionMatrix.get(s).put(p, oldValue + oobPrediction.second.get(s).get(p));
+						}
+					}
+				}			
+			}
+			this.oobErrorEstimate = cumulativeErrorRate / numberOobObservations;
+			this.oobConfusionMatrix = confusionMatrix;
 		}
-		this.oobErrorEstimate = cumulativeErrorRate / numberOobObservations;
-		this.oobConfusionMatrix = confusionMatrix;
 	}
 
 
@@ -560,22 +604,33 @@ public class Forest
 		Double errorRate = 0.0;
 		Map<Integer, String> observationToClassification = new HashMap<Integer, String>();
 
-		// Set up the mapping from observation index to predictions.
-		// One key for each observation being predicted. The list of objects contains one entry for each tree the
-		// observation is being predicted on.
-		Map<Integer, List<ImmutableTwoValues<String, Double>>> predictions = new HashMap<Integer, List<ImmutableTwoValues<String, Double>>>();
+		Set<String> classNames = new HashSet<String>(this.processedData.responseData);  // A set containing the names of all the classes in the dataset.
+
+		// Set up the mapping from observation index to predictions. The key is the index of the observation in the dataset, the Map contains
+		// a mapping from each class to the weighted vote for it from the forest.
+		Map<Integer, Map<String, Double>> predictions = new HashMap<Integer,Map<String, Double>>();
+		Map<String, Double> possiblePredictions = new HashMap<String, Double>();
+		for (String s : classNames)
+		{
+			possiblePredictions.put(s, 0.0);
+		}
 		for (int i : observationsToPredict)
 		{
-			predictions.put(i, new ArrayList<ImmutableTwoValues<String, Double>>());
+			predictions.put(i, new HashMap<String, Double>(possiblePredictions));
 		}
 
 		// Get the raw predictions for each tree.
 		for (int i : treesToUseForPrediction)
 		{
-			Map<Integer, ImmutableTwoValues<String, Double>> predictedValues = forest.get(i).predict(predData, observationsToPredict);
-			for (int j : observationsToPredict)
+			Map<Integer, Map<String, Double>> predictedValues = forest.get(i).predict(predData, observationsToPredict);
+			for (int j : predictedValues.keySet())
 			{
-				predictions.get(j).add(predictedValues.get(j));
+				for (String s : predictedValues.get(j).keySet())
+				{
+					Double oldPrediction = predictions.get(j).get(s);
+					Double newPrediction = predictedValues.get(j).get(s);
+					predictions.get(j).put(s, oldPrediction + newPrediction);
+				}
 			}
 		}
 
@@ -584,37 +639,17 @@ public class Forest
 		{
 			// Get the list of predictions for observation i. The predictions are ordered so that the jth value in the list
 			// is the prediction for the jth value in the list of treesToUseForPrediction.
-			List<ImmutableTwoValues<String, Double>> predictedValues = predictions.get(i);
-			// Mapping from a class to the number of times that the class was selected as the classification for the observation.
-			Map<String, Double> predictedClasses = new HashMap<String, Double>();
-
-			for (ImmutableTwoValues<String, Double> s : predictedValues)
-			{
-				String classPrediction = s.first;
-				double classPredictionWeight = s.second;
-				if (!predictedClasses.containsKey(classPrediction))
-				{
-					// If the class has not been predicted for the observation before, then set the count of the
-					// number of times the class has been predicted to 1.
-					predictedClasses.put(classPrediction, classPredictionWeight);
-				}
-				else
-				{
-					// If the class has been predicted for the observation before, then increment the count of the
-					// number of times the class has been predicted.
-					predictedClasses.put(classPrediction, predictedClasses.get(classPrediction) + classPredictionWeight);
-				}
-			}
+			Map<String, Double> predictedValues = predictions.get(i);
 
 			// Determine the majority classification for the observation.
 			String majorityClass = "";
-			double largestNumberClassifications = 0.0;
-			for (String s : predictedClasses.keySet())
+			double largestNumberClassifications = -Double.MAX_VALUE;
+			for (String s : predictedValues.keySet())
 			{
-				if (predictedClasses.get(s) > largestNumberClassifications)
+				if (predictedValues.get(s) > largestNumberClassifications)
 				{
 					majorityClass = s;
-					largestNumberClassifications = predictedClasses.get(s);
+					largestNumberClassifications = predictedValues.get(s);
 				}
 			}
 

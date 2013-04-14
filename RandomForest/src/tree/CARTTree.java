@@ -243,8 +243,9 @@ public class CARTTree
 
 	public List<List<Integer>> getProximities(ProcessDataForGrowing procData)
 	{
+		// Cluster the procData dataset based on the tree.
 		List<Integer> observationIndices = new ArrayList<Integer>();
-		for (int i = 0; i < this.processedData.numberObservations; i++)
+		for (int i = 0; i < procData.numberObservations; i++)
 		{
 			observationIndices.add(i);
 		}
@@ -352,7 +353,7 @@ public class CARTTree
 
 	}
 
-	Map<Integer, ImmutableTwoValues<String, Double>> predict(ProcessDataForGrowing predData)
+	Map<Integer, Map<String, Double>> predict(ProcessDataForGrowing predData)
 	{
 		List<Integer> observationsToPredict = new ArrayList<Integer>();
 		for (int i = 0; i < predData.numberObservations; i++)
@@ -362,12 +363,12 @@ public class CARTTree
 		return predict(predData, observationsToPredict);
 	}
 
-	Map<Integer, ImmutableTwoValues<String, Double>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
+	Map<Integer, Map<String, Double>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
 	{
-		Map<Integer, ImmutableTwoValues<String, Double>> returnValue = new HashMap<Integer, ImmutableTwoValues<String, Double>>();
+		Map<Integer, Map<String, Double>> returnValue = new HashMap<Integer, Map<String, Double>>();
 		if (this.cartTree == null)
 		{
-			System.out.println("The tree can not be used fr prediction before it has been trained.");
+			System.out.println("The tree can not be used for prediction before it has been trained.");
 			System.exit(0);
 		}
 		else

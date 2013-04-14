@@ -177,7 +177,7 @@ public class NodeNonTerminal extends Node
 		return rightChildGrid;
 	}
 
-	ImmutableTwoValues<String, Double> predict(Map<String, Double> currentObservation)
+	Map<String, Double> predict(Map<String, Double> currentObservation)
 	{
 		double valueOfObservedCovar = currentObservation.get(this.covariable);
 		if (valueOfObservedCovar <= this.splitValue)

@@ -69,21 +69,16 @@ public class NodeTerminal extends Node
 		return currentGrid;
 	}
 
-	ImmutableTwoValues<String, Double> predict(Map<String, Double> currentObservation)
+	Map<String, Double> predict(Map<String, Double> currentObservation)
 	{
-		String maxClass = "";
-		double largestClassCount = 0.0;
+		Map<String, Double> weightedVotes = new HashMap<String, Double>();
 		for (String className : this.classCountsInNode.keySet())
 		{
 			double thisClassVote = this.classCountsInNode.get(className) * this.weights.get(className);  // Weighted class vote.
-			if (thisClassVote > largestClassCount)
-			{
-				maxClass = className;
-				largestClassCount = thisClassVote;
-			}
+			weightedVotes.put(className, thisClassVote);
 		}
 
-		return new ImmutableTwoValues<String, Double>(maxClass, largestClassCount);
+		return weightedVotes;
 	}
 
 	ImmutableTwoValues<String, Integer> save(Integer nodeID, Integer parentID)

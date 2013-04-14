@@ -55,6 +55,8 @@ public class TreeGrowthControl
 	 */
 	public boolean isStratifiedBootstrapUsed = false;
 
+	public boolean calculateOOB = true;
+
 	public TreeGrowthControl()
 	{
 	}
@@ -104,6 +106,7 @@ public class TreeGrowthControl
 				}
 			}
 			this.isStratifiedBootstrapUsed = Boolean.parseBoolean(ctrlVariables[7]);
+			this.calculateOOB = Boolean.parseBoolean(ctrlVariables[8]);
 		}
 		catch (Exception e)
 		{
@@ -149,6 +152,7 @@ public class TreeGrowthControl
 			}
 			outputWriter.write("\t");
 			outputWriter.write(Boolean.toString(this.isStratifiedBootstrapUsed) + "\t");
+			outputWriter.write(Boolean.toString(this.calculateOOB));
 			outputWriter.close();
 		}
 		catch (Exception e)

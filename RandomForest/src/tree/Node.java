@@ -35,7 +35,7 @@ public abstract class Node
 		return null;
 	}
 
-	ImmutableTwoValues<String, Double> predict(Map<String, Double> currentObservation)
+	Map<String, Double> predict(Map<String, Double> currentObservation)
 	{
 		return null;
 	}
