@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import datasetgeneration.CrossValidationFoldGeneration;
+import datasetgeneration.CrossValidationFoldGenerationMultiClass;
 
 import tree.Forest;
 import tree.ImmutableTwoValues;
@@ -59,12 +59,12 @@ public class Controller
 		}
 	}
 
-	public Controller(String[] args, TreeGrowthControl ctrl, int gaRepetitions, boolean isXValUsed, Map<String, Double> weights)
+	public Controller(String[] args, TreeGrowthControl ctrl, int gaRepetitions, boolean isXValUsed, Map<String, Double> weights, boolean isCHCUsed)
 	{
-		gaSelection(args, ctrl, gaRepetitions, isXValUsed, weights);
+		gaSelection(args, ctrl, gaRepetitions, isXValUsed, weights, isCHCUsed);
 	}
 
-	void gaSelection(String[] args, TreeGrowthControl ctrl, int gaRepetitions, boolean isXValUsed, Map<String, Double> weights)
+	void gaSelection(String[] args, TreeGrowthControl ctrl, int gaRepetitions, boolean isXValUsed, Map<String, Double> weights, boolean isCHCUsed)
 	{
 
 		// Required inputs.
@@ -166,6 +166,10 @@ public class Controller
 			{
 				new steadystate.CrossValController(thisGAArgs, thisGAControl, weights);
 			}
+			else if (isCHCUsed)
+			{
+				new chc.Controller(thisGAArgs, thisGAControl, weights);
+			}
 			else
 			{
 				new steadystate.Controller(thisGAArgs, thisGAControl, weights);
@@ -249,6 +253,9 @@ public class Controller
 		int internalRepetitions = 20;
 		int internalFolds = 10;
 		double fractionToElim = 0.1;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
+
+		TreeGrowthControl varImpCtrl = new TreeGrowthControl(ctrl);
+		varImpCtrl.numberOfTreesToGrow = 5000;  // Need more trees to calculate the variable importance correctly than to predict well.
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -303,7 +310,7 @@ public class Controller
 		    System.out.format("Now working on external repetition %d at %s.\n", exRep, strDate);
 
 			// Generate external cross validation folds.
-			CrossValidationFoldGeneration.main(inputLocation, externalCVDir, externalFolds);
+			CrossValidationFoldGenerationMultiClass.main(inputLocation, externalCVDir, externalFolds);
 
 			for (int exFold = 0; exFold < externalFolds; exFold++)
 			{
@@ -332,7 +339,7 @@ public class Controller
 				    System.out.format("\t\tNow working on internal repetition %d at %s.\n", inRep, strDate);
 
 					// Generate the internal cross validation folds.
-					CrossValidationFoldGeneration.main(externalCVDir + "\\" + Integer.toString(exFold) + "\\Train.txt", internalCVDir, internalFolds);
+					CrossValidationFoldGenerationMultiClass.main(externalCVDir + "\\" + Integer.toString(exFold) + "\\Train.txt", internalCVDir, internalFolds);
 
 					for (int inFold = 0; inFold < internalFolds; inFold++)
 					{
@@ -344,12 +351,11 @@ public class Controller
 						}
 						seedsUsed.add(seedToUse);
 
-						TreeGrowthControl tempCtrl = new TreeGrowthControl(ctrl);
 						ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predictionResults;
 						Forest forest;
-						ProcessDataForGrowing testData = new ProcessDataForGrowing(internalCVDir + "\\" + Integer.toString(inFold) + "\\Test.txt", tempCtrl);
+						ProcessDataForGrowing testData = new ProcessDataForGrowing(internalCVDir + "\\" + Integer.toString(inFold) + "\\Test.txt", varImpCtrl);
 
-						forest = new Forest(internalCVDir + "\\" + Integer.toString(inFold) + "\\Train.txt", tempCtrl, weights, seedToUse);
+						forest = new Forest(internalCVDir + "\\" + Integer.toString(inFold) + "\\Train.txt", varImpCtrl, weights, seedToUse);
 						predictionResults = forest.predict(testData);
 						double MCC = calcMCC(posClass, negClass, predictionResults.second, fullDataset.responseData);  // Calculate the MCC.
 						double oldMCC = externalMCC.get(fullDataset.covariableData.size());
@@ -373,6 +379,7 @@ public class Controller
 						}
 						Collections.sort(sortedVariables);
 
+						TreeGrowthControl tempCtrl = new TreeGrowthControl(ctrl);
 						int variablesRemaining = varImp.size();
 						int currentVariablePointer = 0;
 						int varsToElimThisRound = (int) Math.ceil(variablesRemaining * fractionToElim);
