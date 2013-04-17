@@ -128,15 +128,15 @@ public class WeightTesting
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int repetitions = 20;
-		Double[] weightsToUse = {1.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0};
-		Integer[] mtryToUse = {5, 10, 20};
+		int repetitions = 30;
+		Double[] weightsToUse = {0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0};
+		Integer[] mtryToUse = {10};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
 		ctrl.numberOfTreesToGrow = 500;
 		ctrl.isStratifiedBootstrapUsed = true;
-		ctrl.minNodeSize = 20;
+		ctrl.minNodeSize = 1;
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================

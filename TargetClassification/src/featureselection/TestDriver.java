@@ -45,40 +45,59 @@ public class TestDriver
 		ctrl.isStratifiedBootstrapUsed = true;
 		int gaRepetitions = 20;
 		boolean isXValUsed = false;
+		boolean isCHCUsed = true;
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
-		weights.put("Positive", 1.53);
+		weights.put("Positive", 1.0);
 
 
 //		ctrl.calculateOOB = false;
-		new Controller(args, ctrl, weights, false);
-		System.exit(0);
-
-
-//		new Controller(args, ctrl, gaRepetitions, isXValUsed, weights);
+//		new Controller(args, ctrl, weights, true);
 //		System.exit(0);
 
 
+//		new Controller(args, ctrl, gaRepetitions, isXValUsed, weights, isCHCUsed);
+//		System.exit(0);
+
+
+//		Integer[] obsToUse = {66, 43, 40, 103, 4, 9, 74, 37, 39, 65, 41, 90, 94, 104, 71, 1, 63, 73, 31, 68, 101, 11, 61, 10, 14, 7, 95, 97, 92, 96, 91, 6, 64, 53, 51, 110, 52, 111, 86, 27, 56, 16, 49, 83, 58, 113, 114, 55, 77, 108, 48, 117, 22, 47, 87, 109, 105, 23, 80, 26, 21, 107, 81, 17, 32, 112, 106, 3, 70, 78, 84, 38, 29, 2, 46, 15, 62};
+//		ctrl.trainingObservations = new ArrayList<Integer>(Arrays.asList(obsToUse));
+		String training = "C:\\Users\\Simonial\\Documents\\PhD\\Datasets\\TestingIonChannelObsSelection\\TrainingDatasetOfDesiredComposition.txt";
+		String testing = "C:\\Users\\Simonial\\Documents\\PhD\\Datasets\\TestingIonChannelObsSelection\\TestingDatasetOfDesiredComposition.txt";
 //		Forest forest = new Forest(args[0], ctrl, weights);
-//		System.out.println(forest.oobErrorEstimate);
-//		System.out.println(forest.oobConfusionMatrix);
-//		String posClass = "Positive";
-//		String negClass = "Unlabelled";
-//		Double oobTP = forest.oobConfusionMatrix.get(posClass).get("TruePositive");
-//		Double oobFP = forest.oobConfusionMatrix.get(posClass).get("FalsePositive");
-//		Double oobTN = forest.oobConfusionMatrix.get(negClass).get("TruePositive");
-//		Double oobFN = forest.oobConfusionMatrix.get(negClass).get("FalsePositive");
-//		Double posError = oobFN / (oobFN + oobTP);
-//		Double negError = oobFP / (oobFP + oobTN);
-//		Double MCC = (((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN)));
-//		System.out.println(posError);
-//		System.out.println(negError);
-//		System.out.println(MCC);
-//		Date startTime = new Date();
-//	    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-//	    String strDate = sdfDate.format(startTime);
-//	    System.out.println(strDate);
-//	    System.exit(0);
+		Forest forest = new Forest(training, ctrl, weights);
+		System.out.println(forest.oobErrorEstimate);
+		System.out.println(forest.oobConfusionMatrix);
+		String posClass = "Positive";
+		String negClass = "Unlabelled";
+		Double oobTP = forest.oobConfusionMatrix.get(posClass).get("TruePositive");
+		Double oobFP = forest.oobConfusionMatrix.get(posClass).get("FalsePositive");
+		Double oobTN = forest.oobConfusionMatrix.get(negClass).get("TruePositive");
+		Double oobFN = forest.oobConfusionMatrix.get(negClass).get("FalsePositive");
+		Double posError = oobFN / (oobFN + oobTP);
+		Double negError = oobFP / (oobFP + oobTN);
+		Double MCC = (((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN)));
+		System.out.println(posError);
+		System.out.println(negError);
+		System.out.println(MCC);
+		Map<String, Map<String, Double>> confMat = forest.predict(new ProcessDataForGrowing(testing, ctrl)).second;
+		System.out.println("--------------");
+		System.out.println(confMat);
+		oobTP = confMat.get(posClass).get("TruePositive");
+		oobFP = confMat.get(posClass).get("FalsePositive");
+		oobTN = confMat.get(negClass).get("TruePositive");
+		oobFN = confMat.get(negClass).get("FalsePositive");
+		posError = oobFN / (oobFN + oobTP);
+		negError = oobFP / (oobFP + oobTN);
+		MCC = (((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN)));
+		System.out.println(posError);
+		System.out.println(negError);
+		System.out.println(MCC);
+		Date startTime = new Date();
+	    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	    String strDate = sdfDate.format(startTime);
+	    System.out.println(strDate);
+	    System.exit(0);
 
 
 //		Forest forest;

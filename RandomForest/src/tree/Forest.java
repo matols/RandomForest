@@ -441,19 +441,27 @@ public class Forest
 		this.weights = potentialWeights;
 
 		// Setup the observation selection variables.
-		List<Integer> observations = new ArrayList<Integer>();
-		for (int i = 0; i < this.processedData.numberObservations; i++)
+		List<Integer> observations;
+		if (!this.ctrl.trainingObservations.isEmpty())
 		{
-			observations.add(i);
+			observations = new ArrayList<Integer>(ctrl.trainingObservations);
+		}
+		else
+		{
+			observations = new ArrayList<Integer>();
+			for (int i = 0; i < this.processedData.numberObservations; i++)
+			{
+				observations.add(i);
+			}
 		}
 		int numberObservationsToSelect = 0;
 		if (!this.ctrl.isReplacementUsed)
 		{
-			numberObservationsToSelect = (int) Math.floor(this.ctrl.selectionFraction * this.processedData.numberObservations);
+			numberObservationsToSelect = (int) Math.floor(this.ctrl.selectionFraction * observations.size());
 		}
 		else
 		{
-			numberObservationsToSelect = this.processedData.numberObservations;
+			numberObservationsToSelect = observations.size();
 		}
 
 		for (int i = 0; i < ctrl.numberOfTreesToGrow; i++)
@@ -500,7 +508,7 @@ public class Forest
 					int selectedObservation;
 					for (int j = 0; j < numberObservationsToSelect; j++)
 					{
-						selectedObservation = randGenerator.nextInt(this.processedData.numberObservations);
+						selectedObservation = randGenerator.nextInt(observations.size());
 						observationsForTheTree.add(observations.get(selectedObservation));
 					}
 				}
@@ -508,7 +516,7 @@ public class Forest
 
 			// Update the list of which observations are oob on this tree.
 			List<Integer> oobOnThisTree = new ArrayList<Integer>();
-			for (int j = 0; j < this.processedData.numberObservations; j++)
+			for (Integer j : observations)
 			{
 				if (!observationsForTheTree.contains(j))
 				{

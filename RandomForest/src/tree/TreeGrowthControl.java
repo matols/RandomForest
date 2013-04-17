@@ -57,6 +57,11 @@ public class TreeGrowthControl
 
 	public boolean calculateOOB = true;
 
+	/**
+	 * The variables to exclude from the growing of the tree.
+	 */
+	public List<Integer> trainingObservations = new ArrayList<Integer>();
+
 	public TreeGrowthControl()
 	{
 	}
