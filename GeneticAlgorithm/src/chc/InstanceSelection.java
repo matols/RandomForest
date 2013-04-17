@@ -8,20 +8,22 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 
 import tree.Forest;
+import tree.ImmutableTwoValues;
 import tree.IndexedDoubleLongData;
 import tree.ProcessDataForGrowing;
 import tree.TreeGrowthControl;
@@ -30,18 +32,18 @@ import tree.TreeGrowthControl;
  * @author Simon Bull
  *
  */
-public class Controller
+public class InstanceSelection
 {
 
 	/**
 	 * The record of the top fitness found during the most recent run of the GA.
 	 */
-	public double currentBestFitness = 100.0;
+	public double currentBestFitness = 0.0;
 
 	/**
 	 * A list of the individuals that have the best fitness found.
 	 */
-	public List<Integer[]> bestMembersFound = new ArrayList<Integer[]>();
+	public List<List<Integer>> bestMembersFound = new ArrayList<List<Integer>>();
 
 	/**
 	 * The record of the seeds that produced the individuals with the best fitness.
@@ -49,7 +51,7 @@ public class Controller
 	public List<Long> bestForestSeeds = new ArrayList<Long>();
 
 
-	public Controller(String[] args)
+	public InstanceSelection(String[] args)
 	{
 		// Initialise the controller for the dataset determination and forest growing.
 		TreeGrowthControl ctrl = new TreeGrowthControl();
@@ -57,12 +59,12 @@ public class Controller
 		run(args, ctrl, new HashMap<String, Double>());
 	}
 
-	public Controller(String[] args, TreeGrowthControl ctrl)
+	public InstanceSelection(String[] args, TreeGrowthControl ctrl)
 	{
 		run(args, ctrl, new HashMap<String, Double>());
 	}
 
-	public Controller(String[] args, TreeGrowthControl ctrl, Map<String, Double> weights)
+	public InstanceSelection(String[] args, TreeGrowthControl ctrl, Map<String, Double> weights)
 	{
 		run(args, ctrl, weights);
 	}
@@ -76,16 +78,29 @@ public class Controller
 	 */
 	void run(String[] args, TreeGrowthControl ctrl, Map<String, Double> weights)
 	{
-
 		// Required inputs.
-		String inputLocation = args[0];  // The location of the file containing the data to use in the feature selection.
-		File inputFile = new File(inputLocation);
-		if (!inputFile.isFile())
+		String datasetLocation = args[0];  // The location of the file containing the entire dataset.
+		File datasetFile = new File(datasetLocation);
+		if (!datasetFile.isFile())
 		{
-			System.out.println("The first argument must be a valid file location, and must contain the data for feature selection.");
+			System.out.println("The first argument must be a valid file location, and must contain the entire dataset.");
 			System.exit(0);
 		}
-		String outputLocation = args[1];  // The location to store any and all results.
+		String cvDirLocation = args[1];  // The location of the CV directory.
+		File cvDirectory = new File(cvDirLocation);
+		if (!cvDirectory.exists())
+		{
+			// CV directory does not exist.
+			System.out.println("The second argument must be a valid directory location containing the CV fold files.");
+			System.exit(0);
+		}
+		else if (!cvDirectory.isDirectory())
+		{
+			// Exists and is not a directory.
+			System.out.println("ERROR: The second argument is not a directory location.");
+			System.exit(0);
+		}
+		String outputLocation = args[2];  // The location to store any and all results.
 		File outputDirectory = new File(outputLocation);
 		if (!outputDirectory.exists())
 		{
@@ -110,6 +125,7 @@ public class Controller
 		double mutationRate = 0.35;  // The mutation rate to use.
 		boolean verbose = false;  // Whether status updates should be displayed.
 		long maxTimeAllowed = 0;  // What the maximum time allowed (in ms) for the run is. 0 indicates that timing is not used.
+		int initialSetSize = 100;
 
 		// Read in the user input.
 		int argIndex = 3;
@@ -143,6 +159,11 @@ public class Controller
 				maxTimeAllowed = Long.parseLong(args[argIndex]);
 				argIndex += 1;
 				break;
+			case "-i":
+				argIndex += 1;
+				initialSetSize = Integer.parseInt(args[argIndex]);
+				argIndex += 1;
+				break;
 			case "-v":
 				verbose = true;
 				argIndex += 1;
@@ -151,6 +172,12 @@ public class Controller
 				System.out.format("Unexpeted argument : %s.\n", currentArg);
 				System.exit(0);
 			}
+		}
+		if (maxGenerations <= 0 && maxEvaluations <= 0 && maxTimeAllowed <= 0)
+		{
+	        // No stopping criteria given.
+	        System.out.println("At least one of -g, -e or -t must be given, otherwise there are no stopping criteria.");
+	        System.exit(0);
 		}
 
 		// Write out the parameters used for the GA.
@@ -207,7 +234,7 @@ public class Controller
 		{
 			FileWriter genStatsOutputFile = new FileWriter(genStatsOutputLocation);
 			BufferedWriter genStatsOutputWriter = new BufferedWriter(genStatsOutputFile);
-			genStatsOutputWriter.write("Generation\tBestMCC\tMeanMCC\tMedianMCC\tStdDevMCC");
+			genStatsOutputWriter.write("Generation\tBestMCC\tMeanMCC\tMedianMCC\tStdDevMCC\tBestIndivSize\tMeanIndivSize");
 			genStatsOutputWriter.newLine();
 			genStatsOutputWriter.close();
 		}
@@ -229,13 +256,38 @@ public class Controller
 
 		// Determine the number of genes/features in the dataset.
 		int numberGenes = 0;
-		String[] geneNames = null;
+		List<Integer> positiveObservations = new ArrayList<Integer>();
+		List<Integer> negativeObservations = new ArrayList<Integer>();
+		List<Integer> observationIndices = new ArrayList<Integer>();
+		Map<Integer, Integer> originalToSubsetIndexMapping = new HashMap<Integer, Integer>();
+		List<Integer> deletionIndex = new ArrayList<Integer>();
+		deletionIndex.add(-1);
 		try
 		{
-			BufferedReader geneReader = new BufferedReader(new FileReader(inputLocation));
+			BufferedReader geneReader = new BufferedReader(new FileReader(datasetFile));
 			String header = geneReader.readLine();
-			geneNames = header.split("\t");
-			numberGenes = geneNames.length - 1;  // Subtract one for the class column in the dataset.
+			header = geneReader.readLine();
+			header = geneReader.readLine();
+			String line;
+			while ((line = geneReader.readLine()) != null)
+			{
+				if (line.trim().length() == 0)
+				{
+					// If the line is made up of all whitespace, then ignore the line.
+					continue;
+				}
+				if (line.contains("Unlabelled"))
+				{
+					negativeObservations.add(numberGenes);
+				}
+				else
+				{
+					positiveObservations.add(numberGenes);
+				}
+				observationIndices.add(numberGenes);
+				originalToSubsetIndexMapping.put(numberGenes, -1);
+				numberGenes += 1;
+			}
 			geneReader.close();
 		}
 		catch (Exception e)
@@ -243,28 +295,59 @@ public class Controller
 			e.printStackTrace();
 			System.exit(0);
 		}
-		int threshold = numberGenes / 4;
+		int threshold = initialSetSize / 4;
+
+		//--------------------
+		// Get the cross validation information
+		//--------------------
+		String[] cvSubDirs = cvDirectory.list();
+		int numberOfFolds = cvSubDirs.length;
+		List<String> trainingFiles = new ArrayList<String>();
+		List<ProcessDataForGrowing> testingFiles = new ArrayList<ProcessDataForGrowing>();
+		List<Map<Integer, Integer>> origToSubsetIndexMapping = new ArrayList<Map<Integer, Integer>>();
+		for (String s : cvSubDirs)
+		{
+			trainingFiles.add(cvDirLocation + "/" + s + "/Train.txt");
+			testingFiles.add(new ProcessDataForGrowing(cvDirLocation + "/" + s + "/Test.txt", ctrl));
+			Map<Integer, Integer> originalDToTrainingSetIndices = new HashMap<Integer, Integer>();
+			originalDToTrainingSetIndices.putAll(originalToSubsetIndexMapping);
+			try (BufferedReader reader = Files.newBufferedReader(Paths.get(cvDirLocation + "/" + s + "/OriginalIndicesOfTrainingSetObs.txt"), StandardCharsets.UTF_8))
+			{
+				String line;
+				int obsIndex = 0;
+				while ((line = reader.readLine()) != null)
+				{
+					line = line.trim();
+					originalDToTrainingSetIndices.put(Integer.parseInt(line), obsIndex);
+					obsIndex++;
+				}
+			}
+			catch (Exception e)
+			{
+				e.printStackTrace();
+				System.exit(0);
+			}
+			origToSubsetIndexMapping.add(originalDToTrainingSetIndices);
+		}
 
 		//----------------------
 		// Begin the GA.
 		//----------------------
 		Date gaStartTime = new Date();
 
-		// Initialise the random number generator, and the record of random seeds.
-		Random random = new Random();
+		// Initialise the record of random seeds.
 		List<Long> populationSeeds = new ArrayList<Long>();
 		
 		// Generate the initial population.
-		List<Integer[]> population = new ArrayList<Integer[]>();
+		List<List<Integer>> population = new ArrayList<List<Integer>>();
 		List<Integer> parentSelector = new ArrayList<Integer>();
 		for (int i = 0; i < populationSize; i++)
 		{
-			Integer newPopMember[] = new Integer[numberGenes];
-			for (int j = 0; j < numberGenes; j++)
-			{
-				int currentGeneValue = random.nextInt(2); // Generate a 0 or 1.
-				newPopMember[j] = currentGeneValue;
-			}
+			Collections.shuffle(negativeObservations);
+			Collections.shuffle(positiveObservations);
+			List<Integer> newPopMember = new ArrayList<Integer>();
+			newPopMember.addAll(negativeObservations.subList(0, initialSetSize / 2));
+			newPopMember.addAll(positiveObservations.subList(0, initialSetSize / 2));
 			population.add(newPopMember);
 			parentSelector.add(i);
 		}
@@ -273,29 +356,8 @@ public class Controller
 		String posClass = "Positive";
 		String negClass = "Unlabelled";
 
-	    // Initialise the number of generations since the fitness last changed.
-	    this.currentBestFitness = 0.0;
-	    int generationsOfStagnation = 0;
-
-	    // Select all the chromosomes that are made up entirely of 0s, i.e. no features used, and alter them to include a 1.
-    	for (int i = 0; i < populationSize; i++)
-    	{
-    		boolean isFeatureUsed = false;
-    		for (int j = 0; j < numberGenes; j++)
-    		{
-    			if (population.get(i)[j] == 1)
-    			{
-    				// There is a feature being used.
-    				isFeatureUsed = true;
-    				break;
-    			}
-    		}
-    		if (!isFeatureUsed)
-    		{
-    			// If no feature are being used in this population member, then set a random feature to be used.
-    			population.get(i)[random.nextInt(numberGenes + 1)] = 1;
-    		}
-    	}
+		// Initialise the alpha value used in the fitness calculation.
+		double alpha = 0.25;
 
     	// Determine the weights to use if none are specified.
     	if (weights.size() == 0)
@@ -323,28 +385,60 @@ public class Controller
 
 	    // Calculate the fitness of the initial population.
 	    List<Double> fitness = new ArrayList<Double>();
-	    for (Integer[] geneSet : population)
+	    for (List<Integer> geneSet : population)
 	    {
-	    	List<String> variablesToIgnore = new ArrayList<String>();
-	    	for (int i = 0; i < numberGenes; i++)
+	    	double meanMCC = 0.0;
+	    	for (int i = 0; i < numberOfFolds; i++)
 	    	{
-	    		if (geneSet[i] == 0)
+	    		Map<Integer, Integer> obsIndexMapping = origToSubsetIndexMapping.get(i);
+	    		List<Integer> obsToTrain = new ArrayList<Integer>();
+	    		for (Integer j : geneSet)
 	    		{
-	    			// If the gene is to be ignored for this member.
-	    			variablesToIgnore.add(geneNames[i]);
+	    			obsToTrain.add(obsIndexMapping.get(j));
 	    		}
+	    		obsToTrain.removeAll(deletionIndex);
+	    		ctrl.trainingObservations = obsToTrain;
+	    		Forest forest = new Forest(trainingFiles.get(i), ctrl, weights);
+	    		ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predResults = forest.predict(testingFiles.get(i));
+	    		Map<String, Map<String, Double>> confusionMatrix = predResults.second;
+		    	double TP = confusionMatrix.get(posClass).get("TruePositive");
+				double FP = confusionMatrix.get(posClass).get("FalsePositive");
+				double TN = confusionMatrix.get(negClass).get("TruePositive");
+				double FN = confusionMatrix.get(negClass).get("FalsePositive");
+				double MCC = Math.abs((((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))));
+				if (Double.isNaN(MCC))
+				{
+					meanMCC += 0;
+				}
+				else
+				{
+					meanMCC += MCC;
+				}
+				numberEvaluations += 1;
 	    	}
-	    	ctrl.variablesToIgnore = variablesToIgnore;
-	    	Forest forest = new Forest(inputLocation, ctrl, weights);
-	    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
-	    	Double oobTP = oobConfusionMatrix.get(posClass).get("TruePositive");
-			Double oobFP = oobConfusionMatrix.get(posClass).get("FalsePositive");
-			Double oobTN = oobConfusionMatrix.get(negClass).get("TruePositive");
-			Double oobFN = oobConfusionMatrix.get(negClass).get("FalsePositive");
-			Double oobMCC = (((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN)));
-	    	fitness.add(oobMCC);
-	    	populationSeeds.add(forest.seed);
-	    	numberEvaluations += 1;
+	    	fitness.add(meanMCC / numberOfFolds);
+	    	populationSeeds.add(0L);
+//	    	ctrl.trainingObservations = geneSet;
+//	    	Forest forest = new Forest(trainingDataLocation, ctrl, weights);
+//	    	ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predResults = forest.predict(processedTestData);
+//	    	Map<String, Map<String, Double>> confusionMatrix = predResults.second;
+//	    	double TP = confusionMatrix.get(posClass).get("TruePositive");
+//			double FP = confusionMatrix.get(posClass).get("FalsePositive");
+//			double TN = confusionMatrix.get(negClass).get("TruePositive");
+//			double FN = confusionMatrix.get(negClass).get("FalsePositive");
+//			double MCC = Math.abs((((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))));
+//			double percentReduction = 100 * (((double) numberGenes / geneSet.size()) / numberGenes);
+////	    	fitness.add((alpha * MCC) + ((1 - alpha) * percentReduction));
+//			if (Double.isNaN(MCC))
+//			{
+//				fitness.add(0.0);
+//			}
+//			else
+//			{
+//				fitness.add(MCC);
+//			}
+//	    	populationSeeds.add(forest.seed);
+//	    	numberEvaluations += 1;
 	    }
 
 	    // Sort the initial population.
@@ -354,7 +448,7 @@ public class Controller
 	    	sortedInitialPopulation.add(new IndexedDoubleLongData(fitness.get(j), populationSeeds.get(j), j));
 	    }
 	    Collections.sort(sortedInitialPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by OOB MCC.
-	    List<Integer[]> newInitialPopulation = new ArrayList<Integer[]>();
+	    List<List<Integer>> newInitialPopulation = new ArrayList<List<Integer>>();
 	    List<Double> newInitialFitness = new ArrayList<Double>();
 	    List<Long> newInitialSeeds = new ArrayList<Long>();
 	    for (int j = 0; j < populationSize; j ++)
@@ -369,7 +463,7 @@ public class Controller
 	    fitness = newInitialFitness;
 	    populationSeeds = newInitialSeeds;
 
-	    while (loopTermination(currentGeneration, maxGenerations, numberEvaluations, maxEvaluations, generationsOfStagnation, gaStartTime, maxTimeAllowed))
+	    while (loopTermination(currentGeneration, maxGenerations, numberEvaluations, maxEvaluations, gaStartTime, maxTimeAllowed))
 	    {
 
 	    	if (verbose)
@@ -385,36 +479,37 @@ public class Controller
 	    			genStatsOutputLocation, populationSize);
 
 	    	// Generate mutants for possible inclusion in the next generation.
-	    	List<Integer[]> mutants = new ArrayList<Integer[]>();
+	    	List<List<Integer>> mutants = new ArrayList<List<Integer>>();
 	    	boolean isOffspringCreated = false;
 	    	for (int i = 0; i < populationSize / 2; i++)
 	    	{
 	    		// Select the parents (no preference given to fitter parents).
 	    		Collections.shuffle(parentSelector);
-	    		Integer[] parentOne = population.get(parentSelector.get(0));
-	    		Integer[] parentTwo = population.get(parentSelector.get(1));
+	    		List<Integer> parentOne = population.get(parentSelector.get(0));
+	    		List<Integer> parentTwo = population.get(parentSelector.get(1));
 
 	    		// Determine if the selected parents can undergo combination.
-	    		List<Integer> nonMatchingbits = hammingDistance(parentOne, parentTwo);
-	    		int distanceBetweenParents = nonMatchingbits.size();
+	    		List<List<Integer>> nonMatchingObs = hammingDistance(parentOne, parentTwo);
+	    		int distanceBetweenParents = nonMatchingObs.size();
 	    		if (distanceBetweenParents > threshold)
 	    		{
 	    			isOffspringCreated = true;
-	    			Collections.shuffle(nonMatchingbits);
-	    			List<Integer> toCrossover = new ArrayList<Integer>(nonMatchingbits.subList(0, distanceBetweenParents / 2));
-	    			Integer childOne[] = new Integer[numberGenes];
-	    			Integer childTwo[] = new Integer[numberGenes];
-	    			for (int j = 0; j < numberGenes; j++)
+	    			Collections.shuffle(nonMatchingObs);
+	    			List<List<Integer>> toCrossover = new ArrayList<List<Integer>>(nonMatchingObs.subList(0, distanceBetweenParents / 2));
+	    			List<Integer> childOne = new ArrayList<Integer>(parentOne);
+	    			List<Integer> childTwo = new ArrayList<Integer>(parentTwo);
+	    			for (List<Integer> l : toCrossover)
 	    			{
-	    				if (toCrossover.contains(j))
+	    				Integer obs = l.get(1);
+	    				if (l.get(0) == 1)
 	    				{
-	    					childOne[j] = parentTwo[j];
-	    					childTwo[j] = parentOne[j];
+	    					childOne.remove(obs);
+	    					childTwo.add(obs);
 	    				}
 	    				else
 	    				{
-	    					childOne[j] = parentOne[j];
-	    					childTwo[j] = parentTwo[j];
+	    					childTwo.remove(obs);
+	    					childOne.add(obs);
 	    				}
 	    			}
 	    			mutants.add(childOne);
@@ -427,28 +522,60 @@ public class Controller
 	    		// Calculate the fitness of the offspring.
 		    	List<Double> offspringFitness = new ArrayList<Double>();
 		    	List<Long> offspringSeeds = new ArrayList<Long>();
-			    for (Integer[] geneSet : mutants)
+			    for (List<Integer> geneSet : mutants)
 			    {
-			    	List<String> variablesToIgnore = new ArrayList<String>();
-			    	for (int i = 0; i < numberGenes; i++)
+			    	double meanMCC = 0.0;
+			    	for (int i = 0; i < numberOfFolds; i++)
 			    	{
-			    		if (geneSet[i] == 0)
+			    		Map<Integer, Integer> obsIndexMapping = origToSubsetIndexMapping.get(i);
+			    		List<Integer> obsToTrain = new ArrayList<Integer>();
+			    		for (Integer j : geneSet)
 			    		{
-			    			// If the gene is to be ignored for this member.
-			    			variablesToIgnore.add(geneNames[i]);
+			    			obsToTrain.add(obsIndexMapping.get(j));
 			    		}
+			    		obsToTrain.removeAll(deletionIndex);
+			    		ctrl.trainingObservations = obsToTrain;
+			    		Forest forest = new Forest(trainingFiles.get(i), ctrl, weights);
+			    		ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predResults = forest.predict(testingFiles.get(i));
+			    		Map<String, Map<String, Double>> confusionMatrix = predResults.second;
+				    	double TP = confusionMatrix.get(posClass).get("TruePositive");
+						double FP = confusionMatrix.get(posClass).get("FalsePositive");
+						double TN = confusionMatrix.get(negClass).get("TruePositive");
+						double FN = confusionMatrix.get(negClass).get("FalsePositive");
+						double MCC = Math.abs((((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))));
+						if (Double.isNaN(MCC))
+						{
+							meanMCC += 0;
+						}
+						else
+						{
+							meanMCC += MCC;
+						}
+						numberEvaluations += 1;
 			    	}
-			    	ctrl.variablesToIgnore = variablesToIgnore;
-			    	Forest forest = new Forest(inputLocation, ctrl, weights);
-			    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
-			    	Double oobTP = oobConfusionMatrix.get(posClass).get("TruePositive");
-					Double oobFP = oobConfusionMatrix.get(posClass).get("FalsePositive");
-					Double oobTN = oobConfusionMatrix.get(negClass).get("TruePositive");
-					Double oobFN = oobConfusionMatrix.get(negClass).get("FalsePositive");
-					Double oobMCC = (((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN)));
-			    	offspringFitness.add(oobMCC);
-			    	offspringSeeds.add(forest.seed);
-			    	numberEvaluations += 1;
+			    	offspringFitness.add(meanMCC / numberOfFolds);
+			    	offspringSeeds.add(0L);
+//			    	ctrl.trainingObservations = geneSet;
+//			    	Forest forest = new Forest(trainingDataLocation, ctrl, weights);
+//			    	ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predResults = forest.predict(processedTestData);
+//			    	Map<String, Map<String, Double>> confusionMatrix = predResults.second;
+//			    	double TP = confusionMatrix.get(posClass).get("TruePositive");
+//					double FP = confusionMatrix.get(posClass).get("FalsePositive");
+//					double TN = confusionMatrix.get(negClass).get("TruePositive");
+//					double FN = confusionMatrix.get(negClass).get("FalsePositive");
+//					double MCC = Math.abs((((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))));
+//					double percentReduction = 100 * (((double) numberGenes / geneSet.size()) / numberGenes);
+////					offspringFitness.add((alpha * MCC) + ((1 - alpha) * percentReduction));
+//					if (Double.isNaN(MCC))
+//					{
+//						offspringFitness.add(0.0);
+//					}
+//					else
+//					{
+//						offspringFitness.add(MCC);
+//					}
+//			    	offspringSeeds.add(forest.seed);
+//			    	numberEvaluations += 1;
 			    }
 
 			    // Update the population.
@@ -465,7 +592,7 @@ public class Controller
 			    	sortedPopulation.add(new IndexedDoubleLongData(fitness.get(j), populationSeeds.get(j), j));
 			    }
 			    Collections.sort(sortedPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by OOB MCC.
-			    List<Integer[]> newPopulation = new ArrayList<Integer[]>();
+			    List<List<Integer>> newPopulation = new ArrayList<List<Integer>>();
 			    List<Double> newFitness = new ArrayList<Double>();
 			    List<Long> newSeeds = new ArrayList<Long>();
 			    for (int j = 0; j < populationSize; j ++)
@@ -486,42 +613,73 @@ public class Controller
 	    		if (threshold < 0)
 	    		{
 	    			// Generate the new population by copying over the best individuals found so far, and then randomly instantiating the rest of the population.
-	    			population = new ArrayList<Integer[]>(new HashSet<Integer[]>(this.bestMembersFound));
-	    			for (int i = 0; i < populationSize - population.size(); i++)
+	    			population = new ArrayList<List<Integer>>(new HashSet<List<Integer>>(this.bestMembersFound));
+	    			for (int i = 0; i < populationSize; i++)
 	    			{
-	    				Integer newPopMember[] = new Integer[numberGenes];
-	    				for (int j = 0; j < numberGenes; j++)
-	    				{
-	    					int currentGeneValue = random.nextInt(2); // Generate a 0 or 1.
-	    					newPopMember[j] = currentGeneValue;
-	    				}
+	    				Collections.shuffle(negativeObservations);
+	    				Collections.shuffle(positiveObservations);
+	    				List<Integer> newPopMember = new ArrayList<Integer>();
+	    				newPopMember.addAll(negativeObservations.subList(0, initialSetSize / 2));
+	    				newPopMember.addAll(positiveObservations.subList(0, initialSetSize / 2));
 	    				population.add(newPopMember);
 	    			}
 	    			// Calculate the fitness of the new population.
 	    			populationSeeds = new ArrayList<Long>();
 	    		    fitness = new ArrayList<Double>();
-	    		    for (Integer[] geneSet : population)
+	    		    for (List<Integer> geneSet : population)
 	    		    {
-	    		    	List<String> variablesToIgnore = new ArrayList<String>();
-	    		    	for (int i = 0; i < numberGenes; i++)
+	    		    	double meanMCC = 0.0;
+	    		    	for (int i = 0; i < numberOfFolds; i++)
 	    		    	{
-	    		    		if (geneSet[i] == 0)
+	    		    		Map<Integer, Integer> obsIndexMapping = origToSubsetIndexMapping.get(i);
+	    		    		List<Integer> obsToTrain = new ArrayList<Integer>();
+	    		    		for (Integer j : geneSet)
 	    		    		{
-	    		    			// If the gene is to be ignored for this member.
-	    		    			variablesToIgnore.add(geneNames[i]);
+	    		    			obsToTrain.add(obsIndexMapping.get(j));
 	    		    		}
+	    		    		obsToTrain.removeAll(deletionIndex);
+	    		    		ctrl.trainingObservations = obsToTrain;
+	    		    		Forest forest = new Forest(trainingFiles.get(i), ctrl, weights);
+	    		    		ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predResults = forest.predict(testingFiles.get(i));
+	    		    		Map<String, Map<String, Double>> confusionMatrix = predResults.second;
+	    			    	double TP = confusionMatrix.get(posClass).get("TruePositive");
+	    					double FP = confusionMatrix.get(posClass).get("FalsePositive");
+	    					double TN = confusionMatrix.get(negClass).get("TruePositive");
+	    					double FN = confusionMatrix.get(negClass).get("FalsePositive");
+	    					double MCC = Math.abs((((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))));
+	    					if (Double.isNaN(MCC))
+	    					{
+	    						meanMCC += 0;
+	    					}
+	    					else
+	    					{
+	    						meanMCC += MCC;
+	    					}
+	    					numberEvaluations += 1;
 	    		    	}
-	    		    	ctrl.variablesToIgnore = variablesToIgnore;
-	    		    	Forest forest = new Forest(inputLocation, ctrl, weights);
-	    		    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
-	    		    	Double oobTP = oobConfusionMatrix.get(posClass).get("TruePositive");
-	    				Double oobFP = oobConfusionMatrix.get(posClass).get("FalsePositive");
-	    				Double oobTN = oobConfusionMatrix.get(negClass).get("TruePositive");
-	    				Double oobFN = oobConfusionMatrix.get(negClass).get("FalsePositive");
-	    				Double oobMCC = (((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN)));
-	    		    	fitness.add(oobMCC);
-	    		    	populationSeeds.add(forest.seed);
-	    		    	numberEvaluations += 1;
+	    		    	fitness.add(meanMCC / numberOfFolds);
+	    		    	populationSeeds.add(0L);
+//	    		    	ctrl.trainingObservations = geneSet;
+//	    		    	Forest forest = new Forest(trainingDataLocation, ctrl, weights);
+//	    		    	ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predResults = forest.predict(processedTestData);
+//				    	Map<String, Map<String, Double>> confusionMatrix = predResults.second;
+//				    	double TP = confusionMatrix.get(posClass).get("TruePositive");
+//						double FP = confusionMatrix.get(posClass).get("FalsePositive");
+//						double TN = confusionMatrix.get(negClass).get("TruePositive");
+//						double FN = confusionMatrix.get(negClass).get("FalsePositive");
+//						double MCC = Math.abs((((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))));
+//						double percentReduction = 100 * (((double) numberGenes / geneSet.size()) / numberGenes);
+////						fitness.add((alpha * MCC) + ((1 - alpha) * percentReduction));
+//						if (Double.isNaN(MCC))
+//						{
+//							fitness.add(0.0);
+//						}
+//						else
+//						{
+//							fitness.add(MCC);
+//						}
+//	    		    	populationSeeds.add(forest.seed);
+//	    		    	numberEvaluations += 1;
 	    		    }
 
 	    		    // Sort the new population.
@@ -531,7 +689,7 @@ public class Controller
 	    		    	sortedInitialPopulation.add(new IndexedDoubleLongData(fitness.get(j), populationSeeds.get(j), j));
 	    		    }
 	    		    Collections.sort(sortedInitialPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by OOB MCC.
-	    		    newInitialPopulation = new ArrayList<Integer[]>();
+	    		    newInitialPopulation = new ArrayList<List<Integer>>();
 	    		    newInitialFitness = new ArrayList<Double>();
 	    		    newInitialSeeds = new ArrayList<Long>();
 	    		    for (int j = 0; j < populationSize; j ++)
@@ -545,22 +703,16 @@ public class Controller
 	    		    population = newInitialPopulation;
 	    		    fitness = newInitialFitness;
 	    		    populationSeeds = newInitialSeeds;
-	    			threshold = numberGenes / 4;
+	    		    threshold = initialSetSize / 4;
 	    		}
 	    	}
 
-	    	if (fitness.get(0) == this.currentBestFitness)
-	    	{
-	    		// If there is no improvement in the fitness during this generation.
-	    		generationsOfStagnation += 1;
-	    	}
-	    	else
+	    	if (fitness.get(0) > this.currentBestFitness)
 	    	{
 	    		// If the fitness has improved during this generation. The fitness of the most fit individual can not get worse, so if it
 	    		// is not the same then it must have improved.
-	    		generationsOfStagnation = 0;
 	    		this.currentBestFitness = fitness.get(0);
-	    		this.bestMembersFound = new ArrayList<Integer[]>();  // Clear out the list of the best individuals found as there is a new top fitness.
+	    		this.bestMembersFound = new ArrayList<List<Integer>>();  // Clear out the list of the best individuals found as there is a new top fitness.
 	    		this.bestForestSeeds = new ArrayList<Long>();  // Clear the list of the best individuals' seeds as there is a new top fitness.
 	    	}
 	    	// Add all the members with the best fitness to the set of best individuals found.
@@ -601,7 +753,7 @@ public class Controller
 		}
 
 	    // Write out the best member(s) of the population.
-	    Set<Integer[]> recordedIndividuals = new HashSet<Integer[]>();
+	    Set<List<Integer>> recordedIndividuals = new HashSet<List<Integer>>();
 	    try
 		{
 	    	String bestIndivOutputLocation = outputLocation + "/BestIndividuals.txt";
@@ -612,16 +764,11 @@ public class Controller
 			bestIndivOutputWriter.newLine();
 			for (int i = 0; i < this.bestMembersFound.size(); i++)
 			{
-				Integer[] currentMember = this.bestMembersFound.get(i);
+				List<Integer> currentMember = this.bestMembersFound.get(i);
 				if (!recordedIndividuals.contains(currentMember))
 				{
 					recordedIndividuals.add(currentMember);
-					bestIndivOutputWriter.write(Integer.toString(currentMember[0]));
-					for (int j = 1; j < currentMember.length; j++)
-					{
-						bestIndivOutputWriter.write(",");
-						bestIndivOutputWriter.write(Integer.toString(currentMember[j]));
-					}
+					bestIndivOutputWriter.write(currentMember.toString());
 					bestIndivOutputWriter.write("\t" + Long.toString(this.bestForestSeeds.get(i)));
 				    bestIndivOutputWriter.newLine();
 				}
@@ -683,20 +830,33 @@ public class Controller
 		return classWeights;
 	}
 
-	List<Integer> hammingDistance(Integer[] parentOne, Integer[] parentTwo)
+	List<List<Integer>> hammingDistance(List<Integer> parentOne, List<Integer> parentTwo)
 	{
-		List<Integer> nonMatchingBits = new ArrayList<Integer>();
-		for (int i = 0; i < parentOne.length; i++)
+		List<List<Integer>> nonMatchingObs = new ArrayList<List<Integer>>();
+		for (Integer i : parentOne)
 		{
-			if (parentOne[i] != parentTwo[i])
+			if (!parentTwo.contains(i))
 			{
-				nonMatchingBits.add(i);
+				List<Integer> nonMatch = new ArrayList<Integer>();
+				nonMatch.add(1);
+				nonMatch.add(i);
+				nonMatchingObs.add(nonMatch);
 			}
 		}
-		return nonMatchingBits;
+		for (Integer i : parentTwo)
+		{
+			if (!parentOne.contains(i))
+			{
+				List<Integer> nonMatch = new ArrayList<Integer>();
+				nonMatch.add(2);
+				nonMatch.add(i);
+				nonMatchingObs.add(nonMatch);
+			}
+		}
+		return nonMatchingObs;
 	}
 
-	boolean loopTermination(int currentGen, int maxGens, int currentEvals, int maxEvals, int generationsOfStagnation, Date startTime, long maxTimeAllowed)
+	boolean loopTermination(int currentGen, int maxGens, int currentEvals, int maxEvals, Date startTime, long maxTimeAllowed)
 	{
 		boolean isGenNotStopping = false;
 		boolean isEvalNotStopping = false;
@@ -757,7 +917,7 @@ public class Controller
 	}
 
 	void writeOutStatus(String fitnessDirectoryLocation, List<Double> fitness, String populationDirectoryLocation,
-			List<Integer[]> population, int currentGeneration, String genStatsOutputLocation, int populationSize)
+			List<List<Integer>> population, int currentGeneration, String genStatsOutputLocation, int populationSize)
 	{
 		// Write out the fitness info for the current generation.
 		String fitnessOutputLocation = fitnessDirectoryLocation + "/" + Integer.toString(currentGeneration) + ".txt";
@@ -780,14 +940,16 @@ public class Controller
 
 		// Write out the population information for the current generation.
 		String populationOutputLocation = populationDirectoryLocation + "/" + Integer.toString(currentGeneration) + ".txt";
+		double meanPopulationSize = 0.0;
 		try
 		{
 			FileWriter populationOutputFile = new FileWriter(populationOutputLocation);
 			BufferedWriter populationOutputWriter = new BufferedWriter(populationOutputFile);
-			for (Integer[] p : population)
+			for (List<Integer> p : population)
 			{
-				populationOutputWriter.write(Arrays.toString(p));
+				populationOutputWriter.write(p.toString());
 				populationOutputWriter.newLine();
+				meanPopulationSize += p.size();
 			}
 			populationOutputWriter.close();
 		}
@@ -796,6 +958,7 @@ public class Controller
 			e.printStackTrace();
 			System.exit(0);
 		}
+		meanPopulationSize /= populationSize;
 
 		// Calculate the mean and median fitness for the current generation.
 		double meanErrorRate = 0.0;
@@ -838,6 +1001,10 @@ public class Controller
 			genStatsOutputWriter.write(Double.toString(medianErrorRate));
 			genStatsOutputWriter.write("\t");
 			genStatsOutputWriter.write(Double.toString(stdDevErrorRate));
+			genStatsOutputWriter.write("\t");
+			genStatsOutputWriter.write(Integer.toString(population.get(0).size()));
+			genStatsOutputWriter.write("\t");
+			genStatsOutputWriter.write(Double.toString(meanPopulationSize));
 			genStatsOutputWriter.newLine();
 			genStatsOutputWriter.close();
 		}
