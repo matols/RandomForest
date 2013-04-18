@@ -155,10 +155,33 @@ public class MultipleForestRunAndTest
 		{
 			FileWriter resultsOutputFile = new FileWriter(mccResultsLocation, true);
 			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
-			resultsOutputWriter.write("\t");
-			resultsOutputWriter.write(Integer.toString(ctrl.mtry));
-			resultsOutputWriter.write("\t");
+			if (analysisBeingRun == 1)
+			{
+				resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
+				resultsOutputWriter.write("\t");
+				resultsOutputWriter.write(Integer.toString(ctrl.mtry));
+				resultsOutputWriter.write("\t");
+			}
+			else if (analysisBeingRun == 2)
+			{
+				int sampleSize = 0;
+				for (String s : ctrl.sampSize.keySet())
+				{
+					sampleSize += ctrl.sampSize.get(s);
+				}
+				double posClassFraction = ((double) ctrl.sampSize.get(posClass)) / sampleSize;
+				resultsOutputWriter.write(Integer.toString(sampleSize));
+				resultsOutputWriter.write("\t");
+				resultsOutputWriter.write(String.format("%.5f", posClassFraction));
+				resultsOutputWriter.write("\t");
+				resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
+				resultsOutputWriter.write("\t");
+			}
+			else if (analysisBeingRun == 3)
+			{
+				resultsOutputWriter.write(Integer.toString(ctrl.minNodeSize));
+				resultsOutputWriter.write("\t");
+			}
 			for (Double d : mccValues)
 			{
 				resultsOutputWriter.write(String.format("%.5f", d));
