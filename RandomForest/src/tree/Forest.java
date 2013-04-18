@@ -730,7 +730,6 @@ public class Forest
 	public void regrowForest(long newSeed, TreeGrowthControl newCtrl)
 	{
 		// Regrow using a different seed and a new controller.
-		// This allows you to change replacement/mtry while keeping the random seed the same.
 		this.seed = newSeed;
 		this.ctrl = newCtrl;
 		this.regrowForest();
