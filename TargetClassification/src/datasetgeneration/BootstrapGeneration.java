@@ -8,12 +8,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
-	public class CrossValidationFoldGenerationMultiClass
+	public class BootstrapGeneration
 	{
 
 		/**
@@ -27,10 +27,27 @@ import java.util.Map;
 			main(inputFileLocation, outputLocation, numberOfFolds);
 		}
 
-		public static void main(String inputFileLocation, String outputLocation, int numberOfFolds)
+		public static void main(String inputFileLocation, String outputLocation, int numberOfBootstraps)
 		{
-			Map<String, Map<Integer, String>> observationIndexToLine = new HashMap<String, Map<Integer, String>>();
+			// Check the input validity.
+			File outputDirectory = new File(outputLocation);
+			if (!outputDirectory.exists())
+			{
+				boolean isDirCreated = outputDirectory.mkdirs();
+				if (!isDirCreated)
+				{
+					System.out.println("The output directory does not exist, but could not be created.");
+					System.exit(0);
+				}
+			}
+			else if (!outputDirectory.isDirectory())
+			{
+				// Exists and is not a directory.
+				System.out.println("The second argument must be a valid directory location or location where a directory can be created.");
+				System.exit(0);
+			}
 
+			Map<String, Map<Integer, String>> observationIndexToLine = new HashMap<String, Map<Integer, String>>();
 			String headerOne = "";
 			String headerTwo = "";
 			String headerThree = "";
@@ -67,109 +84,54 @@ import java.util.Map;
 				System.exit(0);
 			}
 
-			Map<String, List<Integer>> classObsIndices = new HashMap<String, List<Integer>>();
 			Map<String, Integer> classNumbers = new HashMap<String, Integer>();
-			Map<String, Integer> classObsInFold = new HashMap<String, Integer>();
-			Map<String, List<Integer>> classObsIndicesForFolds = new HashMap<String, List<Integer>>();
-			Map<String, Integer> classObsLeftOver = new HashMap<String, Integer>();
 			for (String s : observationIndexToLine.keySet())
 			{
-				List<Integer> classObservations = new ArrayList<Integer>(observationIndexToLine.get(s).keySet());
-				Collections.shuffle(classObservations);  // Shuffle the observations to randomise the observations in each fold.
-				classObsIndices.put(s, classObservations);
-				classNumbers.put(s, classObsIndices.get(s).size());
-			}
-			for (String s : classNumbers.keySet())
-			{
-				classObsInFold.put(s, classNumbers.get(s) / numberOfFolds);
-				classObsIndicesForFolds.put(s, new ArrayList<Integer>());
-				classObsLeftOver.put(s, classNumbers.get(s) - (classObsInFold.get(s) * numberOfFolds));
-			}
-			for (int i = 0; i <= numberOfFolds; i++)
-			{
-				for (String s : classObsInFold.keySet())
-				{
-					classObsIndicesForFolds.get(s).add(i * classObsInFold.get(s));
-				}
-			}
-
-			// Select the observations for each fold.
-			List<List<Integer>> datasets = new ArrayList<List<Integer>>();
-			for (int i = 0; i < numberOfFolds; i++)
-			{
-				List<Integer> currentFold = new ArrayList<Integer>();
-				for (String s : classObsIndicesForFolds.keySet())
-				{
-					currentFold.addAll(classObsIndices.get(s).subList(classObsIndicesForFolds.get(s).get(i), classObsIndicesForFolds.get(s).get(i + 1)));
-				}
-				datasets.add(currentFold);
-			}
-			// Add the left over observations if there are any.
-			for (String s : classObsLeftOver.keySet())
-			{
-				if (classObsLeftOver.get(s) != 0)
-				{
-					// There are left over observations for this class.
-					int foldIndex = 0;
-					int indexOfFirstLeftOver = numberOfFolds * classObsInFold.get(s);
-					for (int i = indexOfFirstLeftOver; i < classNumbers.get(s); i++)
-					{
-						datasets.get(foldIndex).add(classObsIndices.get(s).get(i));
-						foldIndex += 1;
-					}
-				}
+				classNumbers.put(s, observationIndexToLine.get(s).size());
 			}
 
 			// Write out the datasets.
-			File outputDirectory = new File(outputLocation);
-			if (!outputDirectory.exists())
+			Random obsSelector = new Random();
+			for (int i = 0; i < numberOfBootstraps; i++)
 			{
-				boolean isDirCreated = outputDirectory.mkdirs();
-				if (!isDirCreated)
+				String bootstrapOutputLocation = outputLocation + "/" + Integer.toString(i);
+				File bootstrapOutputDirectory = new File(bootstrapOutputLocation);
+				if (!bootstrapOutputDirectory.exists())
 				{
-					System.out.println("The output directory does not exist, but could not be created.");
-					System.exit(0);
-				}
-			}
-			else if (!outputDirectory.isDirectory())
-			{
-				// Exists and is not a directory.
-				System.out.println("The second argument must be a valid directory location or location where a directory can be created.");
-				System.exit(0);
-			}
-			for (int i = 0; i < numberOfFolds; i++)
-			{
-				String foldOutputLocation = outputLocation + "/" + Integer.toString(i);
-				File foldOutputDirectory = new File(foldOutputLocation);
-				if (!foldOutputDirectory.exists())
-				{
-					boolean isDirCreated = foldOutputDirectory.mkdirs();
+					boolean isDirCreated = bootstrapOutputDirectory.mkdirs();
 					if (!isDirCreated)
 					{
-						System.out.println("The fold output directory does not exist, but could not be created.");
+						System.out.println("The bootstrap output directory does not exist, but could not be created.");
 						System.exit(0);
 					}
 				}
-				else if (!foldOutputDirectory.isDirectory())
+				else if (!bootstrapOutputDirectory.isDirectory())
 				{
 					// Exists and is not a directory.
-					System.out.println("The fold output directory location already exists, but is not a directory.");
+					System.out.println("The bootstrap output directory location already exists, but is not a directory.");
 					System.exit(0);
 				}
-				String trainDataOutputLoc = foldOutputLocation + "/Train.txt";
-				String testDataOutputLoc = foldOutputLocation + "/Test.txt";
-				String originalDataIndicesOutputLoc = foldOutputLocation + "/OriginalIndicesOfTrainingSetObs.txt";
+				String trainDataOutputLoc = bootstrapOutputLocation + "/Train.txt";
+				String testDataOutputLoc = bootstrapOutputLocation + "/Test.txt";
+				String originalDataIndicesOutputLoc = bootstrapOutputLocation + "/OriginalIndicesOfTrainingSetObs.txt";
 				List<Integer> trainingData = new ArrayList<Integer>();
 				List<Integer> testData = new ArrayList<Integer>();
-				for (int j = 0; j < numberOfFolds; j++)
+				int selectedObservation;
+				for (String s : classNumbers.keySet())
 				{
-					if (i != j)
+					int numberOfObsOfThisclass = classNumbers.get(s);
+					List<Integer> thisClassObsIndices = new ArrayList<Integer>(observationIndexToLine.get(s).keySet());
+					for (int j = 0; j < numberOfObsOfThisclass; j++)
 					{
-						trainingData.addAll(datasets.get(j));
+						selectedObservation = obsSelector.nextInt(numberOfObsOfThisclass);
+						trainingData.add(thisClassObsIndices.get(selectedObservation));
 					}
-					else
+					for (Integer j : thisClassObsIndices)
 					{
-						testData.addAll(datasets.get(j));
+						if (!trainingData.contains(j))
+						{
+							testData.add(j);
+						}
 					}
 				}
 				try
