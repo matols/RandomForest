@@ -57,7 +57,7 @@ public class Boruta
 		int maxRuns = 100;
 		boolean quickRun = false;
 		boolean verbose = false;
-		int numberOfTrees = 500;
+		int numberOfTrees = 5000;
 		boolean isCompareSelf = false;
 		boolean isMultipleTestingUsed = true;
 		int argIndex = 2;
@@ -103,11 +103,22 @@ public class Boruta
 			}
 		}
 
-		// Process the input data.
+		//===================================================================
+		//==================== CONTROL PARAMETER SETTING ====================
+		//===================================================================
 		TreeGrowthControl ctrl = new TreeGrowthControl();
-		ctrl.mtry = 10;
 		ctrl.isReplacementUsed = true;
 		ctrl.numberOfTreesToGrow = numberOfTrees;
+		ctrl.mtry = 10;
+		ctrl.isStratifiedBootstrapUsed = true;
+
+		Map<String, Double> weights = new HashMap<String, Double>();
+		weights.put("Unlabelled", 1.0);
+		weights.put("Positive", 1.0);
+		//===================================================================
+		//==================== CONTROL PARAMETER SETTING ====================
+		//===================================================================
+
 		ProcessDataForGrowing processedData = new ProcessDataForGrowing(inputLocation, ctrl);
 		for (String s : processedData.covariableData.keySet())
 		{
@@ -145,7 +156,7 @@ public class Boruta
 		// Grow the forest on the permuted datasets, and record the hits for each run.
 		for (int i = 0; i < numberOfRunsForSignificance; i++)
 		{
-			Set<String> hitVariables = randomforestRunner(processedData, variableDecisions, ctrl, 5, quickRun, isCompareSelf);
+			Set<String> hitVariables = randomforestRunner(processedData, variableDecisions, ctrl, 5, quickRun, isCompareSelf, weights);
 			for (String s : hitVariables)
 			{
 				hits.put(s, hits.get(s) + 1);
@@ -185,7 +196,7 @@ public class Boruta
 		// Grow the forest on the permuted datasets, and record the hits for each run.
 		for (int i = 0; i < numberOfRunsForSignificance; i++)
 		{
-			Set<String> hitVariables = randomforestRunner(processedData, variableDecisions, ctrl, 3, quickRun, isCompareSelf);
+			Set<String> hitVariables = randomforestRunner(processedData, variableDecisions, ctrl, 3, quickRun, isCompareSelf, weights);
 			for (String s : hitVariables)
 			{
 				hits.put(s, hits.get(s) + 1);
@@ -225,7 +236,7 @@ public class Boruta
 		// Grow the forest on the permuted datasets, and record the hits for each run.
 		for (int i = 0; i < numberOfRunsForSignificance; i++)
 		{
-			Set<String> hitVariables = randomforestRunner(processedData, variableDecisions, ctrl, 2, quickRun, isCompareSelf);
+			Set<String> hitVariables = randomforestRunner(processedData, variableDecisions, ctrl, 2, quickRun, isCompareSelf, weights);
 			for (String s : hitVariables)
 			{
 				hits.put(s, hits.get(s) + 1);
@@ -283,7 +294,7 @@ public class Boruta
 			}
 
 			// Grow the forest on the permuted datasets, and record the hits for the run.
-			Set<String> hitVariables = randomforestRunner(processedData, variableDecisions, ctrl, 1, quickRun, isCompareSelf);
+			Set<String> hitVariables = randomforestRunner(processedData, variableDecisions, ctrl, 1, quickRun, isCompareSelf, weights);
 			for (String s : hitVariables)
 			{
 				hits.put(s, hits.get(s) + 1);
@@ -433,7 +444,7 @@ public class Boruta
 	 * @return - A set of the variables that scored a hit.
 	 */
 	static Set<String> randomforestRunner(ProcessDataForGrowing procData, Map<String, String> variableDecisions, TreeGrowthControl ctrl,
-			int levelOfRandomness, boolean quickRun, boolean isCompareSelf)
+			int levelOfRandomness, boolean quickRun, boolean isCompareSelf, Map<String, Double> weights)
 	{
 		// Generate a deep copy of the data.
 		ProcessDataForGrowing copyData = new ProcessDataForGrowing(procData);
@@ -484,7 +495,7 @@ public class Boruta
 				copyCtrl.variablesToIgnore.add(s);
 			}
 		}
-		Forest forest = new Forest(copyData, copyCtrl);
+		Forest forest = new Forest(copyData, copyCtrl, weights);
 
 		// Determine importance of variables, and the importance of the nth most important random permutation variable.
 		Map<String, Double> varImp = forest.variableImportance();

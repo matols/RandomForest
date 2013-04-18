@@ -190,6 +190,14 @@ public class Forest
 		growForest(dataForGrowing, weights);
 	}
 
+	public Forest(ProcessDataForGrowing procData, TreeGrowthControl ctrl, Map<String, Double> weights)
+	{
+		this.ctrl = ctrl;
+		this.processedData = procData;
+		this.dataFileGrownFrom = procData.dataFileGrownFrom;
+		growForest(this.dataFileGrownFrom, weights, false);
+	}
+
 	public Forest(String dataForGrowing, TreeGrowthControl ctrl, Map<String, Double> weights, Long seed)
 	{
 		this.ctrl = ctrl;
