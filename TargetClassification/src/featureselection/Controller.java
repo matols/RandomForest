@@ -248,11 +248,12 @@ public class Controller
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int externalRepetitions = 10;
+		int externalRepetitions = 5;
 		int externalFolds = 10;
 		int internalRepetitions = 20;
 		int internalFolds = 10;
-		double fractionToElim = 0.1;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
+		double fractionToElim = 0.2;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
+		int repeatsToEvaluateBestSubsets = 50;
 
 		TreeGrowthControl varImpCtrl = new TreeGrowthControl(ctrl);
 		varImpCtrl.numberOfTreesToGrow = 5000;  // Need more trees to calculate the variable importance correctly than to predict well.
@@ -283,21 +284,113 @@ public class Controller
 		}
 		ctrl.save(outputLocation + "/RandomForestCtrl.txt");
 
-		List<Double> overallMCC = new ArrayList<Double>();
-		List<Double> overallMCCErrorRate = new ArrayList<Double>();
-		List<List<String>> bestMCCSubsets = new ArrayList<List<String>>();
+		// Get the names and types of the features (the types are so that you know which features are the response and which aren't used).
+		String featureNames[] = null;
+		String featureTypes[] = null;
+		try (BufferedReader reader = Files.newBufferedReader(Paths.get(inputLocation), StandardCharsets.UTF_8))
+		{
+			String line = reader.readLine();
+			line = line.replaceAll("\n", "");
+			featureNames = line.split("\t");
 
-		List<Double> overallFHalfScore = new ArrayList<Double>();
-		List<Double> overallFHalfScoreErrorRate = new ArrayList<Double>();
-		List<List<String>> bestFHalfScoreSubsets = new ArrayList<List<String>>();
+			line = reader.readLine();
+			line = line.toLowerCase();
+			line = line.replaceAll("\n", "");
+			featureTypes = line.split("\t");
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
 
-		List<Double> overallFScore = new ArrayList<Double>();
-		List<Double> overallFScoreErrorRate = new ArrayList<Double>();
-		List<List<String>> bestFScoreSubsets = new ArrayList<List<String>>();
+		// Determine the features that are used in the training.
+		List<String> featuresUsed = new ArrayList<String>();
+		for (int i = 0; i < featureNames.length; i++)
+		{
+			if (featureTypes[i].equals("x") || featureTypes[i].equals("r"))
+			{
+				// If the feature is a response variable or is to be skipped.
+				continue;
+			}
+			featuresUsed.add(featureNames[i]);
+		}
 
-		List<Double> overallFTwoScore = new ArrayList<Double>();
-		List<Double> overallFTwoScoreErrorRate = new ArrayList<Double>();
-		List<List<String>> bestFTwoScoreSubsets = new ArrayList<List<String>>();
+		// Set up the output files.
+		String errorRatesLocation = outputLocation + "/ErrorRates.txt";
+		String scoreLocation = outputLocation + "/ClassifierQuality.txt";
+		String mccFractionsLocation = outputLocation + "/MCCFeatureSubsets.txt";
+		String fHalfFractionsLocation = outputLocation + "/FHalfFeatureSubsets.txt";
+		String fOneFractionsLocation = outputLocation + "/FOneFeatureSubsets.txt";
+		String fTwoFractionsLocation = outputLocation + "/FTwoFeatureSubsets.txt";
+		try
+		{
+			FileWriter errorRatesOutputFile = new FileWriter(errorRatesLocation, true);
+			BufferedWriter errorRatesOutputWriter = new BufferedWriter(errorRatesOutputFile);
+			errorRatesOutputWriter.write("MCC\tF0.5\tF\tF2");
+			errorRatesOutputWriter.newLine();
+			errorRatesOutputWriter.close();
+
+			FileWriter scoreOutputFile = new FileWriter(scoreLocation, true);
+			BufferedWriter scoreOutputWriter = new BufferedWriter(scoreOutputFile);
+			scoreOutputWriter.write("MCC\tF0.5\tF\tF2");
+			scoreOutputWriter.newLine();
+			scoreOutputWriter.close();
+
+			FileWriter featureFractionsOutputFile = new FileWriter(mccFractionsLocation, true);
+			BufferedWriter featureFractionsOutputWriter = new BufferedWriter(featureFractionsOutputFile);
+			featureFractionsOutputWriter.write(featuresUsed.get(0));
+			for (String s : featuresUsed.subList(1, featuresUsed.size()))
+			{
+				featureFractionsOutputWriter.write("\t" + s);
+			}
+			featureFractionsOutputWriter.write("\t\tMCC");
+			featureFractionsOutputWriter.write("\tErrorRate");
+			featureFractionsOutputWriter.newLine();
+			featureFractionsOutputWriter.close();
+
+			featureFractionsOutputFile = new FileWriter(fHalfFractionsLocation, true);
+			featureFractionsOutputWriter = new BufferedWriter(featureFractionsOutputFile);
+			featureFractionsOutputWriter.write(featuresUsed.get(0));
+			for (String s : featuresUsed.subList(1, featuresUsed.size()))
+			{
+				featureFractionsOutputWriter.write("\t" + s);
+			}
+			featureFractionsOutputWriter.write("\t\tF0.5");
+			featureFractionsOutputWriter.write("\tErrorRate");
+			featureFractionsOutputWriter.newLine();
+			featureFractionsOutputWriter.close();
+
+			featureFractionsOutputFile = new FileWriter(fOneFractionsLocation, true);
+			featureFractionsOutputWriter = new BufferedWriter(featureFractionsOutputFile);
+			featureFractionsOutputWriter.write(featuresUsed.get(0));
+			for (String s : featuresUsed.subList(1, featuresUsed.size()))
+			{
+				featureFractionsOutputWriter.write("\t" + s);
+			}
+			featureFractionsOutputWriter.write("\t\tF1");
+			featureFractionsOutputWriter.write("\tErrorRate");
+			featureFractionsOutputWriter.newLine();
+			featureFractionsOutputWriter.close();
+
+			featureFractionsOutputFile = new FileWriter(fTwoFractionsLocation, true);
+			featureFractionsOutputWriter = new BufferedWriter(featureFractionsOutputFile);
+			featureFractionsOutputWriter.write(featuresUsed.get(0));
+			for (String s : featuresUsed.subList(1, featuresUsed.size()))
+			{
+				featureFractionsOutputWriter.write("\t" + s);
+			}
+			featureFractionsOutputWriter.write("\t\tF2");
+			featureFractionsOutputWriter.write("\tErrorRate");
+			featureFractionsOutputWriter.newLine();
+			featureFractionsOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+
 		// Determine the seeds that will be used.
 		Random randGen = new Random();
 		List<Long> seedsUsed = new ArrayList<Long>();
@@ -351,8 +444,8 @@ public class Controller
 						}
 						seedsUsed.add(seedToUse);
 
-						ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predictionResults;
 						Forest forest;
+						ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predictionResults;
 						ProcessDataForGrowing testData = new ProcessDataForGrowing(internalCVDir + "\\" + Integer.toString(inFold) + "\\Test.txt", varImpCtrl);
 
 						forest = new Forest(internalCVDir + "\\" + Integer.toString(inFold) + "\\Train.txt", varImpCtrl, weights, seedToUse);
@@ -394,15 +487,31 @@ public class Controller
 							forest.regrowForest(tempCtrl);
 							predictionResults = forest.predict(testData);
 							MCC = calcMCC(posClass, negClass, predictionResults.second, fullDataset.responseData);  // Calculate the MCC.
+							if (Double.isNaN(MCC))
+							{
+								MCC = 0.0;
+							}
 							oldMCC = externalMCC.get(variablesRemaining);
 							externalMCC.put(variablesRemaining, oldMCC + Math.abs(MCC));
 							fHalfScore = calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 0.5);  // Calculate the F0.5 score.
+							if (Double.isNaN(MCC))
+							{
+								fHalfScore = 0.0;
+							}
 							oldFHalfScore = externalFHalf.get(variablesRemaining);
 							externalFHalf.put(variablesRemaining, fHalfScore + oldFHalfScore);
 							fScore = calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 1.0);  // Calculate the F score.
+							if (Double.isNaN(MCC))
+							{
+								fScore = 0.0;
+							}
 							oldFScore = externalF.get(variablesRemaining);
 							externalF.put(variablesRemaining, fScore + oldFScore);
 							fTwoScore = calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 2.0);  // Calculate the F2 score.
+							if (Double.isNaN(MCC))
+							{
+								fTwoScore = 0.0;
+							}
 							oldTwoScore = externalFTwo.get(variablesRemaining);
 							externalFTwo.put(variablesRemaining, fTwoScore + oldTwoScore);
 
@@ -417,7 +526,7 @@ public class Controller
 					}
 				}
 
-				// Find subset size F that gives the greatest absolute MCC.
+				// Find subset size F that gives the greatest absolute MCC, F0.5, F and F2.
 				List<IndexedDoubleData> sortedMCCSubsetSizes = new ArrayList<IndexedDoubleData>();
 				List<IndexedDoubleData> sortedFHalfScoreSubsetSizes = new ArrayList<IndexedDoubleData>();
 				List<IndexedDoubleData> sortedFScoreSubsetSizes = new ArrayList<IndexedDoubleData>();
@@ -452,322 +561,197 @@ public class Controller
 				}
 				Collections.sort(sortedVariables);
 
-				List<String> chosenSubset = new ArrayList<String>();
+				List<String> bestMCCSubset = new ArrayList<String>();
 				for (int i = 0; i < bestMCCSubsetSize; i++)
 				{
-					chosenSubset.add(sortedVariables.get(i).getId());
+					bestMCCSubset.add(sortedVariables.get(i).getId());
 				}
 				TreeGrowthControl tempCtrl = new TreeGrowthControl(ctrl);
 				for (int i = bestMCCSubsetSize; i < varImp.size(); i++)
 				{
 					tempCtrl.variablesToIgnore.add(sortedVariables.get(i).getId());
 				}
-				forest.regrowForest(tempCtrl);
-				ProcessDataForGrowing testData = new ProcessDataForGrowing(externalCVDir + "\\" + Integer.toString(exFold) + "\\Test.txt", ctrl);
-				ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predictionResults = forest.predict(testData);
-				double MCC = calcMCC(posClass, negClass, predictionResults.second, fullDataset.responseData);  // Calculate the MCC.
-				overallMCCErrorRate.add(predictionResults.first);
-				overallMCC.add(MCC);
-				bestMCCSubsets.add(chosenSubset);
+				double averageMCC = 0.0;
+				double averageMCCError = 0.0;
+				for (int i = 0; i < repeatsToEvaluateBestSubsets; i++)
+				{
+					forest.regrowForest(tempCtrl);
+					ProcessDataForGrowing testData = new ProcessDataForGrowing(externalCVDir + "\\" + Integer.toString(exFold) + "\\Test.txt", ctrl);
+					ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predictionResults = forest.predict(testData);
+					averageMCC += calcMCC(posClass, negClass, predictionResults.second, fullDataset.responseData);  // Calculate the MCC.
+					averageMCCError += predictionResults.first;
+				}
+				averageMCC /= repeatsToEvaluateBestSubsets;
+				averageMCCError /= repeatsToEvaluateBestSubsets;
 
-				chosenSubset = new ArrayList<String>();
+				List<String> bestFHalfSubset = new ArrayList<String>();
 				for (int i = 0; i < bestFHalfScoreSubsetSize; i++)
 				{
-					chosenSubset.add(sortedVariables.get(i).getId());
+					bestFHalfSubset.add(sortedVariables.get(i).getId());
 				}
 				tempCtrl = new TreeGrowthControl(ctrl);
 				for (int i = bestFHalfScoreSubsetSize; i < varImp.size(); i++)
 				{
 					tempCtrl.variablesToIgnore.add(sortedVariables.get(i).getId());
 				}
-				forest.regrowForest(tempCtrl);
-				testData = new ProcessDataForGrowing(externalCVDir + "\\" + Integer.toString(exFold) + "\\Test.txt", ctrl);
-				predictionResults = forest.predict(testData);
-				double fHalfScore = calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 0.5);  // Calculate the F0.5 score.
-				overallFHalfScoreErrorRate.add(predictionResults.first);
-				overallFHalfScore.add(fHalfScore);
-				bestFHalfScoreSubsets.add(chosenSubset);
+				double averageFHalf = 0.0;
+				double averageFHalfError = 0.0;
+				for (int i = 0; i < repeatsToEvaluateBestSubsets; i++)
+				{
+					forest.regrowForest(tempCtrl);
+					ProcessDataForGrowing testData = new ProcessDataForGrowing(externalCVDir + "\\" + Integer.toString(exFold) + "\\Test.txt", ctrl);
+					ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predictionResults = forest.predict(testData);
+					averageFHalf += calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 0.5);  // Calculate the F0.5 score.
+					averageFHalfError += predictionResults.first;
+				}
+				averageFHalf /= repeatsToEvaluateBestSubsets;
+				averageFHalfError /= repeatsToEvaluateBestSubsets;
 
-				chosenSubset = new ArrayList<String>();
+				List<String> bestFOneSubset = new ArrayList<String>();
 				for (int i = 0; i < bestFScoreSubsetSize; i++)
 				{
-					chosenSubset.add(sortedVariables.get(i).getId());
+					bestFOneSubset.add(sortedVariables.get(i).getId());
 				}
 				tempCtrl = new TreeGrowthControl(ctrl);
 				for (int i = bestFScoreSubsetSize; i < varImp.size(); i++)
 				{
 					tempCtrl.variablesToIgnore.add(sortedVariables.get(i).getId());
 				}
-				forest.regrowForest(tempCtrl);
-				testData = new ProcessDataForGrowing(externalCVDir + "\\" + Integer.toString(exFold) + "\\Test.txt", ctrl);
-				predictionResults = forest.predict(testData);
-				double fScore = calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 1.0);  // Calculate the F score.
-				overallFScoreErrorRate.add(predictionResults.first);
-				overallFScore.add(fScore);
-				bestFScoreSubsets.add(chosenSubset);
+				double averageFOne = 0.0;
+				double averageFOneError = 0.0;
+				for (int i = 0; i < repeatsToEvaluateBestSubsets; i++)
+				{
+					forest.regrowForest(tempCtrl);
+					ProcessDataForGrowing testData = new ProcessDataForGrowing(externalCVDir + "\\" + Integer.toString(exFold) + "\\Test.txt", ctrl);
+					ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predictionResults = forest.predict(testData);
+					averageFOne += calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 1.0);  // Calculate the F1 score.
+					averageFOneError += predictionResults.first;
+				}
+				averageFOne /= repeatsToEvaluateBestSubsets;
+				averageFOneError /= repeatsToEvaluateBestSubsets;
 
-				chosenSubset = new ArrayList<String>();
+				List<String> bestFTwoSubset = new ArrayList<String>();
 				for (int i = 0; i < bestFTwoScoreSubsetSize; i++)
 				{
-					chosenSubset.add(sortedVariables.get(i).getId());
+					bestFTwoSubset.add(sortedVariables.get(i).getId());
 				}
 				tempCtrl = new TreeGrowthControl(ctrl);
 				for (int i = bestFTwoScoreSubsetSize; i < varImp.size(); i++)
 				{
 					tempCtrl.variablesToIgnore.add(sortedVariables.get(i).getId());
 				}
-				forest.regrowForest(tempCtrl);
-				testData = new ProcessDataForGrowing(externalCVDir + "\\" + Integer.toString(exFold) + "\\Test.txt", ctrl);
-				predictionResults = forest.predict(testData);
-				double fTwoScore = calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 2.0);  // Calculate the F2 score.
-				overallFTwoScoreErrorRate.add(predictionResults.first);
-				overallFTwoScore.add(fTwoScore);
-				bestFTwoScoreSubsets.add(chosenSubset);
-			}
-		}
-
-		// Get the names and types of the features (the types are so that you know which features are the response and which aren't used).
-		String featureNames[] = null;
-		String featureTypes[] = null;
-		try (BufferedReader reader = Files.newBufferedReader(Paths.get(inputLocation), StandardCharsets.UTF_8))
-		{
-			String line = reader.readLine();
-			line = line.replaceAll("\n", "");
-			featureNames = line.split("\t");
-
-			line = reader.readLine();
-			line = line.toLowerCase();
-			line = line.replaceAll("\n", "");
-			featureTypes = line.split("\t");
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
-
-		// Determine the features that are used in the training.
-		List<String> featuresUsed = new ArrayList<String>();
-		for (int i = 0; i < featureNames.length; i++)
-		{
-			if (featureTypes[i].equals("x") || featureTypes[i].equals("r"))
-			{
-				// If the feature is a response variable or is to be skipped.
-				continue;
-			}
-			featuresUsed.add(featureNames[i]);
-		}
-
-		// Write out the results.
-		String errorRatesLocation = outputLocation + "/ErrorRates.txt";
-		try
-		{
-			FileWriter errorRatesOutputFile = new FileWriter(errorRatesLocation);
-			BufferedWriter errorRatesOutputWriter = new BufferedWriter(errorRatesOutputFile);
-			errorRatesOutputWriter.write("MCC\tF0.5\tF\tF2");
-			errorRatesOutputWriter.newLine();
-			for (int i = 0; i < overallMCCErrorRate.size(); i++)
-			{
-				errorRatesOutputWriter.write(Double.toString(overallMCCErrorRate.get(i)));
-				errorRatesOutputWriter.write("\t");
-				errorRatesOutputWriter.write(Double.toString(overallFHalfScoreErrorRate.get(i)));
-				errorRatesOutputWriter.write("\t");
-				errorRatesOutputWriter.write(Double.toString(overallFScoreErrorRate.get(i)));
-				errorRatesOutputWriter.write("\t");
-				errorRatesOutputWriter.write(Double.toString(overallFTwoScoreErrorRate.get(i)));
-				errorRatesOutputWriter.newLine();
-			}
-			errorRatesOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
-		String scoreLocation = outputLocation + "/ClassifierQuality.txt";
-		try
-		{
-			FileWriter scoreOutputFile = new FileWriter(scoreLocation);
-			BufferedWriter scoreOutputWriter = new BufferedWriter(scoreOutputFile);
-			scoreOutputWriter.write("MCC\tF0.5\tF\tF2");
-			scoreOutputWriter.newLine();
-			for (int i = 0; i < overallMCC.size(); i++)
-			{
-				scoreOutputWriter.write(Double.toString(overallMCC.get(i)));
-				scoreOutputWriter.write("\t");
-				scoreOutputWriter.write(Double.toString(overallFHalfScore.get(i)));
-				scoreOutputWriter.write("\t");
-				scoreOutputWriter.write(Double.toString(overallFScore.get(i)));
-				scoreOutputWriter.write("\t");
-				scoreOutputWriter.write(Double.toString(overallFTwoScore.get(i)));
-				scoreOutputWriter.newLine();
-			}
-			scoreOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
-		String featureFractionsLocation = outputLocation + "/MCCFeatureSubsets.txt";
-		try
-		{
-			FileWriter featureFractionsOutputFile = new FileWriter(featureFractionsLocation);
-			BufferedWriter featureFractionsOutputWriter = new BufferedWriter(featureFractionsOutputFile);
-			for (String s : featuresUsed)
-			{
-				featureFractionsOutputWriter.write(s);
-				for (List<String> subset : bestMCCSubsets)
+				double averageFTwo = 0.0;
+				double averageFTwoError = 0.0;
+				for (int i = 0; i < repeatsToEvaluateBestSubsets; i++)
 				{
-					if (subset.contains(s))
-					{
-						featureFractionsOutputWriter.write("\t1");
-					}
-					else
-					{
-						featureFractionsOutputWriter.write("\t0");
-					}
+					forest.regrowForest(tempCtrl);
+					ProcessDataForGrowing testData = new ProcessDataForGrowing(externalCVDir + "\\" + Integer.toString(exFold) + "\\Test.txt", ctrl);
+					ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predictionResults = forest.predict(testData);
+					averageFTwo += calcFBeta(posClass, negClass, predictionResults.second, fullDataset.responseData, 2.0);  // Calculate the F2 score.
+					averageFTwoError += predictionResults.first;
 				}
-				featureFractionsOutputWriter.newLine();
-			}
-			featureFractionsOutputWriter.newLine();
-			featureFractionsOutputWriter.write("MCC");
-			for (Double mcc : overallMCC)
-			{
-				featureFractionsOutputWriter.write("\t" + Double.toString(mcc));
-			}
-			featureFractionsOutputWriter.newLine();
-			featureFractionsOutputWriter.write("ErrorRate");
-			for (Double error : overallMCCErrorRate)
-			{
-				featureFractionsOutputWriter.write("\t" + Double.toString(error));
-			}
-			featureFractionsOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
-		featureFractionsLocation = outputLocation + "/FHalfFeatureSubsets.txt";
-		try
-		{
-			FileWriter featureFractionsOutputFile = new FileWriter(featureFractionsLocation);
-			BufferedWriter featureFractionsOutputWriter = new BufferedWriter(featureFractionsOutputFile);
-			for (String s : featuresUsed)
-			{
-				featureFractionsOutputWriter.write(s);
-				for (List<String> subset : bestFHalfScoreSubsets)
+				averageFTwo /= repeatsToEvaluateBestSubsets;
+				averageFTwoError /= repeatsToEvaluateBestSubsets;
+
+				// Write out the results for this external fold.
+				try
 				{
-					if (subset.contains(s))
+					FileWriter errorRatesOutputFile = new FileWriter(errorRatesLocation, true);
+					BufferedWriter errorRatesOutputWriter = new BufferedWriter(errorRatesOutputFile);
+					errorRatesOutputWriter.write(Double.toString(averageMCCError) + "\t");
+					errorRatesOutputWriter.write(Double.toString(averageFHalfError) + "\t");
+					errorRatesOutputWriter.write(Double.toString(averageFOneError) + "\t");
+					errorRatesOutputWriter.write(Double.toString(averageFTwoError));
+					errorRatesOutputWriter.newLine();
+					errorRatesOutputWriter.close();
+
+					FileWriter scoreOutputFile = new FileWriter(scoreLocation, true);
+					BufferedWriter scoreOutputWriter = new BufferedWriter(scoreOutputFile);
+					scoreOutputWriter.write(Double.toString(averageMCC) + "\t");
+					scoreOutputWriter.write(Double.toString(averageFHalf) + "\t");
+					scoreOutputWriter.write(Double.toString(averageFOne) + "\t");
+					scoreOutputWriter.write(Double.toString(averageFTwo));
+					scoreOutputWriter.newLine();
+					scoreOutputWriter.close();
+
+					FileWriter featureFractionsOutputFile = new FileWriter(mccFractionsLocation, true);
+					BufferedWriter featureFractionsOutputWriter = new BufferedWriter(featureFractionsOutputFile);
+					for (String s : featuresUsed)
 					{
-						featureFractionsOutputWriter.write("\t1");
+						if (bestMCCSubset.contains(s))
+						{
+							featureFractionsOutputWriter.write("1\t");
+						}
+						else
+						{
+							featureFractionsOutputWriter.write("0\t");
+						}
 					}
-					else
+					featureFractionsOutputWriter.write("\t" + Double.toString(averageMCC));
+					featureFractionsOutputWriter.write("\t" + Double.toString(averageMCCError));
+					featureFractionsOutputWriter.newLine();
+					featureFractionsOutputWriter.close();
+
+					featureFractionsOutputFile = new FileWriter(fHalfFractionsLocation, true);
+					featureFractionsOutputWriter = new BufferedWriter(featureFractionsOutputFile);
+					for (String s : featuresUsed)
 					{
-						featureFractionsOutputWriter.write("\t0");
+						if (bestFHalfSubset.contains(s))
+						{
+							featureFractionsOutputWriter.write("1\t");
+						}
+						else
+						{
+							featureFractionsOutputWriter.write("0\t");
+						}
 					}
+					featureFractionsOutputWriter.write("\t" + Double.toString(averageFHalf));
+					featureFractionsOutputWriter.write("\t" + Double.toString(averageFHalfError));
+					featureFractionsOutputWriter.newLine();
+					featureFractionsOutputWriter.close();
+
+					featureFractionsOutputFile = new FileWriter(fOneFractionsLocation, true);
+					featureFractionsOutputWriter = new BufferedWriter(featureFractionsOutputFile);
+					for (String s : featuresUsed)
+					{
+						if (bestFOneSubset.contains(s))
+						{
+							featureFractionsOutputWriter.write("1\t");
+						}
+						else
+						{
+							featureFractionsOutputWriter.write("0\t");
+						}
+					}
+					featureFractionsOutputWriter.write("\t" + Double.toString(averageFOne));
+					featureFractionsOutputWriter.write("\t" + Double.toString(averageFOneError));
+					featureFractionsOutputWriter.newLine();
+					featureFractionsOutputWriter.close();
+
+					featureFractionsOutputFile = new FileWriter(fTwoFractionsLocation, true);
+					featureFractionsOutputWriter = new BufferedWriter(featureFractionsOutputFile);
+					for (String s : featuresUsed)
+					{
+						if (bestFTwoSubset.contains(s))
+						{
+							featureFractionsOutputWriter.write("1\t");
+						}
+						else
+						{
+							featureFractionsOutputWriter.write("0\t");
+						}
+					}
+					featureFractionsOutputWriter.write("\t" + Double.toString(averageFTwo));
+					featureFractionsOutputWriter.write("\t" + Double.toString(averageFTwoError));
+					featureFractionsOutputWriter.newLine();
+					featureFractionsOutputWriter.close();
 				}
-				featureFractionsOutputWriter.newLine();
-			}
-			featureFractionsOutputWriter.newLine();
-			featureFractionsOutputWriter.write("F0.5");
-			for (Double fHalf : overallFHalfScore)
-			{
-				featureFractionsOutputWriter.write("\t" + Double.toString(fHalf));
-			}
-			featureFractionsOutputWriter.newLine();
-			featureFractionsOutputWriter.write("ErrorRate");
-			for (Double error : overallFHalfScoreErrorRate)
-			{
-				featureFractionsOutputWriter.write("\t" + Double.toString(error));
-			}
-			featureFractionsOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
-		featureFractionsLocation = outputLocation + "/FOneFeatureSubsets.txt";
-		try
-		{
-			FileWriter featureFractionsOutputFile = new FileWriter(featureFractionsLocation);
-			BufferedWriter featureFractionsOutputWriter = new BufferedWriter(featureFractionsOutputFile);
-			for (String s : featuresUsed)
-			{
-				featureFractionsOutputWriter.write(s);
-				for (List<String> subset : bestFScoreSubsets)
+				catch (Exception e)
 				{
-					if (subset.contains(s))
-					{
-						featureFractionsOutputWriter.write("\t1");
-					}
-					else
-					{
-						featureFractionsOutputWriter.write("\t0");
-					}
+					e.printStackTrace();
+					System.exit(0);
 				}
-				featureFractionsOutputWriter.newLine();
 			}
-			featureFractionsOutputWriter.newLine();
-			featureFractionsOutputWriter.write("F1");
-			for (Double fOne : overallFScore)
-			{
-				featureFractionsOutputWriter.write("\t" + Double.toString(fOne));
-			}
-			featureFractionsOutputWriter.newLine();
-			featureFractionsOutputWriter.write("ErrorRate");
-			for (Double error : overallFScoreErrorRate)
-			{
-				featureFractionsOutputWriter.write("\t" + Double.toString(error));
-			}
-			featureFractionsOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
-		featureFractionsLocation = outputLocation + "/FTwoFeatureSubsets.txt";
-		try
-		{
-			FileWriter featureFractionsOutputFile = new FileWriter(featureFractionsLocation);
-			BufferedWriter featureFractionsOutputWriter = new BufferedWriter(featureFractionsOutputFile);
-			for (String s : featuresUsed)
-			{
-				featureFractionsOutputWriter.write(s);
-				for (List<String> subset : bestFTwoScoreSubsets)
-				{
-					if (subset.contains(s))
-					{
-						featureFractionsOutputWriter.write("\t1");
-					}
-					else
-					{
-						featureFractionsOutputWriter.write("\t0");
-					}
-				}
-				featureFractionsOutputWriter.newLine();
-			}
-			featureFractionsOutputWriter.newLine();
-			featureFractionsOutputWriter.write("F2");
-			for (Double fTwo : overallFTwoScore)
-			{
-				featureFractionsOutputWriter.write("\t" + Double.toString(fTwo));
-			}
-			featureFractionsOutputWriter.newLine();
-			featureFractionsOutputWriter.write("ErrorRate");
-			for (Double error : overallFTwoScoreErrorRate)
-			{
-				featureFractionsOutputWriter.write("\t" + Double.toString(error));
-			}
-			featureFractionsOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
 		}
 	}
 
@@ -801,7 +785,7 @@ public class Controller
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int repetitions = 50;
+		int repetitions = 200;
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -842,7 +826,7 @@ public class Controller
 			System.exit(0);
 		}
 
-		// Determine the features that are used in the GAs.
+		// Determine the features that are used in growing the trees.
 		List<String> featuresUsed = new ArrayList<String>();
 		for (int i = 0; i < featureNames.length; i++)
 		{
@@ -854,12 +838,47 @@ public class Controller
 			featuresUsed.add(featureNames[i]);
 		}
 
+		// Write out the importance header
+		String varImpLocation = outputLocation + "/VariableImportances.txt";
+		try
+		{
+			FileWriter varImpOutputFile = new FileWriter(varImpLocation, true);
+			BufferedWriter varImpOutputWriter = new BufferedWriter(varImpOutputFile);
+			varImpOutputWriter.write(featuresUsed.get(0));
+			for (String s : featuresUsed.subList(1, featuresUsed.size()))
+			{
+				varImpOutputWriter.write("\t" + s);
+			}
+			varImpOutputWriter.newLine();
+			varImpOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+
+		String seedsLocation = outputLocation + "/SeedsUsed.txt";
+
 		// Setup the record of the average importance ranking.
 		Map<String, List<Integer>> importanceRanking = new HashMap<String, List<Integer>>();
 		for (String s : featuresUsed)
 		{
 			importanceRanking.put(s, new ArrayList<Integer>());
 		}
+
+		// Setup the proximity mapping.
+		 ProcessDataForGrowing inputData = new ProcessDataForGrowing(inputLocation, ctrl);
+	     Map<Integer, Map<Integer, Double>> proximities = new HashMap<Integer, Map<Integer, Double>>();
+	     for (int i = 0; i < inputData.numberObservations; i++)
+	     {
+	    	 Map<Integer, Double> proxims = new HashMap<Integer, Double>();
+	    	 for (int j = 0; j < inputData.numberObservations; j++)
+	    	 {
+	    		 proxims.put(j, 0.0);
+	    	 }
+	    	 proximities.put(i, proxims);
+	     }
 
 		// Determine the seeds that will be used.
 		Random randGen = new Random();
@@ -872,6 +891,7 @@ public class Controller
 		    String strDate = sdfDate.format(startTime);
 		    System.out.format("Now working on repetition %d at %s.\n", i, strDate);
 
+		    // Determine a new unique seed to use.
 			Long seedToUse = randGen.nextLong();
 			while (seedsUsed.contains(seedToUse))
 			{
@@ -879,18 +899,22 @@ public class Controller
 				seedToUse = randGen.nextLong();
 			}
 			seedsUsed.add(seedToUse);
+
 			Forest forest = new Forest(inputLocation, ctrl, weights, seedToUse);
-			startTime = new Date();
-		    sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-		    strDate = sdfDate.format(startTime);
-			System.out.format("\tNow determining variable importances at %s.\n", strDate);
-//			Map<String, Double> varImp = forest.variableImportance();
-			Map<String, Double> varImp = new HashMap<String, Double>();
-			startTime = new Date();
-		    sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-		    strDate = sdfDate.format(startTime);
-			System.out.format("\tNow determining proximities at %s.\n", strDate);
-			Map<Integer, Map<Integer, Double>> prox = forest.calculatProximities(outputLocation + "/TempProximities.txt");
+			System.out.println("\tNow determining variable importances.");
+			Map<String, Double> varImp = forest.variableImportance();
+		    System.out.println("\tNow determining proximities.");
+//			Map<Integer, Map<Integer, Double>> prox = forest.calculatProximities(outputLocation + "/TempProximities.txt");
+			Map<Integer, Map<Integer, Double>> prox = forest.calculatProximities();
+			for (int j : prox.keySet())
+			{
+				Map<Integer, Double> currentProx = proximities.get(j);
+				Map<Integer, Double> newProx = prox.get(j);
+				for (int k : prox.get(j).keySet())
+				{
+					currentProx.put(k, currentProx.get(k) + newProx.get(k));
+				}
+			}
 
 			// Determine the importance ordering for the variables, largest importance first.
 			List<StringsSortedByDoubles> sortedVariables = new ArrayList<StringsSortedByDoubles>();
@@ -900,120 +924,142 @@ public class Controller
 			}
 			Collections.sort(sortedVariables);
 			Collections.reverse(sortedVariables);
-
+			Map<String, Integer> varToImpRank = new HashMap<String, Integer>();
 			for (int j = 0; j < varImp.size(); j++)
 			{
-				String featureImp = sortedVariables.get(j).getId();
-				importanceRanking.get(featureImp).add(j + 1);
+				varToImpRank.put(sortedVariables.get(j).getId(), j + 1);
+			}
+
+			// Write out the results for this repetition.
+			try
+			{
+				FileWriter varImpOutputFile = new FileWriter(varImpLocation, true);
+				BufferedWriter varImpOutputWriter = new BufferedWriter(varImpOutputFile);
+				String outputString = "";
+				for (String s : featuresUsed)
+				{
+					outputString += varToImpRank.get(s) + "\t";
+				}
+				varImpOutputWriter.write(outputString.substring(0, outputString.length() - 1));
+				varImpOutputWriter.newLine();
+				varImpOutputWriter.close();
+
+				FileWriter seedsOutputFile = new FileWriter(seedsLocation, true);
+				BufferedWriter seedsOutputWriter = new BufferedWriter(seedsOutputFile);
+				seedsOutputWriter.write(Long.toString(seedToUse));
+				seedsOutputWriter.newLine();
+				seedsOutputWriter.close();
+			}
+			catch (Exception e)
+			{
+				e.printStackTrace();
+				System.exit(0);
 			}
 		}
 
-		// Write out the results.
-		String varImpLocation = outputLocation + "/VariableImportances.txt";
+		// Normalise and write out the proximities.
+		for (int j : proximities.keySet())
+		{
+			Map<Integer, Double> currentProx = proximities.get(j);
+			for (int k : currentProx.keySet())
+			{
+				currentProx.put(k, currentProx.get(k) / repetitions);
+			}
+		}
+		String proximitiesLocation = outputLocation + "/Proximities.txt";
 		try
 		{
-			FileWriter varImpOutputFile = new FileWriter(varImpLocation);
-			BufferedWriter varImpOutputWriter = new BufferedWriter(varImpOutputFile);
-			for (String s : featuresUsed)
+			FileWriter proximitiesOutputFile = new FileWriter(proximitiesLocation);
+			BufferedWriter proximitiesOutputWriter = new BufferedWriter(proximitiesOutputFile);
+			for (int i = 0; i < inputData.numberObservations; i++)
 			{
-				varImpOutputWriter.write(s);
-				for (Integer i : importanceRanking.get(s))
-				{
-					varImpOutputWriter.write("\t" + Integer.toString(i));
-				}
-				varImpOutputWriter.newLine();
+				proximitiesOutputWriter.write("\t" + Integer.toString(i));
 			}
-			varImpOutputWriter.close();
+			proximitiesOutputWriter.newLine();
+			for (int i = 0; i < inputData.numberObservations; i++)
+			{
+				proximitiesOutputWriter.write(Integer.toString(i));
+				for (int j = 0; j < inputData.numberObservations; j++)
+				{
+					proximitiesOutputWriter.write("\t" + Double.toString(proximities.get(i).get(j)));
+				}
+				proximitiesOutputWriter.newLine();
+			}
+			proximitiesOutputWriter.close();
 		}
 		catch (Exception e)
 		{
 			e.printStackTrace();
 			System.exit(0);
 		}
-		String seedsLocation = outputLocation + "/SeedsUsed.txt";
-		try
-		{
-			FileWriter seedsOutputFile = new FileWriter(seedsLocation);
-			BufferedWriter seedsOutputWriter = new BufferedWriter(seedsOutputFile);
-			for (Long l : seedsUsed)
-			{
-				seedsOutputWriter.write(Long.toString(l));
-				seedsOutputWriter.newLine();
-			}
-			seedsOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
-		ProcessDataForGrowing procInputData = new ProcessDataForGrowing(inputLocation, ctrl);
-		int numberOfObservations = procInputData.numberObservations;
-		int numberOfTrees = 0;
-		Path dataPath = Paths.get(outputLocation + "/TempProximities.txt");
-		try
-		{
-			FileWriter proxOutputFile = new FileWriter(outputLocation + "/Proximities.txt");
-			BufferedWriter proxOutputWriter = new BufferedWriter(proxOutputFile);
-			for (int i = 0; i < numberOfObservations; i++)
-			{
-				proxOutputWriter.write("\t" + Integer.toString(i));
-			}
-			proxOutputWriter.newLine();
-			for (int i = 0; i < numberOfObservations; i++)
-			{
-				// For each observation
-				String currentObs = Integer.toString(i);
-				Map<String, Double> sameTermNodeWithI = new HashMap<String, Double>();
-				for (int j = 0; j < numberOfObservations; j++)
-				{
-					// Set up coocurences where obs appears in same terminal node with other obs
-					sameTermNodeWithI.put(Integer.toString(j), 0.0);
-				}
-				try (BufferedReader reader = Files.newBufferedReader(dataPath, StandardCharsets.UTF_8))
-				{
-					String line;
-					numberOfTrees = 0;
-					while ((line = reader.readLine()) != null)
-					{
-						numberOfTrees += 1;
-						String[] proxims = line.trim().split("\t");
-						for (String s : proxims)
-						{
-							List<String> termNodeObs = Arrays.asList(s.split(","));
-							if (termNodeObs.contains(currentObs))
-							{
-								for (String p : termNodeObs)
-								{
-									sameTermNodeWithI.put(p, sameTermNodeWithI.get(p) + 1.0);
-								}
-							}
-						}
-					}
-				}
-				catch (Exception e)
-				{
-					e.printStackTrace();
-					System.exit(0);
-				}
-				for (String s : sameTermNodeWithI.keySet())
-				{
-					sameTermNodeWithI.put(s, sameTermNodeWithI.get(s) / numberOfTrees);
-				}
-				proxOutputWriter.write(currentObs);
-				for (int j = 0; j < numberOfObservations; j++)
-				{
-					proxOutputWriter.write("\t" + Double.toString(sameTermNodeWithI.get(Integer.toString(j))));
-				}
-				proxOutputWriter.newLine();
-			}
-			proxOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
+
+//		ProcessDataForGrowing procInputData = new ProcessDataForGrowing(inputLocation, ctrl);
+//		int numberOfObservations = procInputData.numberObservations;
+//		int numberOfTrees = 0;
+//		Path dataPath = Paths.get(outputLocation + "/TempProximities.txt");
+//		try
+//		{
+//			FileWriter proxOutputFile = new FileWriter(outputLocation + "/Proximities.txt");
+//			BufferedWriter proxOutputWriter = new BufferedWriter(proxOutputFile);
+//			for (int i = 0; i < numberOfObservations; i++)
+//			{
+//				proxOutputWriter.write("\t" + Integer.toString(i));
+//			}
+//			proxOutputWriter.newLine();
+//			for (int i = 0; i < numberOfObservations; i++)
+//			{
+//				// For each observation
+//				String currentObs = Integer.toString(i);
+//				Map<String, Double> sameTermNodeWithI = new HashMap<String, Double>();
+//				for (int j = 0; j < numberOfObservations; j++)
+//				{
+//					// Set up coocurences where obs appears in same terminal node with other obs
+//					sameTermNodeWithI.put(Integer.toString(j), 0.0);
+//				}
+//				try (BufferedReader reader = Files.newBufferedReader(dataPath, StandardCharsets.UTF_8))
+//				{
+//					String line;
+//					numberOfTrees = 0;
+//					while ((line = reader.readLine()) != null)
+//					{
+//						numberOfTrees += 1;
+//						String[] proxims = line.trim().split("\t");
+//						for (String s : proxims)
+//						{
+//							List<String> termNodeObs = Arrays.asList(s.split(","));
+//							if (termNodeObs.contains(currentObs))
+//							{
+//								for (String p : termNodeObs)
+//								{
+//									sameTermNodeWithI.put(p, sameTermNodeWithI.get(p) + 1.0);
+//								}
+//							}
+//						}
+//					}
+//				}
+//				catch (Exception e)
+//				{
+//					e.printStackTrace();
+//					System.exit(0);
+//				}
+//				for (String s : sameTermNodeWithI.keySet())
+//				{
+//					sameTermNodeWithI.put(s, sameTermNodeWithI.get(s) / numberOfTrees);
+//				}
+//				proxOutputWriter.write(currentObs);
+//				for (int j = 0; j < numberOfObservations; j++)
+//				{
+//					proxOutputWriter.write("\t" + Double.toString(sameTermNodeWithI.get(Integer.toString(j))));
+//				}
+//				proxOutputWriter.newLine();
+//			}
+//			proxOutputWriter.close();
+//		}
+//		catch (Exception e)
+//		{
+//			e.printStackTrace();
+//			System.exit(0);
+//		}
 	}
 
 	double calcMCC(String posClass, String negClass, Map<String, Map<String, Double>> confMatrix, List<String> responseData)
