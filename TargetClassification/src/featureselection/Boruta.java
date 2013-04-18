@@ -277,6 +277,10 @@ public class Boruta
 		while (isTentativesRemain && currentRun < maxRuns)
 		{
 			currentRun += 1;
+			if (verbose)
+			{
+				System.out.format("\tNow performing run: %d.\n", currentRun);
+			}
 
 			// Grow the forest on the permuted datasets, and record the hits for the run.
 			Set<String> hitVariables = randomforestRunner(processedData, variableDecisions, ctrl, 1, quickRun, isCompareSelf);
@@ -290,7 +294,6 @@ public class Boruta
 			// or if multiple testing is not being used and the number of runs has reached the maximum specified.
 			if ((isMultipleTestingUsed && currentRun >= numberOfRunsForSignificance) || currentRun + 1 == maxRuns)
 			{
-				System.out.format("Current run: %d\n", currentRun);
 				decisionsMadeThisRound = doTest(hits, currentRun, confidenceLevel, true);  // Allow variables to be Confirmed.
 				for (String s : decisionsMadeThisRound.keySet())
 				{
