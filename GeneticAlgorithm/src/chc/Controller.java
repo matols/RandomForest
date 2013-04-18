@@ -342,6 +342,10 @@ public class Controller
 			Double oobTN = oobConfusionMatrix.get(negClass).get("TruePositive");
 			Double oobFN = oobConfusionMatrix.get(negClass).get("FalsePositive");
 			Double oobMCC = (((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN)));
+			if (Double.isNaN(oobMCC))
+			{
+				oobMCC = 0.0;
+			}
 	    	fitness.add(oobMCC);
 	    	populationSeeds.add(forest.seed);
 	    	numberEvaluations += 1;
@@ -446,6 +450,10 @@ public class Controller
 					Double oobTN = oobConfusionMatrix.get(negClass).get("TruePositive");
 					Double oobFN = oobConfusionMatrix.get(negClass).get("FalsePositive");
 					Double oobMCC = (((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN)));
+					if (Double.isNaN(oobMCC))
+					{
+						oobMCC = 0.0;
+					}
 			    	offspringFitness.add(oobMCC);
 			    	offspringSeeds.add(forest.seed);
 			    	numberEvaluations += 1;
@@ -519,6 +527,10 @@ public class Controller
 	    				Double oobTN = oobConfusionMatrix.get(negClass).get("TruePositive");
 	    				Double oobFN = oobConfusionMatrix.get(negClass).get("FalsePositive");
 	    				Double oobMCC = (((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN)));
+	    				if (Double.isNaN(oobMCC))
+	    				{
+	    					oobMCC = 0.0;
+	    				}
 	    		    	fitness.add(oobMCC);
 	    		    	populationSeeds.add(forest.seed);
 	    		    	numberEvaluations += 1;

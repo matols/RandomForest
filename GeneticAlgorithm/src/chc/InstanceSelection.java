@@ -259,9 +259,6 @@ public class InstanceSelection
 		List<Integer> positiveObservations = new ArrayList<Integer>();
 		List<Integer> negativeObservations = new ArrayList<Integer>();
 		List<Integer> observationIndices = new ArrayList<Integer>();
-		Map<Integer, Integer> originalToSubsetIndexMapping = new HashMap<Integer, Integer>();
-		List<Integer> deletionIndex = new ArrayList<Integer>();
-		deletionIndex.add(-1);
 		try
 		{
 			BufferedReader geneReader = new BufferedReader(new FileReader(datasetFile));
@@ -285,7 +282,6 @@ public class InstanceSelection
 					positiveObservations.add(numberGenes);
 				}
 				observationIndices.add(numberGenes);
-				originalToSubsetIndexMapping.put(numberGenes, -1);
 				numberGenes += 1;
 			}
 			geneReader.close();
@@ -304,13 +300,16 @@ public class InstanceSelection
 		int numberOfFolds = cvSubDirs.length;
 		List<String> trainingFiles = new ArrayList<String>();
 		List<ProcessDataForGrowing> testingFiles = new ArrayList<ProcessDataForGrowing>();
-		List<Map<Integer, Integer>> origToSubsetIndexMapping = new ArrayList<Map<Integer, Integer>>();
+		List<Map<Integer, List<Integer>>> origToSubsetIndexMapping = new ArrayList<Map<Integer, List<Integer>>>();
 		for (String s : cvSubDirs)
 		{
 			trainingFiles.add(cvDirLocation + "/" + s + "/Train.txt");
 			testingFiles.add(new ProcessDataForGrowing(cvDirLocation + "/" + s + "/Test.txt", ctrl));
-			Map<Integer, Integer> originalDToTrainingSetIndices = new HashMap<Integer, Integer>();
-			originalDToTrainingSetIndices.putAll(originalToSubsetIndexMapping);
+			Map<Integer, List<Integer>> originalToTrainingSetIndices = new HashMap<Integer, List<Integer>>();
+			for (int i = 0; i < numberGenes; i++)
+			{
+				originalToTrainingSetIndices.put(i, new ArrayList<Integer>());
+			}
 			try (BufferedReader reader = Files.newBufferedReader(Paths.get(cvDirLocation + "/" + s + "/OriginalIndicesOfTrainingSetObs.txt"), StandardCharsets.UTF_8))
 			{
 				String line;
@@ -318,7 +317,8 @@ public class InstanceSelection
 				while ((line = reader.readLine()) != null)
 				{
 					line = line.trim();
-					originalDToTrainingSetIndices.put(Integer.parseInt(line), obsIndex);
+					int origIndex = Integer.parseInt(line);
+					originalToTrainingSetIndices.get(origIndex).add(obsIndex);
 					obsIndex++;
 				}
 			}
@@ -327,7 +327,7 @@ public class InstanceSelection
 				e.printStackTrace();
 				System.exit(0);
 			}
-			origToSubsetIndexMapping.add(originalDToTrainingSetIndices);
+			origToSubsetIndexMapping.add(originalToTrainingSetIndices);
 		}
 
 		//----------------------
@@ -390,13 +390,12 @@ public class InstanceSelection
 	    	double meanMCC = 0.0;
 	    	for (int i = 0; i < numberOfFolds; i++)
 	    	{
-	    		Map<Integer, Integer> obsIndexMapping = origToSubsetIndexMapping.get(i);
+	    		Map<Integer, List<Integer>> obsIndexMapping = origToSubsetIndexMapping.get(i);
 	    		List<Integer> obsToTrain = new ArrayList<Integer>();
 	    		for (Integer j : geneSet)
 	    		{
-	    			obsToTrain.add(obsIndexMapping.get(j));
+	    			obsToTrain.addAll(obsIndexMapping.get(j));
 	    		}
-	    		obsToTrain.removeAll(deletionIndex);
 	    		ctrl.trainingObservations = obsToTrain;
 	    		Forest forest = new Forest(trainingFiles.get(i), ctrl, weights);
 	    		ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predResults = forest.predict(testingFiles.get(i));
@@ -405,7 +404,7 @@ public class InstanceSelection
 				double FP = confusionMatrix.get(posClass).get("FalsePositive");
 				double TN = confusionMatrix.get(negClass).get("TruePositive");
 				double FN = confusionMatrix.get(negClass).get("FalsePositive");
-				double MCC = Math.abs((((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))));
+				double MCC = (((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN)));
 				if (Double.isNaN(MCC))
 				{
 					meanMCC += 0;
@@ -426,7 +425,7 @@ public class InstanceSelection
 //			double FP = confusionMatrix.get(posClass).get("FalsePositive");
 //			double TN = confusionMatrix.get(negClass).get("TruePositive");
 //			double FN = confusionMatrix.get(negClass).get("FalsePositive");
-//			double MCC = Math.abs((((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))));
+//			double MCC = (((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN)));
 //			double percentReduction = 100 * (((double) numberGenes / geneSet.size()) / numberGenes);
 ////	    	fitness.add((alpha * MCC) + ((1 - alpha) * percentReduction));
 //			if (Double.isNaN(MCC))
@@ -527,13 +526,12 @@ public class InstanceSelection
 			    	double meanMCC = 0.0;
 			    	for (int i = 0; i < numberOfFolds; i++)
 			    	{
-			    		Map<Integer, Integer> obsIndexMapping = origToSubsetIndexMapping.get(i);
+			    		Map<Integer, List<Integer>> obsIndexMapping = origToSubsetIndexMapping.get(i);
 			    		List<Integer> obsToTrain = new ArrayList<Integer>();
 			    		for (Integer j : geneSet)
 			    		{
-			    			obsToTrain.add(obsIndexMapping.get(j));
+			    			obsToTrain.addAll(obsIndexMapping.get(j));
 			    		}
-			    		obsToTrain.removeAll(deletionIndex);
 			    		ctrl.trainingObservations = obsToTrain;
 			    		Forest forest = new Forest(trainingFiles.get(i), ctrl, weights);
 			    		ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predResults = forest.predict(testingFiles.get(i));
@@ -542,7 +540,7 @@ public class InstanceSelection
 						double FP = confusionMatrix.get(posClass).get("FalsePositive");
 						double TN = confusionMatrix.get(negClass).get("TruePositive");
 						double FN = confusionMatrix.get(negClass).get("FalsePositive");
-						double MCC = Math.abs((((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))));
+						double MCC = (((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN)));
 						if (Double.isNaN(MCC))
 						{
 							meanMCC += 0;
@@ -563,7 +561,7 @@ public class InstanceSelection
 //					double FP = confusionMatrix.get(posClass).get("FalsePositive");
 //					double TN = confusionMatrix.get(negClass).get("TruePositive");
 //					double FN = confusionMatrix.get(negClass).get("FalsePositive");
-//					double MCC = Math.abs((((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))));
+//					double MCC = (((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN)));
 //					double percentReduction = 100 * (((double) numberGenes / geneSet.size()) / numberGenes);
 ////					offspringFitness.add((alpha * MCC) + ((1 - alpha) * percentReduction));
 //					if (Double.isNaN(MCC))
@@ -631,13 +629,12 @@ public class InstanceSelection
 	    		    	double meanMCC = 0.0;
 	    		    	for (int i = 0; i < numberOfFolds; i++)
 	    		    	{
-	    		    		Map<Integer, Integer> obsIndexMapping = origToSubsetIndexMapping.get(i);
+	    		    		Map<Integer, List<Integer>> obsIndexMapping = origToSubsetIndexMapping.get(i);
 	    		    		List<Integer> obsToTrain = new ArrayList<Integer>();
 	    		    		for (Integer j : geneSet)
 	    		    		{
-	    		    			obsToTrain.add(obsIndexMapping.get(j));
+	    		    			obsToTrain.addAll(obsIndexMapping.get(j));
 	    		    		}
-	    		    		obsToTrain.removeAll(deletionIndex);
 	    		    		ctrl.trainingObservations = obsToTrain;
 	    		    		Forest forest = new Forest(trainingFiles.get(i), ctrl, weights);
 	    		    		ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predResults = forest.predict(testingFiles.get(i));
@@ -646,7 +643,7 @@ public class InstanceSelection
 	    					double FP = confusionMatrix.get(posClass).get("FalsePositive");
 	    					double TN = confusionMatrix.get(negClass).get("TruePositive");
 	    					double FN = confusionMatrix.get(negClass).get("FalsePositive");
-	    					double MCC = Math.abs((((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))));
+	    					double MCC = (((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN)));
 	    					if (Double.isNaN(MCC))
 	    					{
 	    						meanMCC += 0;
@@ -667,7 +664,7 @@ public class InstanceSelection
 //						double FP = confusionMatrix.get(posClass).get("FalsePositive");
 //						double TN = confusionMatrix.get(negClass).get("TruePositive");
 //						double FN = confusionMatrix.get(negClass).get("FalsePositive");
-//						double MCC = Math.abs((((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN))));
+//						double MCC = (((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN)));
 //						double percentReduction = 100 * (((double) numberGenes / geneSet.size()) / numberGenes);
 ////						fitness.add((alpha * MCC) + ((1 - alpha) * percentReduction));
 //						if (Double.isNaN(MCC))
