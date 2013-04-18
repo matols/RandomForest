@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import datasetgeneration.BootstrapGeneration;
 import datasetgeneration.CrossValidationFoldGenerationMultiClass;
 
 import tree.IndexedDoubleData;
@@ -56,12 +57,14 @@ public class Controller
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int crossValidationsToDo = 0;
-		int numberOfFolds = 0;
+		int iterationsToDo = 10;
+		int numberOfSubsetsToGenerate = 5;
 
-		Map<String, Integer> obsOfEachClass = new HashMap<String, Integer>();
-		obsOfEachClass.put("Unlabelled", 20);
-		obsOfEachClass.put("Positive", 20);
+		Map<String, Integer[]> obsOfEachClass = new HashMap<String, Integer[]>();
+		Integer[] unlabelledObsToUse = {10, 20, 30, 40, 50};
+		Integer[] positiveObsToUse = {10, 20, 30, 40, 50};
+		obsOfEachClass.put("Unlabelled", unlabelledObsToUse);
+		obsOfEachClass.put("Positive", positiveObsToUse);
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
@@ -82,36 +85,27 @@ public class Controller
 			newGAArgs[k+1] = args[k];
 		}
 		
-		// Run the GA multiple times.
-		for (int i = 0; i < crossValidationsToDo; i++)
+		// Run the instance selection multiple times.
+		for (int i = 0; i < iterationsToDo; i++)
 		{
-			System.out.format("Cross validation iteration : %d.\n", i);
-			String cvDir = outputLocation + "\\CV\\" + Integer.toString(i);
-			// Generate external cross validation folds.
-			CrossValidationFoldGenerationMultiClass.main(inputLocation, cvDir, numberOfFolds);
+			System.out.format("Iteration : %d.\n", i);
+			String subsetsDir = outputLocation + "\\Subsets\\" + Integer.toString(i);
+			// Generate the subsets.
+			BootstrapGeneration.main(inputLocation, subsetsDir, numberOfSubsetsToGenerate);
+//			CrossValidationFoldGenerationMultiClass.main(inputLocation, subsetsDir, numberOfSubsetsToGenerate);
 
 			newGAArgs[0] = args[0];
-			newGAArgs[1] = cvDir;
+			newGAArgs[1] = subsetsDir;
 			newGAArgs[2] = outputLocation + "\\Results\\" + Integer.toString(i);
 			TreeGrowthControl thisGAControl = new TreeGrowthControl(ctrl);
 			new chc.InstanceSelection(newGAArgs, thisGAControl, weights);
-
-//			for (int j = 0; j < numberOfFolds; j++)
-//			{
-//				System.out.format("\tFold : %d.\n", j);
-//				newGAArgs[0] = cvDir + "\\" + Integer.toString(j) + "\\Train.txt";
-//				newGAArgs[1] = cvDir + "\\" + Integer.toString(j) + "\\Test.txt";
-//				newGAArgs[2] = outputLocation + "\\Results\\" + Integer.toString(i) + "\\" + Integer.toString(j);
-//				TreeGrowthControl thisGAControl = new TreeGrowthControl(ctrl);
-//				new chc.RegularInstanceSelection(newGAArgs, thisGAControl, weights);
-//			}
 		}
 
 		gaAnalysis(inputLocation, outputLocation, ctrl, obsOfEachClass);
 	}
 
 
-	static void gaAnalysis(String inputLocation, String resultsDirLoc, TreeGrowthControl ctrl, Map<String, Integer> obsOfEachClass)
+	static void gaAnalysis(String inputLocation, String resultsDirLoc, TreeGrowthControl ctrl, Map<String, Integer[]> obsOfEachClass)
 	{
 		File inputFile = new File(inputLocation);
 		if (!inputFile.isFile())
@@ -129,10 +123,10 @@ public class Controller
 
 		List<List<Integer>> bestIndices = new ArrayList<List<Integer>>();
 
-		String cvDir = resultsDirLoc + "\\CV";
-		File cvDirectory = new File(cvDir);
+		String subsetsDir = resultsDirLoc + "\\Subsets";
+		File subsetsDirectory = new File(subsetsDir);
 		String selectionDir = resultsDirLoc + "\\Results";
-		for (String s : cvDirectory.list())
+		for (String s : subsetsDirectory.list())
 		{
 				
 			String bestIndividualsLoc = selectionDir + "\\" + s + "\\BestIndividuals.txt";
@@ -231,10 +225,10 @@ public class Controller
 			int numberOfOccurences = (int) Math.floor(observationFraction * bestIndices.size());  // Determine the number of times an observation must occur for it to be included in the dataset.
 			try
 			{
-				String trainingOutputLocation = resultsDirLoc + "\\" + Integer.toString((int) (observationFraction * 100)) + "%TrainingObservationSet.txt";
+				String trainingOutputLocation = resultsDirLoc + "\\%" + Integer.toString((int) (observationFraction * 100)) + "TrainingObservationSet.txt";
 				FileWriter trainingOutputFile = new FileWriter(trainingOutputLocation);
 				BufferedWriter trainingOutputWriter = new BufferedWriter(trainingOutputFile);
-				String testingOutputLocation = resultsDirLoc + "\\" + Integer.toString((int) (observationFraction * 100)) + "%TestingObservationSet.txt";
+				String testingOutputLocation = resultsDirLoc + "\\%" + Integer.toString((int) (observationFraction * 100)) + "TestingObservationSet.txt";
 				FileWriter testingOutputFile = new FileWriter(testingOutputLocation);
 				BufferedWriter testingOutputWriter = new BufferedWriter(testingOutputFile);
 				trainingOutputWriter.write(headerOne);
@@ -274,46 +268,63 @@ public class Controller
 
 		try
 		{
-			String trainingDatasetOutputLocation = resultsDirLoc + "\\TrainingDatasetOfDesiredComposition.txt";
-			FileWriter trainingDatasetOutputFile = new FileWriter(trainingDatasetOutputLocation);
-			BufferedWriter trainingDatasetOutputWriter = new BufferedWriter(trainingDatasetOutputFile);
-			String testingDatasetOutputLocation = resultsDirLoc + "\\TestingDatasetOfDesiredComposition.txt";
-			FileWriter testingDatasetOutputFile = new FileWriter(testingDatasetOutputLocation);
-			BufferedWriter testingDatasetOutputWriter = new BufferedWriter(testingDatasetOutputFile);
-			trainingDatasetOutputWriter.write(headerOne);
-			trainingDatasetOutputWriter.newLine();
-			trainingDatasetOutputWriter.write(headerTwo);
-			trainingDatasetOutputWriter.newLine();
-			trainingDatasetOutputWriter.write(headerThree);
-			trainingDatasetOutputWriter.newLine();
-			testingDatasetOutputWriter.write(headerOne);
-			testingDatasetOutputWriter.newLine();
-			testingDatasetOutputWriter.write(headerTwo);
-			testingDatasetOutputWriter.newLine();
-			testingDatasetOutputWriter.write(headerThree);
-			testingDatasetOutputWriter.newLine();
-			for (String s : observationIndexToLine.keySet())
+			for (int i = 0; i < obsOfEachClass.get("Positive").length; i++)
 			{
-				List<IndexedDoubleData> sortedIndices = new ArrayList<IndexedDoubleData>();
-				for (Integer i : observationIndexToLine.get(s).keySet())
+				String outputFileNamePrefix = "";
+				List<String> trainingObs = new ArrayList<String>();
+				List<String> testingObs = new ArrayList<String>();
+				for (String s : obsOfEachClass.keySet())
 				{
-					sortedIndices.add(new IndexedDoubleData(timesIndexKept.get(i), i));
+					outputFileNamePrefix += Integer.toString(obsOfEachClass.get(s)[i]) + s;
+					List<IndexedDoubleData> sortedIndices = new ArrayList<IndexedDoubleData>();
+					for (Integer j : observationIndexToLine.get(s).keySet())
+					{
+						sortedIndices.add(new IndexedDoubleData(timesIndexKept.get(j), j));
+					}
+					Collections.sort(sortedIndices);
+					Collections.reverse(sortedIndices);
+					for (int j = 0; j < obsOfEachClass.get(s)[i]; j++)
+					{
+						trainingObs.add(indexToLineMap.get(sortedIndices.get(j).getIndex()));
+					}
+					for (int j = obsOfEachClass.get(s)[i]; j < observationIndexToLine.get(s).size(); j++)
+					{
+						testingObs.add(indexToLineMap.get(sortedIndices.get(j).getIndex()));
+					}
 				}
-				Collections.sort(sortedIndices);
-				Collections.reverse(sortedIndices);
-				for (int i = 0; i < obsOfEachClass.get(s); i++)
+				String trainingDatasetOutputLocation = resultsDirLoc + "\\" + outputFileNamePrefix + "TrainingObservationSet.txt";
+				FileWriter trainingDatasetOutputFile = new FileWriter(trainingDatasetOutputLocation);
+				BufferedWriter trainingDatasetOutputWriter = new BufferedWriter(trainingDatasetOutputFile);
+				trainingDatasetOutputWriter.write(headerOne);
+				trainingDatasetOutputWriter.newLine();
+				trainingDatasetOutputWriter.write(headerTwo);
+				trainingDatasetOutputWriter.newLine();
+				trainingDatasetOutputWriter.write(headerThree);
+				trainingDatasetOutputWriter.newLine();
+				for (String s : trainingObs)
 				{
-					trainingDatasetOutputWriter.write(indexToLineMap.get(sortedIndices.get(i).getIndex()));
+					trainingDatasetOutputWriter.write(s);
 					trainingDatasetOutputWriter.newLine();
 				}
-				for (int i = obsOfEachClass.get(s); i < observationIndexToLine.get(s).size(); i++)
+				trainingDatasetOutputWriter.close();
+
+
+				String testingDatasetOutputLocation = resultsDirLoc + "\\" + outputFileNamePrefix + "TestingObservationSet.txt";
+				FileWriter testingDatasetOutputFile = new FileWriter(testingDatasetOutputLocation);
+				BufferedWriter testingDatasetOutputWriter = new BufferedWriter(testingDatasetOutputFile);
+				for (String s : testingObs)
 				{
-					testingDatasetOutputWriter.write(indexToLineMap.get(sortedIndices.get(i).getIndex()));
+					testingDatasetOutputWriter.write(s);
 					testingDatasetOutputWriter.newLine();
 				}
+				testingDatasetOutputWriter.write(headerOne);
+				testingDatasetOutputWriter.newLine();
+				testingDatasetOutputWriter.write(headerTwo);
+				testingDatasetOutputWriter.newLine();
+				testingDatasetOutputWriter.write(headerThree);
+				testingDatasetOutputWriter.newLine();
+				testingDatasetOutputWriter.close();
 			}
-			trainingDatasetOutputWriter.close();
-			testingDatasetOutputWriter.close();
 		}
 		catch (Exception e)
 		{
