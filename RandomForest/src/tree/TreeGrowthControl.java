@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +56,10 @@ public class TreeGrowthControl
 	 */
 	public boolean isStratifiedBootstrapUsed = false;
 
-	public boolean calculateOOB = true;
+	/**
+	 * Whether or not the OOB error rate and confusion matrix should be calculated.
+	 */
+	public boolean isCalculateOOB = true;
 
 	/**
 	 * The variables to exclude from the growing of the tree.
@@ -105,13 +109,21 @@ public class TreeGrowthControl
 				String[] mappings = ctrlVariables[6].split(",");
 				for (String s : mappings)
 				{
-					System.out.println(s);
 					String[] keyValueSplit = s.split("-");
 					this.sampSize.put(keyValueSplit[0], Integer.parseInt(keyValueSplit[1]));
 				}
 			}
 			this.isStratifiedBootstrapUsed = Boolean.parseBoolean(ctrlVariables[7]);
-			this.calculateOOB = Boolean.parseBoolean(ctrlVariables[8]);
+			this.isCalculateOOB = Boolean.parseBoolean(ctrlVariables[8]);
+			this.trainingObservations = new ArrayList<Integer>();
+			if (!ctrlVariables[9].equals("-"))
+			{
+				String[] trainingObservations = ctrlVariables[9].split(",");
+				for (String s : trainingObservations)
+				{
+					this.trainingObservations.add(Integer.parseInt(s));
+				}
+			}
 		}
 		catch (Exception e)
 		{
@@ -157,7 +169,20 @@ public class TreeGrowthControl
 			}
 			outputWriter.write("\t");
 			outputWriter.write(Boolean.toString(this.isStratifiedBootstrapUsed) + "\t");
-			outputWriter.write(Boolean.toString(this.calculateOOB));
+			outputWriter.write(Boolean.toString(this.isCalculateOOB) + "\t");
+			if (!this.trainingObservations.isEmpty())
+			{
+				outputWriter.write(this.trainingObservations.get(0));
+				for (int i = 1; i < this.trainingObservations.size(); i++)
+				{
+					outputWriter.write("," + this.trainingObservations.get(i));
+				}
+				
+			}
+			else
+			{
+				outputWriter.write("-");
+			}
 			outputWriter.close();
 		}
 		catch (Exception e)

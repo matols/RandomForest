@@ -539,7 +539,7 @@ public class Forest
 			this.forest.add(new CARTTree(this.processedData, this.ctrl, weights, observationsForTheTree, seedForTree));
 		}
 
-		if (this.ctrl.calculateOOB)
+		if (this.ctrl.isCalculateOOB)
 		{
 			// Calculate the oob error. This is done by putting each observation down the trees where it is oob.
 			double cumulativeErrorRate = 0.0;
