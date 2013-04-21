@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,10 +25,10 @@ import java.util.Random;
 			String inputFileLocation = args[0];
 			String outputLocation = args[1];
 			int numberOfFolds = Integer.parseInt(args[2]);
-			main(inputFileLocation, outputLocation, numberOfFolds);
+			main(inputFileLocation, outputLocation, numberOfFolds, true, 0.0);
 		}
 
-		public static void main(String inputFileLocation, String outputLocation, int numberOfBootstraps)
+		public static void main(String inputFileLocation, String outputLocation, int numberOfBootstraps, boolean isReplacementUsed, double fractionToSample)
 		{
 			// Check the input validity.
 			File outputDirectory = new File(outputLocation);
@@ -113,7 +114,8 @@ import java.util.Random;
 				}
 				String trainDataOutputLoc = bootstrapOutputLocation + "/Train.txt";
 				String testDataOutputLoc = bootstrapOutputLocation + "/Test.txt";
-				String originalDataIndicesOutputLoc = bootstrapOutputLocation + "/OriginalIndicesOfTrainingSetObs.txt";
+				String originalTrainingDataIndicesOutputLoc = bootstrapOutputLocation + "/OriginalIndicesOfTrainingSetObs.txt";
+				String originalTestDataIndicesOutputLoc = bootstrapOutputLocation + "/OriginalIndicesOfTestingSetObs.txt";
 				List<Integer> trainingData = new ArrayList<Integer>();
 				List<Integer> testData = new ArrayList<Integer>();
 				int selectedObservation;
@@ -121,10 +123,21 @@ import java.util.Random;
 				{
 					int numberOfObsOfThisclass = classNumbers.get(s);
 					List<Integer> thisClassObsIndices = new ArrayList<Integer>(observationIndexToLine.get(s).keySet());
-					for (int j = 0; j < numberOfObsOfThisclass; j++)
+					if (!isReplacementUsed)
 					{
-						selectedObservation = obsSelector.nextInt(numberOfObsOfThisclass);
-						trainingData.add(thisClassObsIndices.get(selectedObservation));
+						Collections.shuffle(thisClassObsIndices);
+						for (int j = 0; j < (fractionToSample * numberOfObsOfThisclass); j++)
+						{
+							trainingData.add(thisClassObsIndices.get(j));
+						}
+					}
+					else
+					{
+						for (int j = 0; j < numberOfObsOfThisclass; j++)
+						{
+							selectedObservation = obsSelector.nextInt(numberOfObsOfThisclass);
+							trainingData.add(thisClassObsIndices.get(selectedObservation));
+						}
 					}
 					for (Integer j : thisClassObsIndices)
 					{
@@ -139,7 +152,7 @@ import java.util.Random;
 					// Write out the training data.
 					FileWriter trainDataOutputFile = new FileWriter(trainDataOutputLoc);
 					BufferedWriter trainDataOutputWriter = new BufferedWriter(trainDataOutputFile);
-					FileWriter originalIndicesOutputFile = new FileWriter(originalDataIndicesOutputLoc);
+					FileWriter originalIndicesOutputFile = new FileWriter(originalTrainingDataIndicesOutputLoc);
 					BufferedWriter originalIndicesOutputWriter = new BufferedWriter(originalIndicesOutputFile);
 					trainDataOutputWriter.write(headerOne);
 					trainDataOutputWriter.newLine();
@@ -167,6 +180,8 @@ import java.util.Random;
 					// Write out the testing data.
 					FileWriter testDataOutputFile = new FileWriter(testDataOutputLoc);
 					BufferedWriter testDataOutputWriter = new BufferedWriter(testDataOutputFile);
+					originalIndicesOutputFile = new FileWriter(originalTestDataIndicesOutputLoc);
+					originalIndicesOutputWriter = new BufferedWriter(originalIndicesOutputFile);
 					testDataOutputWriter.write(headerOne);
 					testDataOutputWriter.newLine();
 					testDataOutputWriter.write(headerTwo);
@@ -175,6 +190,8 @@ import java.util.Random;
 					testDataOutputWriter.newLine();
 					for (Integer j : testData)
 					{
+						originalIndicesOutputWriter.write(Integer.toString(j));
+						originalIndicesOutputWriter.newLine();
 						for (String s : observationIndexToLine.keySet())
 						{
 							if (observationIndexToLine.get(s).containsKey(j))
@@ -186,6 +203,7 @@ import java.util.Random;
 						}
 					}
 					testDataOutputWriter.close();
+					originalIndicesOutputWriter.close();
 				}
 				catch (Exception e)
 				{

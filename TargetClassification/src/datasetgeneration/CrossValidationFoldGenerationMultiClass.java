@@ -158,7 +158,8 @@ import java.util.Map;
 				}
 				String trainDataOutputLoc = foldOutputLocation + "/Train.txt";
 				String testDataOutputLoc = foldOutputLocation + "/Test.txt";
-				String originalDataIndicesOutputLoc = foldOutputLocation + "/OriginalIndicesOfTrainingSetObs.txt";
+				String originalTrainingDataIndicesOutputLoc = foldOutputLocation + "/OriginalIndicesOfTrainingSetObs.txt";
+				String originalTestDataIndicesOutputLoc = foldOutputLocation + "/OriginalIndicesOfTestingSetObs.txt";
 				List<Integer> trainingData = new ArrayList<Integer>();
 				List<Integer> testData = new ArrayList<Integer>();
 				for (int j = 0; j < numberOfFolds; j++)
@@ -177,7 +178,7 @@ import java.util.Map;
 					// Write out the training data.
 					FileWriter trainDataOutputFile = new FileWriter(trainDataOutputLoc);
 					BufferedWriter trainDataOutputWriter = new BufferedWriter(trainDataOutputFile);
-					FileWriter originalIndicesOutputFile = new FileWriter(originalDataIndicesOutputLoc);
+					FileWriter originalIndicesOutputFile = new FileWriter(originalTrainingDataIndicesOutputLoc);
 					BufferedWriter originalIndicesOutputWriter = new BufferedWriter(originalIndicesOutputFile);
 					trainDataOutputWriter.write(headerOne);
 					trainDataOutputWriter.newLine();
@@ -205,6 +206,8 @@ import java.util.Map;
 					// Write out the testing data.
 					FileWriter testDataOutputFile = new FileWriter(testDataOutputLoc);
 					BufferedWriter testDataOutputWriter = new BufferedWriter(testDataOutputFile);
+					originalIndicesOutputFile = new FileWriter(originalTestDataIndicesOutputLoc);
+					originalIndicesOutputWriter = new BufferedWriter(originalIndicesOutputFile);
 					testDataOutputWriter.write(headerOne);
 					testDataOutputWriter.newLine();
 					testDataOutputWriter.write(headerTwo);
@@ -213,6 +216,8 @@ import java.util.Map;
 					testDataOutputWriter.newLine();
 					for (Integer j : testData)
 					{
+						originalIndicesOutputWriter.write(Integer.toString(j));
+						originalIndicesOutputWriter.newLine();
 						for (String s : observationIndexToLine.keySet())
 						{
 							if (observationIndexToLine.get(s).containsKey(j))
@@ -224,6 +229,7 @@ import java.util.Map;
 						}
 					}
 					testDataOutputWriter.close();
+					originalIndicesOutputWriter.close();
 				}
 				catch (Exception e)
 				{
