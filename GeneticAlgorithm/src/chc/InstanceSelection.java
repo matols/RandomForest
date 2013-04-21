@@ -20,11 +20,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 
 import tree.Forest;
-import tree.ImmutableTwoValues;
-import tree.IndexedDoubleLongData;
+import tree.IndexedDoubleData;
 import tree.ProcessDataForGrowing;
 import tree.TreeGrowthControl;
 
@@ -45,38 +45,8 @@ public class InstanceSelection
 	 */
 	public List<List<Integer>> bestMembersFound = new ArrayList<List<Integer>>();
 
-	/**
-	 * The record of the seeds that produced the individuals with the best fitness.
-	 */
-	public List<Long> bestForestSeeds = new ArrayList<Long>();
-
-
-	public InstanceSelection(String[] args)
-	{
-		// Initialise the controller for the dataset determination and forest growing.
-		TreeGrowthControl ctrl = new TreeGrowthControl();
-		ctrl.numberOfTreesToGrow = 100;
-		run(args, ctrl, new HashMap<String, Double>());
-	}
-
-	public InstanceSelection(String[] args, TreeGrowthControl ctrl)
-	{
-		run(args, ctrl, new HashMap<String, Double>());
-	}
 
 	public InstanceSelection(String[] args, TreeGrowthControl ctrl, Map<String, Double> weights)
-	{
-		run(args, ctrl, weights);
-	}
-
-	/**
-	 * @param args
-	 * @param negDataset
-	 * @param posDataset
-	 * @param numberOfObs
-	 * @param ctrl
-	 */
-	void run(String[] args, TreeGrowthControl ctrl, Map<String, Double> weights)
 	{
 		// Required inputs.
 		String datasetLocation = args[0];  // The location of the file containing the entire dataset.
@@ -86,15 +56,15 @@ public class InstanceSelection
 			System.out.println("The first argument must be a valid file location, and must contain the entire dataset.");
 			System.exit(0);
 		}
-		String cvDirLocation = args[1];  // The location of the CV directory.
-		File cvDirectory = new File(cvDirLocation);
-		if (!cvDirectory.exists())
+		String subsampleDirLocation = args[1];  // The location of the CV directory.
+		File subsampleDirectory = new File(subsampleDirLocation);
+		if (!subsampleDirectory.exists())
 		{
 			// CV directory does not exist.
 			System.out.println("The second argument must be a valid directory location containing the CV fold files.");
 			System.exit(0);
 		}
-		else if (!cvDirectory.isDirectory())
+		else if (!subsampleDirectory.isDirectory())
 		{
 			// Exists and is not a directory.
 			System.out.println("ERROR: The second argument is not a directory location.");
@@ -122,7 +92,6 @@ public class InstanceSelection
 		int populationSize = 50;  // The size of the population to use for the GA.
 		int maxGenerations = 100;  // The number of generations to run the GA for.
 		int maxEvaluations = 0;  // The maximum number of fitness evaluations to perform.
-		double mutationRate = 0.35;  // The mutation rate to use.
 		boolean verbose = false;  // Whether status updates should be displayed.
 		long maxTimeAllowed = 0;  // What the maximum time allowed (in ms) for the run is. 0 indicates that timing is not used.
 		int initialSetSize = 100;
@@ -147,11 +116,6 @@ public class InstanceSelection
 			case "-e":
 				argIndex += 1;
 				maxEvaluations = Integer.parseInt(args[argIndex]);
-				argIndex += 1;
-				break;
-			case "-m":
-				argIndex += 1;
-				mutationRate = Double.parseDouble(args[argIndex]);
 				argIndex += 1;
 				break;
 			case "-t":
@@ -186,8 +150,6 @@ public class InstanceSelection
 		{
 			FileWriter parameterOutputFile = new FileWriter(parameterOutputLocation);
 			BufferedWriter parameterOutputWriter = new BufferedWriter(parameterOutputFile);
-		    parameterOutputWriter.write("Mutation Rate:\t" + Double.toString(mutationRate));
-		    parameterOutputWriter.newLine();
 		    parameterOutputWriter.write("Population Size:\t" + Integer.toString(populationSize));
 		    parameterOutputWriter.newLine();
 		    parameterOutputWriter.write("Number of Generations:\t" + Integer.toString(maxGenerations));
@@ -228,15 +190,25 @@ public class InstanceSelection
 			System.exit(0);
 		}
 
-		// Setup the generation stats file.
+		// Setup the generation stats file and write out the class weights being used.
 		String genStatsOutputLocation = outputLocation + "/GenerationStatistics.txt";
+		String weightOutputLocation = outputLocation + "/Weights.txt";
 		try
 		{
 			FileWriter genStatsOutputFile = new FileWriter(genStatsOutputLocation);
 			BufferedWriter genStatsOutputWriter = new BufferedWriter(genStatsOutputFile);
-			genStatsOutputWriter.write("Generation\tBestMCC\tMeanMCC\tMedianMCC\tStdDevMCC\tBestIndivSize\tMeanIndivSize");
+			genStatsOutputWriter.write("Generation\tBestFScore\tMeanFScore\tMedianFScore\tStdDevFScore\tBestIndivSize\tMeanIndivSize\tThreshold\tEvaluationsPerformed");
 			genStatsOutputWriter.newLine();
 			genStatsOutputWriter.close();
+
+			FileWriter weightOutputFile = new FileWriter(weightOutputLocation);
+			BufferedWriter weightOutputWriter = new BufferedWriter(weightOutputFile);
+			for (String s : weights.keySet())
+			{
+				weightOutputWriter.write(s + "\t" + Double.toString(weights.get(s)));
+				weightOutputWriter.newLine();
+			}
+			weightOutputWriter.close();
 		}
 		catch (Exception e)
 		{
@@ -244,25 +216,15 @@ public class InstanceSelection
 			System.exit(0);
 		}
 
-		// Initialise the stopping criteria for the GA.
-	    int currentGeneration = 1;
-	    int numberEvaluations = 0;
-	    if (maxGenerations == 0 && maxEvaluations == 0)
-		{
-	        // No stopping criteria given.
-	        System.out.println("At least one of -g, -e or -s must be given, otherwise there are no stopping criteria.");
-	        System.exit(0);
-		}
-
 		// Determine the number of genes/features in the dataset.
-		int numberGenes = 0;
-		List<Integer> positiveObservations = new ArrayList<Integer>();
-		List<Integer> negativeObservations = new ArrayList<Integer>();
-		List<Integer> observationIndices = new ArrayList<Integer>();
+		int numberOfObservations = 0;
+		Map<String, List<Integer>> observations = new HashMap<String, List<Integer>>();
+		Map<Integer, String> observationsToClass = new HashMap<Integer, String>();
 		try
 		{
 			BufferedReader geneReader = new BufferedReader(new FileReader(datasetFile));
 			String header = geneReader.readLine();
+			int indexOfClassification = header.split("\t").length - 1;
 			header = geneReader.readLine();
 			header = geneReader.readLine();
 			String line;
@@ -273,16 +235,15 @@ public class InstanceSelection
 					// If the line is made up of all whitespace, then ignore the line.
 					continue;
 				}
-				if (line.contains("Unlabelled"))
+				String[] splitLine = (line.trim()).split("\t");
+				String classification = splitLine[indexOfClassification];
+				if (!observations.containsKey(classification))
 				{
-					negativeObservations.add(numberGenes);
+					observations.put(classification, new ArrayList<Integer>());
 				}
-				else
-				{
-					positiveObservations.add(numberGenes);
-				}
-				observationIndices.add(numberGenes);
-				numberGenes += 1;
+				observations.get(classification).add(numberOfObservations);
+				observationsToClass.put(numberOfObservations, classification);
+				numberOfObservations += 1;
 			}
 			geneReader.close();
 		}
@@ -291,26 +252,29 @@ public class InstanceSelection
 			e.printStackTrace();
 			System.exit(0);
 		}
+		int numberOfClasses = observations.size();
 		int threshold = initialSetSize / 4;
 
-		//--------------------
-		// Get the cross validation information
-		//--------------------
-		String[] cvSubDirs = cvDirectory.list();
-		int numberOfFolds = cvSubDirs.length;
+		//-------------------------------------//
+		// Get the subsample information.      //
+		//-------------------------------------//
+		String[] subsampleDirs = subsampleDirectory.list();
+		int numberOfSubsamples = subsampleDirs.length;
 		List<String> trainingFiles = new ArrayList<String>();
 		List<ProcessDataForGrowing> testingFiles = new ArrayList<ProcessDataForGrowing>();
 		List<Map<Integer, List<Integer>>> origToSubsetIndexMapping = new ArrayList<Map<Integer, List<Integer>>>();
-		for (String s : cvSubDirs)
+		List<List<Integer>> origToOOSIndexMapping = new ArrayList<List<Integer>>();
+		for (String s : subsampleDirs)
 		{
-			trainingFiles.add(cvDirLocation + "/" + s + "/Train.txt");
-			testingFiles.add(new ProcessDataForGrowing(cvDirLocation + "/" + s + "/Test.txt", ctrl));
+			trainingFiles.add(subsampleDirLocation + "/" + s + "/Train.txt");
+			testingFiles.add(new ProcessDataForGrowing(subsampleDirLocation + "/" + s + "/Test.txt", ctrl));
 			Map<Integer, List<Integer>> originalToTrainingSetIndices = new HashMap<Integer, List<Integer>>();
-			for (int i = 0; i < numberGenes; i++)
+			List<Integer> originalToTestingSetIndices = new ArrayList<Integer>();
+			for (int i = 0; i < numberOfObservations; i++)
 			{
 				originalToTrainingSetIndices.put(i, new ArrayList<Integer>());
 			}
-			try (BufferedReader reader = Files.newBufferedReader(Paths.get(cvDirLocation + "/" + s + "/OriginalIndicesOfTrainingSetObs.txt"), StandardCharsets.UTF_8))
+			try (BufferedReader reader = Files.newBufferedReader(Paths.get(subsampleDirLocation + "/" + s + "/OriginalIndicesOfTrainingSetObs.txt"), StandardCharsets.UTF_8))
 			{
 				String line;
 				int obsIndex = 0;
@@ -327,68 +291,81 @@ public class InstanceSelection
 				e.printStackTrace();
 				System.exit(0);
 			}
+			try (BufferedReader reader = Files.newBufferedReader(Paths.get(subsampleDirLocation + "/" + s + "/OriginalIndicesOfTestingSetObs.txt"), StandardCharsets.UTF_8))
+			{
+				String line;
+				while ((line = reader.readLine()) != null)
+				{
+					line = line.trim();
+					int origIndex = Integer.parseInt(line);
+					originalToTestingSetIndices.add(origIndex);
+				}
+			}
+			catch (Exception e)
+			{
+				e.printStackTrace();
+				System.exit(0);
+			}
 			origToSubsetIndexMapping.add(originalToTrainingSetIndices);
+			origToOOSIndexMapping.add(originalToTestingSetIndices);
 		}
 
 		//----------------------
 		// Begin the GA.
 		//----------------------
 		Date gaStartTime = new Date();
+		Random observationSelector = new Random();
 
-		// Initialise the record of random seeds.
-		List<Long> populationSeeds = new ArrayList<Long>();
+		// Initialise the stopping criteria for the GA.
+	    int currentGeneration = 1;
+	    int numberEvaluations = 0;
 		
 		// Generate the initial population.
 		List<List<Integer>> population = new ArrayList<List<Integer>>();
 		List<Integer> parentSelector = new ArrayList<Integer>();
+		List<Integer> availableForSelection = new ArrayList<Integer>();
+		for (int i = 0; i < numberOfObservations; i++)
+		{
+			availableForSelection.add(i);
+		}
 		for (int i = 0; i < populationSize; i++)
 		{
-			Collections.shuffle(negativeObservations);
-			Collections.shuffle(positiveObservations);
 			List<Integer> newPopMember = new ArrayList<Integer>();
-			newPopMember.addAll(negativeObservations.subList(0, initialSetSize / 2));
-			newPopMember.addAll(positiveObservations.subList(0, initialSetSize / 2));
+			for (int j = 0; j < initialSetSize; j++)
+			{
+				// Select a random available observation.
+				Integer chosenObservation = availableForSelection.get(observationSelector.nextInt(availableForSelection.size()));
+				newPopMember.add(chosenObservation);
+				availableForSelection.remove(chosenObservation);
+				if (availableForSelection.isEmpty())
+				{
+					// If all observations have been selected, then fill up the available observations again.
+					for (int k = 0; k < numberOfObservations; k++)
+					{
+						availableForSelection.add(k);
+					}
+				}
+			}
 			population.add(newPopMember);
 			parentSelector.add(i);
-		}
-
-		// Setup the negative and positive classes.
-		String posClass = "Positive";
-		String negClass = "Unlabelled";
-
-		// Initialise the alpha value used in the fitness calculation.
-		double alpha = 0.25;
-
-    	// Determine the weights to use if none are specified.
-    	if (weights.size() == 0)
-    	{
-    		weights = determineWeights(args[0], ctrl);
-    	}
-    	// Write out the weights used for the forest.
-		String weightOutputLocation = outputLocation + "/Weights.txt";
-		try
-		{
-			FileWriter weightOutputFile = new FileWriter(weightOutputLocation);
-			BufferedWriter weightOutputWriter = new BufferedWriter(weightOutputFile);
-			for (String s : weights.keySet())
-			{
-				weightOutputWriter.write(s + "\t" + Double.toString(weights.get(s)));
-				weightOutputWriter.newLine();
-			}
-			weightOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
 		}
 
 	    // Calculate the fitness of the initial population.
 	    List<Double> fitness = new ArrayList<Double>();
 	    for (List<Integer> geneSet : population)
 	    {
-	    	double meanMCC = 0.0;
-	    	for (int i = 0; i < numberOfFolds; i++)
+    		ctrl.trainingObservations = geneSet;
+
+	    	// Train and test the subsasmples.
+    		Map<String, Map<String, Double>> averagedConfusionMatrix = new HashMap<String, Map<String, Double>>();
+    		for (String s : observations.keySet())
+    		{
+    			Map<String, Double> classPredictions = new HashMap<String, Double>();
+    			classPredictions.put("TruePositive", 0.0);
+    			classPredictions.put("FalsePositive", 0.0);
+    			averagedConfusionMatrix.put(s, classPredictions);
+    		}
+	    	for (int i = 0; i < numberOfSubsamples; i++)
 	    	{
 	    		Map<Integer, List<Integer>> obsIndexMapping = origToSubsetIndexMapping.get(i);
 	    		List<Integer> obsToTrain = new ArrayList<Integer>();
@@ -398,69 +375,52 @@ public class InstanceSelection
 	    		}
 	    		ctrl.trainingObservations = obsToTrain;
 	    		Forest forest = new Forest(trainingFiles.get(i), ctrl, weights);
-	    		ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predResults = forest.predict(testingFiles.get(i));
-	    		Map<String, Map<String, Double>> confusionMatrix = predResults.second;
-		    	double TP = confusionMatrix.get(posClass).get("TruePositive");
-				double FP = confusionMatrix.get(posClass).get("FalsePositive");
-				double TN = confusionMatrix.get(negClass).get("TruePositive");
-				double FN = confusionMatrix.get(negClass).get("FalsePositive");
-				double MCC = (((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN)));
-				if (Double.isNaN(MCC))
-				{
-					meanMCC += 0;
-				}
-				else
-				{
-					meanMCC += MCC;
-				}
-				numberEvaluations += 1;
+	    		Map<String, Map<String, Double>> predictedConfMat = forest.predict(testingFiles.get(i)).second;
+	    		for (String s : predictedConfMat.keySet())
+	    		{
+	    			double oldTruePos = averagedConfusionMatrix.get(s).get("TruePositive");
+	    			double newTruePos = predictedConfMat.get(s).get("TruePositive");;
+	    			double oldFalsePos = averagedConfusionMatrix.get(s).get("FalsePositive");
+	    			double newFalsePos = predictedConfMat.get(s).get("FalsePositive");
+	    			averagedConfusionMatrix.get(s).put("TruePositive", oldTruePos + newTruePos);
+	    			averagedConfusionMatrix.get(s).put("FalsePositive", oldFalsePos + newFalsePos);
+	    		}
 	    	}
-	    	fitness.add(meanMCC / numberOfFolds);
-	    	populationSeeds.add(0L);
-//	    	ctrl.trainingObservations = geneSet;
-//	    	Forest forest = new Forest(trainingDataLocation, ctrl, weights);
-//	    	ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predResults = forest.predict(processedTestData);
-//	    	Map<String, Map<String, Double>> confusionMatrix = predResults.second;
-//	    	double TP = confusionMatrix.get(posClass).get("TruePositive");
-//			double FP = confusionMatrix.get(posClass).get("FalsePositive");
-//			double TN = confusionMatrix.get(negClass).get("TruePositive");
-//			double FN = confusionMatrix.get(negClass).get("FalsePositive");
-//			double MCC = (((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN)));
-//			double percentReduction = 100 * (((double) numberGenes / geneSet.size()) / numberGenes);
-////	    	fitness.add((alpha * MCC) + ((1 - alpha) * percentReduction));
-//			if (Double.isNaN(MCC))
-//			{
-//				fitness.add(0.0);
-//			}
-//			else
-//			{
-//				fitness.add(MCC);
-//			}
-//	    	populationSeeds.add(forest.seed);
-//	    	numberEvaluations += 1;
+	    	double allTruePositives = 0.0;
+	    	double allFalsePositives = 0.0;
+	    	double allFalseNegatives = 0.0;
+	    	for (String s : averagedConfusionMatrix.keySet())
+	    	{
+	    		double classTP = averagedConfusionMatrix.get(s).get("TruePositive");
+	    		allTruePositives += classTP;
+	    		allFalsePositives += averagedConfusionMatrix.get(s).get("FalsePositive");
+	    		allFalseNegatives += (observations.get(s).size() - classTP);  // The false negatives for the class are all observations in the class minus the true positive
+	    	}
+	    	double microRecall = allTruePositives / (allTruePositives + allFalseNegatives);
+	    	double microPrecision = allTruePositives / (allTruePositives + allFalsePositives);
+	    	double microFMeasure = 2 * ((microPrecision * microRecall) / (microPrecision + microRecall));
+	    	numberEvaluations += 1;
+	    	fitness.add(microFMeasure);
 	    }
 
 	    // Sort the initial population.
-	    List<IndexedDoubleLongData> sortedInitialPopulation = new ArrayList<IndexedDoubleLongData>();
+	    List<IndexedDoubleData> sortedInitialPopulation = new ArrayList<IndexedDoubleData>();
 	    for (int j = 0; j < population.size(); j++)
 	    {
-	    	sortedInitialPopulation.add(new IndexedDoubleLongData(fitness.get(j), populationSeeds.get(j), j));
+	    	sortedInitialPopulation.add(new IndexedDoubleData(fitness.get(j), j));
 	    }
-	    Collections.sort(sortedInitialPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by OOB MCC.
+	    Collections.sort(sortedInitialPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by F score.
 	    List<List<Integer>> newInitialPopulation = new ArrayList<List<Integer>>();
 	    List<Double> newInitialFitness = new ArrayList<Double>();
-	    List<Long> newInitialSeeds = new ArrayList<Long>();
 	    for (int j = 0; j < populationSize; j ++)
 	    {
 	    	// Add the first populationSize population members with the lowest error rates.
 	    	int indexToAddFrom = sortedInitialPopulation.get(j).getIndex();
 	    	newInitialPopulation.add(population.get(indexToAddFrom));
 	    	newInitialFitness.add(fitness.get(indexToAddFrom));
-	    	newInitialSeeds.add(populationSeeds.get(indexToAddFrom));
 	    }
 	    population = newInitialPopulation;
 	    fitness = newInitialFitness;
-	    populationSeeds = newInitialSeeds;
 
 	    while (loopTermination(currentGeneration, maxGenerations, numberEvaluations, maxEvaluations, gaStartTime, maxTimeAllowed))
 	    {
@@ -475,7 +435,7 @@ public class InstanceSelection
 
 	    	// Write out the statistics of the population.
 	    	writeOutStatus(fitnessDirectoryLocation, fitness, populationDirectoryLocation, population, currentGeneration,
-	    			genStatsOutputLocation, populationSize);
+	    			genStatsOutputLocation, populationSize, threshold, numberEvaluations);
 
 	    	// Generate mutants for possible inclusion in the next generation.
 	    	List<List<Integer>> mutants = new ArrayList<List<Integer>>();
@@ -520,11 +480,17 @@ public class InstanceSelection
 	    	{
 	    		// Calculate the fitness of the offspring.
 		    	List<Double> offspringFitness = new ArrayList<Double>();
-		    	List<Long> offspringSeeds = new ArrayList<Long>();
-			    for (List<Integer> geneSet : mutants)
-			    {
-			    	double meanMCC = 0.0;
-			    	for (int i = 0; i < numberOfFolds; i++)
+		    	for (List<Integer> geneSet : mutants)
+		 	    {
+		    		Map<String, Map<String, Double>> averagedConfusionMatrix = new HashMap<String, Map<String, Double>>();
+		    		for (String s : observations.keySet())
+		    		{
+		    			Map<String, Double> classPredictions = new HashMap<String, Double>();
+		    			classPredictions.put("TruePositive", 0.0);
+		    			classPredictions.put("FalsePositive", 0.0);
+		    			averagedConfusionMatrix.put(s, classPredictions);
+		    		}
+			    	for (int i = 0; i < numberOfSubsamples; i++)
 			    	{
 			    		Map<Integer, List<Integer>> obsIndexMapping = origToSubsetIndexMapping.get(i);
 			    		List<Integer> obsToTrain = new ArrayList<Integer>();
@@ -534,46 +500,32 @@ public class InstanceSelection
 			    		}
 			    		ctrl.trainingObservations = obsToTrain;
 			    		Forest forest = new Forest(trainingFiles.get(i), ctrl, weights);
-			    		ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predResults = forest.predict(testingFiles.get(i));
-			    		Map<String, Map<String, Double>> confusionMatrix = predResults.second;
-				    	double TP = confusionMatrix.get(posClass).get("TruePositive");
-						double FP = confusionMatrix.get(posClass).get("FalsePositive");
-						double TN = confusionMatrix.get(negClass).get("TruePositive");
-						double FN = confusionMatrix.get(negClass).get("FalsePositive");
-						double MCC = (((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN)));
-						if (Double.isNaN(MCC))
-						{
-							meanMCC += 0;
-						}
-						else
-						{
-							meanMCC += MCC;
-						}
-						numberEvaluations += 1;
+			    		Map<String, Map<String, Double>> predictedConfMat = forest.predict(testingFiles.get(i)).second;
+			    		for (String s : predictedConfMat.keySet())
+			    		{
+			    			double oldTruePos = averagedConfusionMatrix.get(s).get("TruePositive");
+			    			double newTruePos = predictedConfMat.get(s).get("TruePositive");;
+			    			double oldFalsePos = averagedConfusionMatrix.get(s).get("FalsePositive");
+			    			double newFalsePos = predictedConfMat.get(s).get("FalsePositive");
+			    			averagedConfusionMatrix.get(s).put("TruePositive", oldTruePos + newTruePos);
+			    			averagedConfusionMatrix.get(s).put("FalsePositive", oldFalsePos + newFalsePos);
+			    		}
 			    	}
-			    	offspringFitness.add(meanMCC / numberOfFolds);
-			    	offspringSeeds.add(0L);
-//			    	ctrl.trainingObservations = geneSet;
-//			    	Forest forest = new Forest(trainingDataLocation, ctrl, weights);
-//			    	ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predResults = forest.predict(processedTestData);
-//			    	Map<String, Map<String, Double>> confusionMatrix = predResults.second;
-//			    	double TP = confusionMatrix.get(posClass).get("TruePositive");
-//					double FP = confusionMatrix.get(posClass).get("FalsePositive");
-//					double TN = confusionMatrix.get(negClass).get("TruePositive");
-//					double FN = confusionMatrix.get(negClass).get("FalsePositive");
-//					double MCC = (((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN)));
-//					double percentReduction = 100 * (((double) numberGenes / geneSet.size()) / numberGenes);
-////					offspringFitness.add((alpha * MCC) + ((1 - alpha) * percentReduction));
-//					if (Double.isNaN(MCC))
-//					{
-//						offspringFitness.add(0.0);
-//					}
-//					else
-//					{
-//						offspringFitness.add(MCC);
-//					}
-//			    	offspringSeeds.add(forest.seed);
-//			    	numberEvaluations += 1;
+			    	double allTruePositives = 0.0;
+			    	double allFalsePositives = 0.0;
+			    	double allFalseNegatives = 0.0;
+			    	for (String s : averagedConfusionMatrix.keySet())
+			    	{
+			    		double classTP = averagedConfusionMatrix.get(s).get("TruePositive");
+			    		allTruePositives += classTP;
+			    		allFalsePositives += averagedConfusionMatrix.get(s).get("FalsePositive");
+			    		allFalseNegatives += (observations.get(s).size() - classTP);  // The false negatives for the class are all observations in the class minus the true positive
+			    	}
+			    	double microRecall = allTruePositives / (allTruePositives + allFalseNegatives);
+			    	double microPrecision = allTruePositives / (allTruePositives + allFalsePositives);
+			    	double microFMeasure = 2 * ((microPrecision * microRecall) / (microPrecision + microRecall));
+			    	offspringFitness.add(microFMeasure);
+		 	    	numberEvaluations += 1;
 			    }
 
 			    // Update the population.
@@ -582,124 +534,138 @@ public class InstanceSelection
 			    	// Extend the population and the fitnesses to include the newly created offspring.
 			    	population.add(mutants.get(j));
 			    	fitness.add(offspringFitness.get(j));
-			    	populationSeeds.add(offspringSeeds.get(j));
 			    }
-			    List<IndexedDoubleLongData> sortedPopulation = new ArrayList<IndexedDoubleLongData>();
+			    List<IndexedDoubleData> sortedPopulation = new ArrayList<IndexedDoubleData>();
 			    for (int j = 0; j < population.size(); j++)
 			    {
-			    	sortedPopulation.add(new IndexedDoubleLongData(fitness.get(j), populationSeeds.get(j), j));
+			    	sortedPopulation.add(new IndexedDoubleData(fitness.get(j), j));
 			    }
-			    Collections.sort(sortedPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by OOB MCC.
+			    Collections.sort(sortedPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by F score.
 			    List<List<Integer>> newPopulation = new ArrayList<List<Integer>>();
 			    List<Double> newFitness = new ArrayList<Double>();
-			    List<Long> newSeeds = new ArrayList<Long>();
 			    for (int j = 0; j < populationSize; j ++)
 			    {
 			    	// Add the first populationSize population members with the lowest error rates.
 			    	int indexToAddFrom = sortedPopulation.get(j).getIndex();
 			    	newPopulation.add(population.get(indexToAddFrom));
 			    	newFitness.add(fitness.get(indexToAddFrom));
-			    	newSeeds.add(populationSeeds.get(indexToAddFrom));
 			    }
 			    population = newPopulation;
 			    fitness = newFitness;
-			    populationSeeds = newSeeds;
 	    	}
 	    	else
 	    	{
 	    		threshold -= 1;
-	    		if (threshold < 0)
+	    		if (threshold < 1)
 	    		{
+	    			try
+	    			{
+	    				FileWriter genStatsOutputFile = new FileWriter(genStatsOutputLocation, true);
+	    				BufferedWriter genStatsOutputWriter = new BufferedWriter(genStatsOutputFile);
+	    				genStatsOutputWriter.write("Extinction");
+	    				genStatsOutputWriter.newLine();
+	    				genStatsOutputWriter.close();
+	    			}
+	    			catch (Exception e)
+	    			{
+	    				e.printStackTrace();
+	    				System.exit(0);
+	    			}
 	    			// Generate the new population by copying over the best individuals found so far, and then randomly instantiating the rest of the population.
 	    			population = new ArrayList<List<Integer>>(new HashSet<List<Integer>>(this.bestMembersFound));
+	    			availableForSelection = new ArrayList<Integer>();
+	    			for (int i = 0; i < numberOfObservations; i++)
+	    			{
+	    				availableForSelection.add(i);
+	    			}
 	    			for (int i = 0; i < populationSize; i++)
 	    			{
-	    				Collections.shuffle(negativeObservations);
-	    				Collections.shuffle(positiveObservations);
 	    				List<Integer> newPopMember = new ArrayList<Integer>();
-	    				newPopMember.addAll(negativeObservations.subList(0, initialSetSize / 2));
-	    				newPopMember.addAll(positiveObservations.subList(0, initialSetSize / 2));
+	    				for (int j = 0; j < initialSetSize; j++)
+	    				{
+	    					// Select a random available observation.
+	    					Integer chosenObservation = availableForSelection.get(observationSelector.nextInt(availableForSelection.size()));
+	    					newPopMember.add(chosenObservation);
+	    					availableForSelection.remove(chosenObservation);
+	    					if (availableForSelection.isEmpty())
+	    					{
+	    						// If all observations have been selected, then fill up the available observations again.
+	    						for (int k = 0; k < numberOfObservations; k++)
+	    						{
+	    							availableForSelection.add(k);
+	    						}
+	    					}
+	    				}
 	    				population.add(newPopMember);
 	    			}
 	    			// Calculate the fitness of the new population.
-	    			populationSeeds = new ArrayList<Long>();
 	    		    fitness = new ArrayList<Double>();
 	    		    for (List<Integer> geneSet : population)
 	    		    {
-	    		    	double meanMCC = 0.0;
-	    		    	for (int i = 0; i < numberOfFolds; i++)
-	    		    	{
-	    		    		Map<Integer, List<Integer>> obsIndexMapping = origToSubsetIndexMapping.get(i);
-	    		    		List<Integer> obsToTrain = new ArrayList<Integer>();
-	    		    		for (Integer j : geneSet)
-	    		    		{
-	    		    			obsToTrain.addAll(obsIndexMapping.get(j));
-	    		    		}
-	    		    		ctrl.trainingObservations = obsToTrain;
-	    		    		Forest forest = new Forest(trainingFiles.get(i), ctrl, weights);
-	    		    		ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predResults = forest.predict(testingFiles.get(i));
-	    		    		Map<String, Map<String, Double>> confusionMatrix = predResults.second;
-	    			    	double TP = confusionMatrix.get(posClass).get("TruePositive");
-	    					double FP = confusionMatrix.get(posClass).get("FalsePositive");
-	    					double TN = confusionMatrix.get(negClass).get("TruePositive");
-	    					double FN = confusionMatrix.get(negClass).get("FalsePositive");
-	    					double MCC = (((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN)));
-	    					if (Double.isNaN(MCC))
-	    					{
-	    						meanMCC += 0;
-	    					}
-	    					else
-	    					{
-	    						meanMCC += MCC;
-	    					}
-	    					numberEvaluations += 1;
-	    		    	}
-	    		    	fitness.add(meanMCC / numberOfFolds);
-	    		    	populationSeeds.add(0L);
-//	    		    	ctrl.trainingObservations = geneSet;
-//	    		    	Forest forest = new Forest(trainingDataLocation, ctrl, weights);
-//	    		    	ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predResults = forest.predict(processedTestData);
-//				    	Map<String, Map<String, Double>> confusionMatrix = predResults.second;
-//				    	double TP = confusionMatrix.get(posClass).get("TruePositive");
-//						double FP = confusionMatrix.get(posClass).get("FalsePositive");
-//						double TN = confusionMatrix.get(negClass).get("TruePositive");
-//						double FN = confusionMatrix.get(negClass).get("FalsePositive");
-//						double MCC = (((TP * TN)  - (FP * FN)) / Math.sqrt((TP + FP) * (TP + FN) * (TN + FP) * (TN + FN)));
-//						double percentReduction = 100 * (((double) numberGenes / geneSet.size()) / numberGenes);
-////						fitness.add((alpha * MCC) + ((1 - alpha) * percentReduction));
-//						if (Double.isNaN(MCC))
-//						{
-//							fitness.add(0.0);
-//						}
-//						else
-//						{
-//							fitness.add(MCC);
-//						}
-//	    		    	populationSeeds.add(forest.seed);
-//	    		    	numberEvaluations += 1;
+	    		    	Map<String, Map<String, Double>> averagedConfusionMatrix = new HashMap<String, Map<String, Double>>();
+			    		for (String s : observations.keySet())
+			    		{
+			    			Map<String, Double> classPredictions = new HashMap<String, Double>();
+			    			classPredictions.put("TruePositive", 0.0);
+			    			classPredictions.put("FalsePositive", 0.0);
+			    			averagedConfusionMatrix.put(s, classPredictions);
+			    		}
+				    	for (int i = 0; i < numberOfSubsamples; i++)
+				    	{
+				    		Map<Integer, List<Integer>> obsIndexMapping = origToSubsetIndexMapping.get(i);
+				    		List<Integer> obsToTrain = new ArrayList<Integer>();
+				    		for (Integer j : geneSet)
+				    		{
+				    			obsToTrain.addAll(obsIndexMapping.get(j));
+				    		}
+				    		ctrl.trainingObservations = obsToTrain;
+				    		Forest forest = new Forest(trainingFiles.get(i), ctrl, weights);
+				    		Map<String, Map<String, Double>> predictedConfMat = forest.predict(testingFiles.get(i)).second;
+				    		for (String s : predictedConfMat.keySet())
+				    		{
+				    			double oldTruePos = averagedConfusionMatrix.get(s).get("TruePositive");
+				    			double newTruePos = predictedConfMat.get(s).get("TruePositive");;
+				    			double oldFalsePos = averagedConfusionMatrix.get(s).get("FalsePositive");
+				    			double newFalsePos = predictedConfMat.get(s).get("FalsePositive");
+				    			averagedConfusionMatrix.get(s).put("TruePositive", oldTruePos + newTruePos);
+				    			averagedConfusionMatrix.get(s).put("FalsePositive", oldFalsePos + newFalsePos);
+				    		}
+				    	}
+				    	double allTruePositives = 0.0;
+				    	double allFalsePositives = 0.0;
+				    	double allFalseNegatives = 0.0;
+				    	for (String s : averagedConfusionMatrix.keySet())
+				    	{
+				    		double classTP = averagedConfusionMatrix.get(s).get("TruePositive");
+				    		allTruePositives += classTP;
+				    		allFalsePositives += averagedConfusionMatrix.get(s).get("FalsePositive");
+				    		allFalseNegatives += (observations.get(s).size() - classTP);  // The false negatives for the class are all observations in the class minus the true positive
+				    	}
+				    	double microRecall = allTruePositives / (allTruePositives + allFalseNegatives);
+				    	double microPrecision = allTruePositives / (allTruePositives + allFalsePositives);
+				    	double microFMeasure = 2 * ((microPrecision * microRecall) / (microPrecision + microRecall));
+				    	fitness.add(microFMeasure);
+	    		    	numberEvaluations += 1;
 	    		    }
 
 	    		    // Sort the new population.
-	    		    sortedInitialPopulation = new ArrayList<IndexedDoubleLongData>();
+	    		    sortedInitialPopulation = new ArrayList<IndexedDoubleData>();
 	    		    for (int j = 0; j < population.size(); j++)
 	    		    {
-	    		    	sortedInitialPopulation.add(new IndexedDoubleLongData(fitness.get(j), populationSeeds.get(j), j));
+	    		    	sortedInitialPopulation.add(new IndexedDoubleData(fitness.get(j), j));
 	    		    }
-	    		    Collections.sort(sortedInitialPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by OOB MCC.
+	    		    Collections.sort(sortedInitialPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by F score.
 	    		    newInitialPopulation = new ArrayList<List<Integer>>();
 	    		    newInitialFitness = new ArrayList<Double>();
-	    		    newInitialSeeds = new ArrayList<Long>();
 	    		    for (int j = 0; j < populationSize; j ++)
 	    		    {
 	    		    	// Add the first populationSize population members with the lowest error rates.
 	    		    	int indexToAddFrom = sortedInitialPopulation.get(j).getIndex();
 	    		    	newInitialPopulation.add(population.get(indexToAddFrom));
 	    		    	newInitialFitness.add(fitness.get(indexToAddFrom));
-	    		    	newInitialSeeds.add(populationSeeds.get(indexToAddFrom));
 	    		    }
 	    		    population = newInitialPopulation;
 	    		    fitness = newInitialFitness;
-	    		    populationSeeds = newInitialSeeds;
 	    		    threshold = initialSetSize / 4;
 	    		}
 	    	}
@@ -710,7 +676,6 @@ public class InstanceSelection
 	    		// is not the same then it must have improved.
 	    		this.currentBestFitness = fitness.get(0);
 	    		this.bestMembersFound = new ArrayList<List<Integer>>();  // Clear out the list of the best individuals found as there is a new top fitness.
-	    		this.bestForestSeeds = new ArrayList<Long>();  // Clear the list of the best individuals' seeds as there is a new top fitness.
 	    	}
 	    	// Add all the members with the best fitness to the set of best individuals found.
 	    	for (int i = 0; i < populationSize; i++)
@@ -721,7 +686,6 @@ public class InstanceSelection
 	    			// the individual is not already recorded as having the best fitness found (i.e. a new individual has been found
 	    			// that has the same fitness as the most fit individual already found).
 	    			this.bestMembersFound.add(population.get(i));
-	    			this.bestForestSeeds.add(populationSeeds.get(i));
 	    		}
 	    	}
 	    	currentGeneration += 1;
@@ -749,6 +713,10 @@ public class InstanceSelection
 			System.exit(0);
 		}
 
+	    // Write out the statistics of the final population.
+    	writeOutStatus(fitnessDirectoryLocation, fitness, populationDirectoryLocation, population, currentGeneration,
+    			genStatsOutputLocation, populationSize, threshold, numberEvaluations);
+
 	    // Write out the best member(s) of the population.
 	    Set<List<Integer>> recordedIndividuals = new HashSet<List<Integer>>();
 	    try
@@ -756,7 +724,7 @@ public class InstanceSelection
 	    	String bestIndivOutputLocation = outputLocation + "/BestIndividuals.txt";
 			FileWriter bestIndivOutputFile = new FileWriter(bestIndivOutputLocation);
 			BufferedWriter bestIndivOutputWriter = new BufferedWriter(bestIndivOutputFile);
-			bestIndivOutputWriter.write("Fitness : ");
+			bestIndivOutputWriter.write("Fitness\t");
 			bestIndivOutputWriter.write(Double.toString(this.currentBestFitness));
 			bestIndivOutputWriter.newLine();
 			for (int i = 0; i < this.bestMembersFound.size(); i++)
@@ -766,7 +734,6 @@ public class InstanceSelection
 				{
 					recordedIndividuals.add(currentMember);
 					bestIndivOutputWriter.write(currentMember.toString());
-					bestIndivOutputWriter.write("\t" + Long.toString(this.bestForestSeeds.get(i)));
 				    bestIndivOutputWriter.newLine();
 				}
 			}
@@ -778,53 +745,6 @@ public class InstanceSelection
 			System.exit(0);
 		}
 
-	}
-
-	/**
-	 * Determine the weighting of each class as its proportion of the total number of observations.
-	 * 
-	 * @param inputLocation
-	 * @return
-	 */
-	Map<String, Double> determineWeights(String inputLocation, TreeGrowthControl ctrl)
-	{
-		ProcessDataForGrowing procData = new ProcessDataForGrowing(inputLocation, ctrl);
-
-		// Determine how often each class occurs.
-		Map<String, Double> classCounts = new HashMap<String, Double>();
-		for (String s : procData.responseData)
-		{
-			if (!classCounts.containsKey(s))
-			{
-				classCounts.put(s, 1.0);
-			}
-			else
-			{
-				classCounts.put(s, classCounts.get(s) + 1.0);
-			}
-		}
-
-		// Find the number of occurrences of the class that occurs most often.
-		double maxClass = 0.0;
-		for (String s : classCounts.keySet())
-		{
-			if (classCounts.get(s) > maxClass)
-			{
-				maxClass = classCounts.get(s);
-			}
-		}
-
-		// Determine the weighting of each class in relation to the class that occurs most often.
-		// Weights the most frequent class as 1.
-		// Two classes, A occurs 10 times and B 5 times. A gets a weight of 1 / (10 / 10) == 1.
-		// B gets a weight of 1 / (5 / 10) == 2.
-		Map<String, Double> classWeights = new HashMap<String, Double>();
-		for (String s : classCounts.keySet())
-		{
-			classWeights.put(s, 1.0 / (classCounts.get(s) / maxClass));
-		}
-
-		return classWeights;
 	}
 
 	List<List<Integer>> hammingDistance(List<Integer> parentOne, List<Integer> parentTwo)
@@ -891,30 +811,9 @@ public class InstanceSelection
 	    return isGenNotStopping && isEvalNotStopping && isTimeNotStopping;
 	}
 
-	void removeDirectoryContent(File directory)
-	{
-		String directoryLocation = directory.getAbsolutePath();
-		if (directory.isDirectory())
-		{
-			String dirFiles[] = directory.list();
-			for (String s : dirFiles)
-			{
-				File subFile = new File(directoryLocation + "/" + s);
-				if (subFile.isDirectory())
-				{
-					removeDirectoryContent(subFile);
-				}
-				else
-				{
-					subFile.delete();
-				}
-			}
-		}
-		directory.delete();
-	}
-
 	void writeOutStatus(String fitnessDirectoryLocation, List<Double> fitness, String populationDirectoryLocation,
-			List<List<Integer>> population, int currentGeneration, String genStatsOutputLocation, int populationSize)
+			List<List<Integer>> population, int currentGeneration, String genStatsOutputLocation, int populationSize,
+			int threshold, int numberEvaluations)
 	{
 		// Write out the fitness info for the current generation.
 		String fitnessOutputLocation = fitnessDirectoryLocation + "/" + Integer.toString(currentGeneration) + ".txt";
@@ -1002,6 +901,10 @@ public class InstanceSelection
 			genStatsOutputWriter.write(Integer.toString(population.get(0).size()));
 			genStatsOutputWriter.write("\t");
 			genStatsOutputWriter.write(Double.toString(meanPopulationSize));
+			genStatsOutputWriter.write("\t");
+			genStatsOutputWriter.write(Integer.toString(threshold));
+			genStatsOutputWriter.write("\t");
+			genStatsOutputWriter.write(Integer.toString(numberEvaluations));
 			genStatsOutputWriter.newLine();
 			genStatsOutputWriter.close();
 		}

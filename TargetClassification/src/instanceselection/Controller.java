@@ -9,15 +9,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import datasetgeneration.BootstrapGeneration;
 import datasetgeneration.CrossValidationFoldGenerationMultiClass;
 
-import tree.IndexedDoubleData;
 import tree.TreeGrowthControl;
 
 public class Controller
@@ -57,20 +54,14 @@ public class Controller
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int iterationsToDo = 10;
-		int numberOfSubsetsToGenerate = 5;
-
-		Map<String, Integer[]> obsOfEachClass = new HashMap<String, Integer[]>();
-		Integer[] unlabelledObsToUse = {10, 20, 30, 40, 50};
-		Integer[] positiveObsToUse = {10, 20, 30, 40, 50};
-		obsOfEachClass.put("Unlabelled", unlabelledObsToUse);
-		obsOfEachClass.put("Positive", positiveObsToUse);
+		int foldsToGenerate = 10;
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
 		ctrl.numberOfTreesToGrow = 500;
 		ctrl.mtry = 10;
 		ctrl.isStratifiedBootstrapUsed = true;
+		ctrl.isCalculateOOB = false;
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
@@ -82,94 +73,55 @@ public class Controller
 		String[] newGAArgs = new String[args.length + 1];
 		for (int k = 2; k < args.length; k++)
 		{
-			newGAArgs[k+1] = args[k];
+			newGAArgs[k + 1] = args[k];
 		}
 		
-		// Run the instance selection multiple times.
-		for (int i = 0; i < iterationsToDo; i++)
+		// Generate the CV folds.
+		String foldLocation = outputLocation + "/Folds";
+		CrossValidationFoldGenerationMultiClass.main(inputLocation, foldLocation, foldsToGenerate);
+
+		// Run the GA.
+		newGAArgs[0] = args[0];
+		newGAArgs[1] = foldLocation;
+		newGAArgs[2] = outputLocation;
+		TreeGrowthControl thisGAControl = new TreeGrowthControl(ctrl);
+		new chc.InstanceSelection(newGAArgs, thisGAControl, weights);
+
+		// Extract the best individual.
+		List<Integer> bestIndividual = new ArrayList<Integer>();
+		try (BufferedReader reader = Files.newBufferedReader(Paths.get(outputLocation + "/BestIndividuals.txt"), StandardCharsets.UTF_8))
 		{
-			System.out.format("Iteration : %d.\n", i);
-			String subsetsDir = outputLocation + "\\Subsets\\" + Integer.toString(i);
-			// Generate the subsets.
-			BootstrapGeneration.main(inputLocation, subsetsDir, numberOfSubsetsToGenerate);
-//			CrossValidationFoldGenerationMultiClass.main(inputLocation, subsetsDir, numberOfSubsetsToGenerate);
-
-			newGAArgs[0] = args[0];
-			newGAArgs[1] = subsetsDir;
-			newGAArgs[2] = outputLocation + "\\Results\\" + Integer.toString(i);
-			TreeGrowthControl thisGAControl = new TreeGrowthControl(ctrl);
-			new chc.InstanceSelection(newGAArgs, thisGAControl, weights);
-		}
-
-		gaAnalysis(inputLocation, outputLocation, ctrl, obsOfEachClass);
-	}
-
-
-	static void gaAnalysis(String inputLocation, String resultsDirLoc, TreeGrowthControl ctrl, Map<String, Integer[]> obsOfEachClass)
-	{
-		File inputFile = new File(inputLocation);
-		if (!inputFile.isFile())
-		{
-			System.out.println("The first argument must be a valid file location, and must contain the data for feature selection.");
-			System.exit(0);
-		}
-
-		File outputDirectory = new File(resultsDirLoc);
-		if (!outputDirectory.isDirectory())
-		{
-			System.out.println("The second argument must be a valid directory location.");
-			System.exit(0);
-		}
-
-		List<List<Integer>> bestIndices = new ArrayList<List<Integer>>();
-
-		String subsetsDir = resultsDirLoc + "\\Subsets";
-		File subsetsDirectory = new File(subsetsDir);
-		String selectionDir = resultsDirLoc + "\\Results";
-		for (String s : subsetsDirectory.list())
-		{
-				
-			String bestIndividualsLoc = selectionDir + "\\" + s + "\\BestIndividuals.txt";
-			List<List<Integer>> bestIndividualIndices = new ArrayList<List<Integer>>();
-			try (BufferedReader reader = Files.newBufferedReader(Paths.get(bestIndividualsLoc), StandardCharsets.UTF_8))
+			String line;
+			while ((line = reader.readLine()) != null)
 			{
-				String line;
-				while ((line = reader.readLine()) != null)
+				line = line.trim();
+				if (line.length() == 0)
 				{
-					line = line.trim();
-					line = line.replace("[", "");
-					line = line.replace("]", "");
-					if (line.trim().length() == 0)
-					{
-						// If the line is made up of all whitespace, then ignore the line.
-						continue;
-					}
-					else if (line.contains("Fitness"))
-					{
-						// The line indicates the fitness of the individual, so skip it.
-						continue;
-					}
-					String[] splitLine = line.split("\t");
-					List<Integer> individual = new ArrayList<Integer>();
-					for (String r : splitLine[0].split(", "))
-					{
-						individual.add(Integer.parseInt(r));
-					}
-					bestIndividualIndices.add(individual);
+					// If the line is made up of all whitespace, then ignore the line.
+					continue;
+				}
+				else if (line.contains("Fitness"))
+				{
+					// The line indicates the fitness of the individual, so skip it.
+					continue;
+				}
+				line = line.replace("[", "");
+				line = line.replace("]", "");
+				String[] splitLine = line.split("\t");
+				for (String r : splitLine[0].split(", "))
+				{
+					bestIndividual.add(Integer.parseInt(r));
 				}
 			}
-			catch (Exception e)
-			{
-				e.printStackTrace();
-				System.exit(0);
-			}
-			bestIndices.addAll(bestIndividualIndices);
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
 		}
 
-		int numberObservations = 0;
-		Map<Integer, Integer> timesIndexKept = new HashMap<Integer, Integer>();
+		int numberOfObservations = 0;
 		Map<Integer, String> indexToLineMap = new HashMap<Integer, String>();
-		Map<String, Map<Integer, String>> observationIndexToLine = new HashMap<String, Map<Integer, String>>();
 		String headerOne = "";
 		String headerTwo = "";
 		String headerThree = "";
@@ -177,7 +129,6 @@ public class Controller
 		{
 			BufferedReader inputReader = new BufferedReader(new FileReader(inputLocation));
 			headerOne = inputReader.readLine();
-			int indexOfClassification = headerOne.split("\t").length - 1;
 			headerTwo = inputReader.readLine();
 			headerThree = inputReader.readLine();
 			String line;
@@ -188,20 +139,8 @@ public class Controller
 					// If the line is made up of all whitespace, then ignore the line.
 					continue;
 				}
-				indexToLineMap.put(numberObservations, line);
-				timesIndexKept.put(numberObservations, 0);
-				String[] splitLine = (line.trim()).split("\t");
-				String classification = splitLine[indexOfClassification];
-				if (observationIndexToLine.containsKey(classification))
-				{
-					observationIndexToLine.get(classification).put(numberObservations, line);
-				}
-				else
-				{
-					observationIndexToLine.put(classification, new HashMap<Integer, String>());
-					observationIndexToLine.get(classification).put(numberObservations, line);
-				}
-				numberObservations += 1;
+				indexToLineMap.put(numberOfObservations, line);
+				numberOfObservations += 1;
 			}
 			inputReader.close();
 		}
@@ -211,120 +150,20 @@ public class Controller
 			System.exit(0);
 		}
 
-		for (int i = 0; i < bestIndices.size(); i++)
-		{
-			for (Integer j : bestIndices.get(i))
-			{
-				timesIndexKept.put(j, timesIndexKept.get(j) + 1);
-			}
-		}
-
-		for (double d = 1; d < 11; d++)
-		{
-			double observationFraction = d / 10.0;
-			int numberOfOccurences = (int) Math.floor(observationFraction * bestIndices.size());  // Determine the number of times an observation must occur for it to be included in the dataset.
-			try
-			{
-				String trainingOutputLocation = resultsDirLoc + "\\%" + Integer.toString((int) (observationFraction * 100)) + "TrainingObservationSet.txt";
-				FileWriter trainingOutputFile = new FileWriter(trainingOutputLocation);
-				BufferedWriter trainingOutputWriter = new BufferedWriter(trainingOutputFile);
-				String testingOutputLocation = resultsDirLoc + "\\%" + Integer.toString((int) (observationFraction * 100)) + "TestingObservationSet.txt";
-				FileWriter testingOutputFile = new FileWriter(testingOutputLocation);
-				BufferedWriter testingOutputWriter = new BufferedWriter(testingOutputFile);
-				trainingOutputWriter.write(headerOne);
-				trainingOutputWriter.newLine();
-				trainingOutputWriter.write(headerTwo);
-				trainingOutputWriter.newLine();
-				trainingOutputWriter.write(headerThree);
-				trainingOutputWriter.newLine();
-				testingOutputWriter.write(headerOne);
-				testingOutputWriter.newLine();
-				testingOutputWriter.write(headerTwo);
-				testingOutputWriter.newLine();
-				testingOutputWriter.write(headerThree);
-				testingOutputWriter.newLine();
-				for (Integer i : indexToLineMap.keySet())
-				{
-					if (timesIndexKept.get(i) >= numberOfOccurences)
-					{
-						trainingOutputWriter.write(indexToLineMap.get(i));
-						trainingOutputWriter.newLine();
-					}
-					else
-					{
-						testingOutputWriter.write(indexToLineMap.get(i));
-						testingOutputWriter.newLine();
-					}
-				}
-				trainingOutputWriter.close();
-				testingOutputWriter.close();
-			}
-			catch (Exception e)
-			{
-				e.printStackTrace();
-				System.exit(0);
-			}
-		}
-
 		try
 		{
-			for (int i = 0; i < obsOfEachClass.get("Positive").length; i++)
+			String culledOutputLocation = outputLocation + "/CulledDataset.txt";
+			FileWriter culledOutputFile = new FileWriter(culledOutputLocation);
+			BufferedWriter culledOutputWriter = new BufferedWriter(culledOutputFile);
+			culledOutputWriter.write(headerOne);
+			culledOutputWriter.write(headerTwo);
+			culledOutputWriter.write(headerThree);
+			for (Integer i : bestIndividual)
 			{
-				String outputFileNamePrefix = "";
-				List<String> trainingObs = new ArrayList<String>();
-				List<String> testingObs = new ArrayList<String>();
-				for (String s : obsOfEachClass.keySet())
-				{
-					outputFileNamePrefix += Integer.toString(obsOfEachClass.get(s)[i]) + s;
-					List<IndexedDoubleData> sortedIndices = new ArrayList<IndexedDoubleData>();
-					for (Integer j : observationIndexToLine.get(s).keySet())
-					{
-						sortedIndices.add(new IndexedDoubleData(timesIndexKept.get(j), j));
-					}
-					Collections.sort(sortedIndices);
-					Collections.reverse(sortedIndices);
-					for (int j = 0; j < obsOfEachClass.get(s)[i]; j++)
-					{
-						trainingObs.add(indexToLineMap.get(sortedIndices.get(j).getIndex()));
-					}
-					for (int j = obsOfEachClass.get(s)[i]; j < observationIndexToLine.get(s).size(); j++)
-					{
-						testingObs.add(indexToLineMap.get(sortedIndices.get(j).getIndex()));
-					}
-				}
-				String trainingDatasetOutputLocation = resultsDirLoc + "\\" + outputFileNamePrefix + "TrainingObservationSet.txt";
-				FileWriter trainingDatasetOutputFile = new FileWriter(trainingDatasetOutputLocation);
-				BufferedWriter trainingDatasetOutputWriter = new BufferedWriter(trainingDatasetOutputFile);
-				trainingDatasetOutputWriter.write(headerOne);
-				trainingDatasetOutputWriter.newLine();
-				trainingDatasetOutputWriter.write(headerTwo);
-				trainingDatasetOutputWriter.newLine();
-				trainingDatasetOutputWriter.write(headerThree);
-				trainingDatasetOutputWriter.newLine();
-				for (String s : trainingObs)
-				{
-					trainingDatasetOutputWriter.write(s);
-					trainingDatasetOutputWriter.newLine();
-				}
-				trainingDatasetOutputWriter.close();
-
-
-				String testingDatasetOutputLocation = resultsDirLoc + "\\" + outputFileNamePrefix + "TestingObservationSet.txt";
-				FileWriter testingDatasetOutputFile = new FileWriter(testingDatasetOutputLocation);
-				BufferedWriter testingDatasetOutputWriter = new BufferedWriter(testingDatasetOutputFile);
-				for (String s : testingObs)
-				{
-					testingDatasetOutputWriter.write(s);
-					testingDatasetOutputWriter.newLine();
-				}
-				testingDatasetOutputWriter.write(headerOne);
-				testingDatasetOutputWriter.newLine();
-				testingDatasetOutputWriter.write(headerTwo);
-				testingDatasetOutputWriter.newLine();
-				testingDatasetOutputWriter.write(headerThree);
-				testingDatasetOutputWriter.newLine();
-				testingDatasetOutputWriter.close();
+				culledOutputWriter.write(indexToLineMap.get(i));
+				culledOutputWriter.newLine();
 			}
+			culledOutputWriter.close();
 		}
 		catch (Exception e)
 		{
@@ -332,5 +171,4 @@ public class Controller
 			System.exit(0);
 		}
 	}
-
 }
