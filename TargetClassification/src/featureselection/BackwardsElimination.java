@@ -7,8 +7,11 @@ import java.io.FileWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,7 +67,7 @@ public class BackwardsElimination
 		int finalSelectionRepetitions = 50;
 //		double fractionToElim = 0.2;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
 		int featuresToEliminate = 1;
-		boolean continueRun = true;  // Whether or not you want to continue a run in progress or restart the whole process.
+		boolean continueRun = false;  // Whether or not you want to continue a run in progress or restart the whole process.
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
@@ -74,11 +77,11 @@ public class BackwardsElimination
 		ctrl.isCalculateOOB = false;
 
 		TreeGrowthControl varImpCtrl = new TreeGrowthControl(ctrl);
-		ctrl.numberOfTreesToGrow = 5000;
+		varImpCtrl.numberOfTreesToGrow = 5000;
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
-		weights.put("Positive", 1.25);
+		weights.put("Positive", 1.5);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -172,7 +175,10 @@ public class BackwardsElimination
 			{
 				continue;
 			}
-			System.out.format("Now working on subsample %d.\n", i);
+			Date currentTime = new Date();
+		    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		    String strDate = sdfDate.format(currentTime);
+			System.out.format("Now working on subsample %d at %s.\n", i, strDate);
 
 			String subsampleTrainingSet = subsampleDirectory + "/Train.txt";
 			String subsampleTestingSet = subsampleDirectory + "/Test.txt";
@@ -183,7 +189,10 @@ public class BackwardsElimination
 			//----------------------------------------------------------------------------//
 			// Determine the order of the features by average feature importance ranking. //
 			//----------------------------------------------------------------------------//
-			System.out.println("\tNow determining average variable importance.");
+			currentTime = new Date();
+		    sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		    strDate = sdfDate.format(currentTime);
+			System.out.format("\tNow determining average variable importance at %s.\n", strDate);
 			Random seedGenerator = new Random();
 			List<Long> seedsForFolds = new ArrayList<Long>();
 			for (int j = 0; j < foldsToGenerate; j++)
@@ -241,7 +250,10 @@ public class BackwardsElimination
 			//--------------------------//
 			// Perform the elimination. //
 			//--------------------------//
-			System.out.println("\tNow performing the elimination.");
+			currentTime = new Date();
+		    sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		    strDate = sdfDate.format(currentTime);
+			System.out.format("\tNow performing the elimination at %s.\n", strDate);
 			List<String> bestFeatureSet = new ArrayList<String>();
 			List<String> bestFeatureIgnoredFeatureSet = new ArrayList<String>();
 			double bestErrorRate = 100.0;
@@ -335,7 +347,10 @@ public class BackwardsElimination
 		// Determine the order of the features by average feature importance ranking. //
 		//----------------------------------------------------------------------------//
 		System.out.println("Now performing the final selection.");
-		System.out.println("\tNow determining average variable importance.");
+		Date currentTime = new Date();
+	    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	    String strDate = sdfDate.format(currentTime);
+		System.out.format("\tNow determining average variable importance at %s.\n", strDate);
 		Random seedGenerator = new Random();
 		List<Long> seedsForFolds = new ArrayList<Long>();
 		for (int j = 0; j < finalSelectionRepetitions; j++)
@@ -392,7 +407,10 @@ public class BackwardsElimination
 		//--------------------------//
 		// Perform the elimination. //
 		//--------------------------//
-		System.out.println("\tNow performing the elimination.");
+		currentTime = new Date();
+	    sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	    strDate = sdfDate.format(currentTime);
+		System.out.format("\tNow performing the elimination at %s.\n", strDate);
 		List<String> bestFeatureSet = new ArrayList<String>();
 		double bestErrorRate = 100.0;
 		ctrl.isCalculateOOB = true;
