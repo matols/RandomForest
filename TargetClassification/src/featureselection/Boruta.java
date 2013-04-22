@@ -111,6 +111,7 @@ public class Boruta
 		ctrl.numberOfTreesToGrow = numberOfTrees;
 		ctrl.mtry = 10;
 		ctrl.isStratifiedBootstrapUsed = true;
+		ctrl.isCalculateOOB = false;
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
