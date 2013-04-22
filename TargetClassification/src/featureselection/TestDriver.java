@@ -40,74 +40,89 @@ public class TestDriver
 	{
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 500;
+		ctrl.numberOfTreesToGrow = 100;
 		ctrl.mtry = 10;
 		ctrl.isStratifiedBootstrapUsed = true;
 		int gaRepetitions = 20;
-		boolean isXValUsed = false;
-		boolean isCHCUsed = true;
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
 		weights.put("Positive", 1.0);
 
 
-//		ctrl.calculateOOB = false;
-//		new Controller(args, ctrl, weights, false);  // false indicates backwards elimination, tru indicates variable importance.
+//		ctrl.isCalculateOOB = false;
+//		new Controller(args, ctrl, weights);
 //		System.exit(0);
 
 
-//		new Controller(args, ctrl, gaRepetitions, isXValUsed, weights, isCHCUsed);
+//		new Controller(args, ctrl, gaRepetitions, weights);
 //		System.exit(0);
 
 
-//		Integer[] obsToUse = {28, 113, 138, 110, 45, 51, 18, 61, 126, 141, 46, 8, 39, 17, 67, 95, 43, 106, 42, 65, 36, 127, 100, 48, 37, 0, 55, 66, 59, 128, 29, 57, 85, 101, 1, 99, 137, 69, 16, 81, 112, 94, 25, 60, 109, 24, 72, 107, 4, 44, 144, 142, 13, 32, 11, 12, 98, 120, 139, 130, 114, 89, 117, 132, 93, 104, 108, 9, 121, 71, 136, 111, 5, 86, 83};
-//		ctrl.trainingObservations = new ArrayList<Integer>(Arrays.asList(obsToUse));
-		String training = "C:\\Users\\Simonial\\Documents\\PhD\\Datasets\\CHCInstanceTest\\Selection\\40Unlabelled40PositiveTrainingObservationSet.txt";
-		String testing = "C:\\Users\\Simonial\\Documents\\PhD\\Datasets\\CHCInstanceTest\\Test.txt";
-//		Forest forest = new Forest(args[0], ctrl, weights);
-		double averagePredMCC = 0.0;
-		double averageOOBMCC = 0.0;
-		int reps = 50;
-		for (int i = 0; i < reps; i ++)
-		{
-			Forest forest = new Forest(training, ctrl, weights);
-//			System.out.println(forest.oobErrorEstimate);
-//			System.out.println(forest.oobConfusionMatrix);
-			String posClass = "Positive";
-			String negClass = "Unlabelled";
-			Double oobTP = forest.oobConfusionMatrix.get(posClass).get("TruePositive");
-			Double oobFP = forest.oobConfusionMatrix.get(posClass).get("FalsePositive");
-			Double oobTN = forest.oobConfusionMatrix.get(negClass).get("TruePositive");
-			Double oobFN = forest.oobConfusionMatrix.get(negClass).get("FalsePositive");
-			Double posError = oobFN / (oobFN + oobTP);
-			Double negError = oobFP / (oobFP + oobTN);
-			Double MCC = (((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN)));
-			averageOOBMCC += MCC;
-//			System.out.println(posError);
-//			System.out.println(negError);
-//			System.out.println(MCC);
-			Map<String, Map<String, Double>> confMat = forest.predict(new ProcessDataForGrowing(testing, ctrl)).second;
-//			System.out.println("--------------");
-//			System.out.println(confMat);
-			oobTP = confMat.get(posClass).get("TruePositive");
-			oobFP = confMat.get(posClass).get("FalsePositive");
-			oobTN = confMat.get(negClass).get("TruePositive");
-			oobFN = confMat.get(negClass).get("FalsePositive");
-			posError = oobFN / (oobFN + oobTP);
-			negError = oobFP / (oobFP + oobTN);
-			MCC = (((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN)));
-			averagePredMCC += MCC;
-//			System.out.println(posError);
-//			System.out.println(negError);
-//			System.out.println(MCC);
-		}
-		System.out.println(averageOOBMCC / reps);
-		System.out.println(averagePredMCC / reps);
-		Date startTime = new Date();
-	    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-	    String strDate = sdfDate.format(startTime);
-	    System.out.println(strDate);
-	    System.exit(0);
+////		Integer[] obsToUse = {28, 113, 138, 110, 45, 51, 18, 61, 126, 141, 46, 8, 39, 17, 67, 95, 43, 106, 42, 65, 36, 127, 100, 48, 37, 0, 55, 66, 59, 128, 29, 57, 85, 101, 1, 99, 137, 69, 16, 81, 112, 94, 25, 60, 109, 24, 72, 107, 4, 44, 144, 142, 13, 32, 11, 12, 98, 120, 139, 130, 114, 89, 117, 132, 93, 104, 108, 9, 121, 71, 136, 111, 5, 86, 83};
+////		ctrl.trainingObservations = new ArrayList<Integer>(Arrays.asList(obsToUse));
+//		String training = "C:\\Users\\Simonial\\Documents\\PhD\\Datasets\\CHCInstanceTest\\Selection\\40Unlabelled40PositiveTrainingObservationSet.txt";
+//		String origTrain = "C:\\Users\\Simonial\\Documents\\PhD\\Datasets\\CHCInstanceTest\\Train.txt";
+//		String testing = "C:\\Users\\Simonial\\Documents\\PhD\\Datasets\\CHCInstanceTest\\Test.txt";
+////		Forest forest = new Forest(args[0], ctrl, weights);
+//		double averagePredMCC = 0.0;
+//		double averageOOBMCC = 0.0;
+//		double averagePredOrigMCC = 0.0;
+//		int reps = 50;
+//		for (int i = 0; i < reps; i ++)
+//		{
+//			weights.put("Positive", 1.0);
+//			Forest forest = new Forest(training, ctrl, weights);
+////			System.out.println(forest.oobErrorEstimate);
+////			System.out.println(forest.oobConfusionMatrix);
+//			String posClass = "Positive";
+//			String negClass = "Unlabelled";
+//			Double oobTP = forest.oobConfusionMatrix.get(posClass).get("TruePositive");
+//			Double oobFP = forest.oobConfusionMatrix.get(posClass).get("FalsePositive");
+//			Double oobTN = forest.oobConfusionMatrix.get(negClass).get("TruePositive");
+//			Double oobFN = forest.oobConfusionMatrix.get(negClass).get("FalsePositive");
+//			Double posError = oobFN / (oobFN + oobTP);
+//			Double negError = oobFP / (oobFP + oobTN);
+//			Double MCC = (((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN)));
+//			averageOOBMCC += MCC;
+////			System.out.println(posError);
+////			System.out.println(negError);
+////			System.out.println(MCC);
+//			Map<String, Map<String, Double>> confMat = forest.predict(new ProcessDataForGrowing(testing, ctrl)).second;
+////			System.out.println("--------------");
+////			System.out.println(confMat);
+//			oobTP = confMat.get(posClass).get("TruePositive");
+//			oobFP = confMat.get(posClass).get("FalsePositive");
+//			oobTN = confMat.get(negClass).get("TruePositive");
+//			oobFN = confMat.get(negClass).get("FalsePositive");
+//			posError = oobFN / (oobFN + oobTP);
+//			negError = oobFP / (oobFP + oobTN);
+//			MCC = (((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN)));
+//			averagePredMCC += MCC;
+////			System.out.println(posError);
+////			System.out.println(negError);
+////			System.out.println(MCC);
+//			weights.put("Positive", 1.4);
+//			forest = new Forest(origTrain, ctrl, weights);
+//			confMat = forest.predict(new ProcessDataForGrowing(testing, ctrl)).second;
+////			System.out.println("--------------");
+////			System.out.println(confMat);
+//			oobTP = confMat.get(posClass).get("TruePositive");
+//			oobFP = confMat.get(posClass).get("FalsePositive");
+//			oobTN = confMat.get(negClass).get("TruePositive");
+//			oobFN = confMat.get(negClass).get("FalsePositive");
+//			posError = oobFN / (oobFN + oobTP);
+//			negError = oobFP / (oobFP + oobTN);
+//			MCC = (((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN)));
+//			averagePredOrigMCC += MCC;
+//		}
+//		System.out.println(averageOOBMCC / reps);
+//		System.out.println(averagePredMCC / reps);
+//		System.out.println(averagePredOrigMCC / reps);
+//		Date startTime = new Date();
+//	    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+//	    String strDate = sdfDate.format(startTime);
+//	    System.out.println(strDate);
+//	    System.exit(0);
 
 
 //		Forest forest;
@@ -181,8 +196,8 @@ public class TestDriver
 
 
 //		Forest forest = new Forest(args[0], ctrl, weights);
-//		forest.save("C:\\Users\\Simon\\Documents\\PhD\\FeatureSelection\\TreeSave");
-//		Forest loadForest = new Forest("C:\\Users\\Simon\\Documents\\PhD\\FeatureSelection\\TreeSave", true);
+//		forest.save("C:\\Users\\Simonial\\Documents\\PhD\\FeatureSelection\\TreeSave");
+//		Forest loadForest = new Forest("C:\\Users\\Simonial\\Documents\\PhD\\FeatureSelection\\TreeSave", true);
 //		boolean isSeedEqual = forest.seed == loadForest.seed;
 //		boolean isOobEstEqual = forest.oobErrorEstimate == loadForest.oobErrorEstimate;
 //		boolean isDataFileEqual = forest.dataFileGrownFrom.equals(loadForest.dataFileGrownFrom);

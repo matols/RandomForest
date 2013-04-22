@@ -64,7 +64,7 @@ public class BackwardsElimination
 		int finalSelectionRepetitions = 50;
 //		double fractionToElim = 0.2;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
 		int featuresToEliminate = 1;
-		boolean continueRun = false;  // Whether or not you want to continue a run in progress or restart the whole process.
+		boolean continueRun = true;  // Whether or not you want to continue a run in progress or restart the whole process.
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
@@ -78,7 +78,7 @@ public class BackwardsElimination
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
-		weights.put("Positive", 1.4);
+		weights.put("Positive", 1.25);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -115,30 +115,9 @@ public class BackwardsElimination
 			featuresUsed.add(featureNames[i]);
 		}
 
-		// Determine whether the results file needs to be generated..
-		String resultsOutputLoc = outputLocation + "/Results.txt";
-		if (!(new File(resultsOutputLoc)).exists())
-		{
-			try
-			{
-				FileWriter featureFractionsOutputFile = new FileWriter(resultsOutputLoc);
-				BufferedWriter featureFractionsOutputWriter = new BufferedWriter(featureFractionsOutputFile);
-				for (String s : featuresUsed)
-				{
-					featureFractionsOutputWriter.write(s + "\t");
-				}
-				featureFractionsOutputWriter.write("ErrorRate");
-				featureFractionsOutputWriter.newLine();
-				featureFractionsOutputWriter.close();
-			}
-			catch (Exception e)
-			{
-				e.printStackTrace();
-				System.exit(0);
-			}
-		}
-
 		// Determine whether bootstrap samples need to be generated.
+		String resultsOutputLoc = outputLocation + "/Results.txt";
+		String parameterLocation = outputLocation + "/Parameters.txt";
 		if (!continueRun)
 		{
 			// Generate bootstraps and recreate the results file.
@@ -155,6 +134,29 @@ public class BackwardsElimination
 				featureFractionsOutputWriter.write("ErrorRate");
 				featureFractionsOutputWriter.newLine();
 				featureFractionsOutputWriter.close();
+
+				FileWriter parameterOutputFile = new FileWriter(parameterLocation);
+				BufferedWriter parameterOutputWriter = new BufferedWriter(parameterOutputFile);
+				parameterOutputWriter.write("Subsamples generated - " + Integer.toString(subsamplesToGenerate));
+				parameterOutputWriter.newLine();
+				parameterOutputWriter.write("Fraction to reserve as validation - " + Double.toString(fractionToReserveAsValidation));
+				parameterOutputWriter.newLine();
+				parameterOutputWriter.write("Folds per subsample - " + Integer.toString(foldsToGenerate));
+				parameterOutputWriter.newLine();
+				parameterOutputWriter.write("Final selection repetitions - " + Integer.toString(finalSelectionRepetitions));
+				parameterOutputWriter.newLine();
+				parameterOutputWriter.write("Feature to eliminate each round - " + Integer.toString(featuresToEliminate));
+				parameterOutputWriter.newLine();
+				parameterOutputWriter.write("Trees used in training - " + Integer.toString(ctrl.numberOfTreesToGrow));
+				parameterOutputWriter.newLine();
+				parameterOutputWriter.write("Trees used for variable importance - " + Integer.toString(varImpCtrl.numberOfTreesToGrow));
+				parameterOutputWriter.newLine();
+				parameterOutputWriter.write("Weights used - " + weights.toString());
+				parameterOutputWriter.newLine();
+				parameterOutputWriter.close();
+
+				ctrl.save(outputLocation + "/RegularCtrl.txt");
+				varImpCtrl.save(outputLocation + "/VariableImportanceCtrl.txt");
 			}
 			catch (Exception e)
 			{

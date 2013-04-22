@@ -252,7 +252,6 @@ public class InstanceSelection
 			e.printStackTrace();
 			System.exit(0);
 		}
-		int numberOfClasses = observations.size();
 		int threshold = initialSetSize / 4;
 
 		//-------------------------------------//
