@@ -835,8 +835,19 @@ public class Forest
 
 	public Map<String, Double> variableImportance()
 	{
-		Map<String, Double> variableImportance = new HashMap<String, Double>();
+		// Determine base accuracy for each tree.
+		List<Double> baseOOBAccuracy = new ArrayList<Double>();
+		for (int i = 0; i < this.forest.size(); i++)
+		{
+			List<Integer> oobOnThisTree = this.oobObservations.get(i);
+			List<Integer> treesToUse = new ArrayList<Integer>();
+			treesToUse.add(i);
+			Double originalAccuracy = 1 - predict(this.processedData, oobOnThisTree, treesToUse).first;
+			baseOOBAccuracy.add(originalAccuracy);
+		}
 
+		// Determine permuted importance.
+		Map<String, Double> variableImportance = new HashMap<String, Double>();
 		for (String s : this.processedData.covariableData.keySet())
 		{
 			double cumulativeAccChange = 0.0;
@@ -858,9 +869,8 @@ public class Forest
 
 				List<Integer> treesToUse = new ArrayList<Integer>();
 				treesToUse.add(i);
-				Double originalAccuracy = 1 - predict(this.processedData, oobOnThisTree, treesToUse).first;  // Determine the predictive accuracy for the non-permuted observations.
 				Double permutedAccuracy = 1 - predict(permData, oobOnThisTree, treesToUse).first;  // Determine the predictive accuracy for the permuted observations.
-				cumulativeAccChange += (originalAccuracy - permutedAccuracy);
+				cumulativeAccChange += (baseOOBAccuracy.get(i) - permutedAccuracy);
 			}
 			cumulativeAccChange /= this.forest.size();  // Get the mean change in the accuracy. This is the importance for the variable.
 			variableImportance.put(s, cumulativeAccChange);
