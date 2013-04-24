@@ -56,21 +56,7 @@ public class InstanceSelection
 			System.out.println("The first argument must be a valid file location, and must contain the entire dataset.");
 			System.exit(0);
 		}
-		String subsampleDirLocation = args[1];  // The location of the CV directory.
-		File subsampleDirectory = new File(subsampleDirLocation);
-		if (!subsampleDirectory.exists())
-		{
-			// CV directory does not exist.
-			System.out.println("The second argument must be a valid directory location containing the CV fold files.");
-			System.exit(0);
-		}
-		else if (!subsampleDirectory.isDirectory())
-		{
-			// Exists and is not a directory.
-			System.out.println("ERROR: The second argument is not a directory location.");
-			System.exit(0);
-		}
-		String outputLocation = args[2];  // The location to store any and all results.
+		String outputLocation = args[1];  // The location to store any and all results.
 		File outputDirectory = new File(outputLocation);
 		if (!outputDirectory.exists())
 		{
@@ -97,7 +83,7 @@ public class InstanceSelection
 		int initialSetSize = 100;
 
 		// Read in the user input.
-		int argIndex = 3;
+		int argIndex = 2;
 		while (argIndex < args.length)
 		{
 			String currentArg = args[argIndex];
@@ -268,6 +254,10 @@ public class InstanceSelection
 	    int numberEvaluations = 0;
 		
 		// Generate the initial population.
+	    if (verbose)
+	    {
+	    	System.out.println("Now generating the initial population");
+	    }
 		List<List<Integer>> population = new ArrayList<List<Integer>>();
 		List<Integer> parentSelector = new ArrayList<Integer>();
 		List<Integer> availableForSelection = new ArrayList<Integer>();
@@ -299,14 +289,8 @@ public class InstanceSelection
 
 	    // Calculate the fitness of the initial population.
 	    List<Double> fitness = new ArrayList<Double>();
-	    int counter = 0;
 	    for (List<Integer> geneSet : population)
 	    {
-	    	DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-		    Date now = new Date();
-		    String strDate = sdfDate.format(now);
-		    System.out.format("Count - %d at time %s.\n", counter, strDate);
-		    counter++;
 	    	// Train and test the subsasmples.
     		ctrl.trainingObservations = geneSet;
 	    	Forest forest = new Forest(datasetLocation, ctrl, weights);

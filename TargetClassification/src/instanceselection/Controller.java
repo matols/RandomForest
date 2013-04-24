@@ -54,8 +54,6 @@ public class Controller
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int foldsToGenerate = 10;
-
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
 		ctrl.numberOfTreesToGrow = 500;
@@ -70,20 +68,15 @@ public class Controller
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
 
-		String[] newGAArgs = new String[args.length + 1];
+		String[] newGAArgs = new String[args.length];
 		for (int k = 2; k < args.length; k++)
 		{
-			newGAArgs[k + 1] = args[k];
+			newGAArgs[k] = args[k];
 		}
-		
-		// Generate the CV folds.
-		String foldLocation = outputLocation + "/Folds";
-		CrossValidationFoldGenerationMultiClass.main(inputLocation, foldLocation, foldsToGenerate);
 
 		// Run the GA.
 		newGAArgs[0] = args[0];
-		newGAArgs[1] = foldLocation;
-		newGAArgs[2] = outputLocation;
+		newGAArgs[1] = outputLocation;
 		TreeGrowthControl thisGAControl = new TreeGrowthControl(ctrl);
 		new chc.InstanceSelection(newGAArgs, thisGAControl, weights);
 
