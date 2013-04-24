@@ -218,6 +218,8 @@ public class InstanceSelection
 
 		// Determine the number of genes/features in the dataset.
 		int numberOfObservations = 0;
+		ProcessDataForGrowing processedInputFile =new ProcessDataForGrowing(datasetLocation, ctrl);
+		List<Integer> observationIndices = new ArrayList<Integer>();
 		Map<String, List<Integer>> observations = new HashMap<String, List<Integer>>();
 		Map<Integer, String> observationsToClass = new HashMap<Integer, String>();
 		try
@@ -243,6 +245,7 @@ public class InstanceSelection
 				}
 				observations.get(classification).add(numberOfObservations);
 				observationsToClass.put(numberOfObservations, classification);
+				observationIndices.add(numberOfObservations);
 				numberOfObservations += 1;
 			}
 			geneReader.close();
@@ -253,61 +256,6 @@ public class InstanceSelection
 			System.exit(0);
 		}
 		int threshold = initialSetSize / 4;
-
-		//-------------------------------------//
-		// Get the subsample information.      //
-		//-------------------------------------//
-		String[] subsampleDirs = subsampleDirectory.list();
-		int numberOfSubsamples = subsampleDirs.length;
-		List<String> trainingFiles = new ArrayList<String>();
-		List<ProcessDataForGrowing> testingFiles = new ArrayList<ProcessDataForGrowing>();
-		List<Map<Integer, List<Integer>>> origToSubsetIndexMapping = new ArrayList<Map<Integer, List<Integer>>>();
-		List<List<Integer>> origToOOSIndexMapping = new ArrayList<List<Integer>>();
-		for (String s : subsampleDirs)
-		{
-			trainingFiles.add(subsampleDirLocation + "/" + s + "/Train.txt");
-			testingFiles.add(new ProcessDataForGrowing(subsampleDirLocation + "/" + s + "/Test.txt", ctrl));
-			Map<Integer, List<Integer>> originalToTrainingSetIndices = new HashMap<Integer, List<Integer>>();
-			List<Integer> originalToTestingSetIndices = new ArrayList<Integer>();
-			for (int i = 0; i < numberOfObservations; i++)
-			{
-				originalToTrainingSetIndices.put(i, new ArrayList<Integer>());
-			}
-			try (BufferedReader reader = Files.newBufferedReader(Paths.get(subsampleDirLocation + "/" + s + "/OriginalIndicesOfTrainingSetObs.txt"), StandardCharsets.UTF_8))
-			{
-				String line;
-				int obsIndex = 0;
-				while ((line = reader.readLine()) != null)
-				{
-					line = line.trim();
-					int origIndex = Integer.parseInt(line);
-					originalToTrainingSetIndices.get(origIndex).add(obsIndex);
-					obsIndex++;
-				}
-			}
-			catch (Exception e)
-			{
-				e.printStackTrace();
-				System.exit(0);
-			}
-			try (BufferedReader reader = Files.newBufferedReader(Paths.get(subsampleDirLocation + "/" + s + "/OriginalIndicesOfTestingSetObs.txt"), StandardCharsets.UTF_8))
-			{
-				String line;
-				while ((line = reader.readLine()) != null)
-				{
-					line = line.trim();
-					int origIndex = Integer.parseInt(line);
-					originalToTestingSetIndices.add(origIndex);
-				}
-			}
-			catch (Exception e)
-			{
-				e.printStackTrace();
-				System.exit(0);
-			}
-			origToSubsetIndexMapping.add(originalToTrainingSetIndices);
-			origToOOSIndexMapping.add(originalToTestingSetIndices);
-		}
 
 		//----------------------
 		// Begin the GA.
@@ -351,48 +299,28 @@ public class InstanceSelection
 
 	    // Calculate the fitness of the initial population.
 	    List<Double> fitness = new ArrayList<Double>();
+	    int counter = 0;
 	    for (List<Integer> geneSet : population)
 	    {
-    		ctrl.trainingObservations = geneSet;
-
+	    	DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		    Date now = new Date();
+		    String strDate = sdfDate.format(now);
+		    System.out.format("Count - %d at time %s.\n", counter, strDate);
+		    counter++;
 	    	// Train and test the subsasmples.
-    		Map<String, Map<String, Double>> averagedConfusionMatrix = new HashMap<String, Map<String, Double>>();
-    		for (String s : observations.keySet())
-    		{
-    			Map<String, Double> classPredictions = new HashMap<String, Double>();
-    			classPredictions.put("TruePositive", 0.0);
-    			classPredictions.put("FalsePositive", 0.0);
-    			averagedConfusionMatrix.put(s, classPredictions);
-    		}
-	    	for (int i = 0; i < numberOfSubsamples; i++)
-	    	{
-	    		Map<Integer, List<Integer>> obsIndexMapping = origToSubsetIndexMapping.get(i);
-	    		List<Integer> obsToTrain = new ArrayList<Integer>();
-	    		for (Integer j : geneSet)
-	    		{
-	    			obsToTrain.addAll(obsIndexMapping.get(j));
-	    		}
-	    		ctrl.trainingObservations = obsToTrain;
-	    		Forest forest = new Forest(trainingFiles.get(i), ctrl, weights);
-	    		Map<String, Map<String, Double>> predictedConfMat = forest.predict(testingFiles.get(i)).second;
-	    		for (String s : predictedConfMat.keySet())
-	    		{
-	    			double oldTruePos = averagedConfusionMatrix.get(s).get("TruePositive");
-	    			double newTruePos = predictedConfMat.get(s).get("TruePositive");;
-	    			double oldFalsePos = averagedConfusionMatrix.get(s).get("FalsePositive");
-	    			double newFalsePos = predictedConfMat.get(s).get("FalsePositive");
-	    			averagedConfusionMatrix.get(s).put("TruePositive", oldTruePos + newTruePos);
-	    			averagedConfusionMatrix.get(s).put("FalsePositive", oldFalsePos + newFalsePos);
-	    		}
-	    	}
+    		ctrl.trainingObservations = geneSet;
+	    	Forest forest = new Forest(datasetLocation, ctrl, weights);
+	    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
+	    	testObs.removeAll(geneSet);
+	    	Map<String, Map<String, Double>> predictedConfusionMatrix = forest.predict(processedInputFile, testObs).second;
 	    	double allTruePositives = 0.0;
 	    	double allFalsePositives = 0.0;
 	    	double allFalseNegatives = 0.0;
-	    	for (String s : averagedConfusionMatrix.keySet())
+	    	for (String s : predictedConfusionMatrix.keySet())
 	    	{
-	    		double classTP = averagedConfusionMatrix.get(s).get("TruePositive");
+	    		double classTP = predictedConfusionMatrix.get(s).get("TruePositive");
 	    		allTruePositives += classTP;
-	    		allFalsePositives += averagedConfusionMatrix.get(s).get("FalsePositive");
+	    		allFalsePositives += predictedConfusionMatrix.get(s).get("FalsePositive");
 	    		allFalseNegatives += (observations.get(s).size() - classTP);  // The false negatives for the class are all observations in the class minus the true positive
 	    	}
 	    	double microRecall = allTruePositives / (allTruePositives + allFalseNegatives);
@@ -481,43 +409,20 @@ public class InstanceSelection
 		    	List<Double> offspringFitness = new ArrayList<Double>();
 		    	for (List<Integer> geneSet : mutants)
 		 	    {
-		    		Map<String, Map<String, Double>> averagedConfusionMatrix = new HashMap<String, Map<String, Double>>();
-		    		for (String s : observations.keySet())
-		    		{
-		    			Map<String, Double> classPredictions = new HashMap<String, Double>();
-		    			classPredictions.put("TruePositive", 0.0);
-		    			classPredictions.put("FalsePositive", 0.0);
-		    			averagedConfusionMatrix.put(s, classPredictions);
-		    		}
-			    	for (int i = 0; i < numberOfSubsamples; i++)
-			    	{
-			    		Map<Integer, List<Integer>> obsIndexMapping = origToSubsetIndexMapping.get(i);
-			    		List<Integer> obsToTrain = new ArrayList<Integer>();
-			    		for (Integer j : geneSet)
-			    		{
-			    			obsToTrain.addAll(obsIndexMapping.get(j));
-			    		}
-			    		ctrl.trainingObservations = obsToTrain;
-			    		Forest forest = new Forest(trainingFiles.get(i), ctrl, weights);
-			    		Map<String, Map<String, Double>> predictedConfMat = forest.predict(testingFiles.get(i)).second;
-			    		for (String s : predictedConfMat.keySet())
-			    		{
-			    			double oldTruePos = averagedConfusionMatrix.get(s).get("TruePositive");
-			    			double newTruePos = predictedConfMat.get(s).get("TruePositive");;
-			    			double oldFalsePos = averagedConfusionMatrix.get(s).get("FalsePositive");
-			    			double newFalsePos = predictedConfMat.get(s).get("FalsePositive");
-			    			averagedConfusionMatrix.get(s).put("TruePositive", oldTruePos + newTruePos);
-			    			averagedConfusionMatrix.get(s).put("FalsePositive", oldFalsePos + newFalsePos);
-			    		}
-			    	}
+		    		// Train and test the subsasmples.
+		    		ctrl.trainingObservations = geneSet;
+			    	Forest forest = new Forest(datasetLocation, ctrl, weights);
+			    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
+			    	testObs.removeAll(geneSet);
+			    	Map<String, Map<String, Double>> predictedConfusionMatrix = forest.predict(processedInputFile, testObs).second;
 			    	double allTruePositives = 0.0;
 			    	double allFalsePositives = 0.0;
 			    	double allFalseNegatives = 0.0;
-			    	for (String s : averagedConfusionMatrix.keySet())
+			    	for (String s : predictedConfusionMatrix.keySet())
 			    	{
-			    		double classTP = averagedConfusionMatrix.get(s).get("TruePositive");
+			    		double classTP = predictedConfusionMatrix.get(s).get("TruePositive");
 			    		allTruePositives += classTP;
-			    		allFalsePositives += averagedConfusionMatrix.get(s).get("FalsePositive");
+			    		allFalsePositives += predictedConfusionMatrix.get(s).get("FalsePositive");
 			    		allFalseNegatives += (observations.get(s).size() - classTP);  // The false negatives for the class are all observations in the class minus the true positive
 			    	}
 			    	double microRecall = allTruePositives / (allTruePositives + allFalseNegatives);
@@ -601,45 +506,22 @@ public class InstanceSelection
 	    		    fitness = new ArrayList<Double>();
 	    		    for (List<Integer> geneSet : population)
 	    		    {
-	    		    	Map<String, Map<String, Double>> averagedConfusionMatrix = new HashMap<String, Map<String, Double>>();
-			    		for (String s : observations.keySet())
-			    		{
-			    			Map<String, Double> classPredictions = new HashMap<String, Double>();
-			    			classPredictions.put("TruePositive", 0.0);
-			    			classPredictions.put("FalsePositive", 0.0);
-			    			averagedConfusionMatrix.put(s, classPredictions);
-			    		}
-				    	for (int i = 0; i < numberOfSubsamples; i++)
-				    	{
-				    		Map<Integer, List<Integer>> obsIndexMapping = origToSubsetIndexMapping.get(i);
-				    		List<Integer> obsToTrain = new ArrayList<Integer>();
-				    		for (Integer j : geneSet)
-				    		{
-				    			obsToTrain.addAll(obsIndexMapping.get(j));
-				    		}
-				    		ctrl.trainingObservations = obsToTrain;
-				    		Forest forest = new Forest(trainingFiles.get(i), ctrl, weights);
-				    		Map<String, Map<String, Double>> predictedConfMat = forest.predict(testingFiles.get(i)).second;
-				    		for (String s : predictedConfMat.keySet())
-				    		{
-				    			double oldTruePos = averagedConfusionMatrix.get(s).get("TruePositive");
-				    			double newTruePos = predictedConfMat.get(s).get("TruePositive");;
-				    			double oldFalsePos = averagedConfusionMatrix.get(s).get("FalsePositive");
-				    			double newFalsePos = predictedConfMat.get(s).get("FalsePositive");
-				    			averagedConfusionMatrix.get(s).put("TruePositive", oldTruePos + newTruePos);
-				    			averagedConfusionMatrix.get(s).put("FalsePositive", oldFalsePos + newFalsePos);
-				    		}
-				    	}
-				    	double allTruePositives = 0.0;
-				    	double allFalsePositives = 0.0;
-				    	double allFalseNegatives = 0.0;
-				    	for (String s : averagedConfusionMatrix.keySet())
-				    	{
-				    		double classTP = averagedConfusionMatrix.get(s).get("TruePositive");
-				    		allTruePositives += classTP;
-				    		allFalsePositives += averagedConfusionMatrix.get(s).get("FalsePositive");
-				    		allFalseNegatives += (observations.get(s).size() - classTP);  // The false negatives for the class are all observations in the class minus the true positive
-				    	}
+	    		    	// Train and test the subsasmples.
+	    	    		ctrl.trainingObservations = geneSet;
+	    		    	Forest forest = new Forest(datasetLocation, ctrl, weights);
+	    		    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
+	    		    	testObs.removeAll(geneSet);
+	    		    	Map<String, Map<String, Double>> predictedConfusionMatrix = forest.predict(processedInputFile, testObs).second;
+	    		    	double allTruePositives = 0.0;
+	    		    	double allFalsePositives = 0.0;
+	    		    	double allFalseNegatives = 0.0;
+	    		    	for (String s : predictedConfusionMatrix.keySet())
+	    		    	{
+	    		    		double classTP = predictedConfusionMatrix.get(s).get("TruePositive");
+	    		    		allTruePositives += classTP;
+	    		    		allFalsePositives += predictedConfusionMatrix.get(s).get("FalsePositive");
+	    		    		allFalseNegatives += (observations.get(s).size() - classTP);  // The false negatives for the class are all observations in the class minus the true positive
+	    		    	}
 				    	double microRecall = allTruePositives / (allTruePositives + allFalseNegatives);
 				    	double microPrecision = allTruePositives / (allTruePositives + allFalsePositives);
 				    	double microFMeasure = 2 * ((microPrecision * microRecall) / (microPrecision + microRecall));
