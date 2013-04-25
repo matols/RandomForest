@@ -130,6 +130,34 @@ public class Boruta
 			}
 		}
 
+		// Record the parameters used.
+		String parameterLocation = outputLocation + "/Parameters.txt";
+		try
+		{
+			FileWriter parameterOutputFile = new FileWriter(parameterLocation);
+			BufferedWriter parameterOutputWriter = new BufferedWriter(parameterOutputFile);
+			parameterOutputWriter.write("Confidence level - " + Double.toString(confidenceLevel));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("Max runs - " + Integer.toString(maxRuns));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("Quick run used - " + Boolean.toString(quickRun));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("Compare self used - " + Boolean.toString(isCompareSelf));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("Multiple testing used - " + Boolean.toString(isMultipleTestingUsed));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("Weights used - " + weights.toString());
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.close();
+
+			ctrl.save(outputLocation + "/TreeGrowthController.txt");
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+
 		// Initialise variable decisions (Tentative, Confirmed or Rejected).
 		Map<String, String> variableDecisions = new HashMap<String, String>();
 		for (String s : processedData.covariableData.keySet())
