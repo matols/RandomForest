@@ -97,6 +97,7 @@ public class WeightTesting
 
 		// Setup the results output files.
 		String fullDatasetResultsLocation = resultsDir + "/FullDatasetResults.txt";
+		String fullDatasetMCCResultsLocation = resultsDir + "/FullDatasetMCCResults.txt";
 		try
 		{
 			FileWriter resultsOutputFile = new FileWriter(fullDatasetResultsLocation);
@@ -104,17 +105,9 @@ public class WeightTesting
 			resultsOutputWriter.write("Weight\tMtry\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN\tTimeTaken(ms)");
 			resultsOutputWriter.newLine();
 			resultsOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
-		String fullDatasetMCCResultsLocation = resultsDir + "/FullDatasetMCCResults.txt";
-		try
-		{
-			FileWriter resultsOutputFile = new FileWriter(fullDatasetMCCResultsLocation);
-			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
+
+			resultsOutputFile = new FileWriter(fullDatasetMCCResultsLocation);
+			resultsOutputWriter = new BufferedWriter(resultsOutputFile);
 			resultsOutputWriter.write("Weight\tMtry");
 			resultsOutputWriter.newLine();
 			resultsOutputWriter.close();
