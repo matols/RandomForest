@@ -5,3 +5,5 @@ GeneticAlgorithm/src/steadystate/*.class
 TargetClassification/src/featureselection/*.class
 
 TargetClassification/src/datasetgeneration/*.class
+
+PULearning/src/learn/*.class
