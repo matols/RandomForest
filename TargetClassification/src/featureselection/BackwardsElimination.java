@@ -61,9 +61,9 @@ public class BackwardsElimination
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int externalSubsamplesToGenerate = 100;
+		int externalSubsamplesToGenerate = 10;
 		double fractionToReserveAsValidation = 0.3;
-		int internalSubsamplesToGenerate = 30;
+		int internalSubsamplesToGenerate = 3;
 		int validationIterations = 5;
 		double fractionToElim = 0.1;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
 		double featuresToEliminate;
@@ -71,14 +71,14 @@ public class BackwardsElimination
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 3000;
+		ctrl.numberOfTreesToGrow = 30;
 		ctrl.mtry = 10;
 		ctrl.isStratifiedBootstrapUsed = true;
 		ctrl.isCalculateOOB = false;
 		ctrl.minNodeSize = 1;
 
 		TreeGrowthControl varImpCtrl = new TreeGrowthControl(ctrl);
-		varImpCtrl.numberOfTreesToGrow = 5000;
+		varImpCtrl.numberOfTreesToGrow = 50;
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
@@ -122,7 +122,7 @@ public class BackwardsElimination
 		// Determine whether bootstrap samples need to be generated.
 		String resultsOutputLoc = outputLocation + "/Results.txt";
 		String parameterLocation = outputLocation + "/Parameters.txt";
-		String subsetSizeErrorRtes = outputLocation + "/ErrorRates.txt";
+		String subsetSizeErrorRates = outputLocation + "/ErrorRates.txt";
 		if (!continueRun)
 		{
 			// Generate bootstraps and recreate the results file.
@@ -160,7 +160,7 @@ public class BackwardsElimination
 				parameterOutputWriter.newLine();
 				parameterOutputWriter.close();
 
-				FileWriter errorRateOutputFile = new FileWriter(subsetSizeErrorRtes);
+				FileWriter errorRateOutputFile = new FileWriter(subsetSizeErrorRates);
 				BufferedWriter errorRateOutputWriter = new BufferedWriter(errorRateOutputFile);
 				int numberOfFeaturesRemaining = featuresUsed.size();
 				String errorRateHeader = "";
@@ -200,52 +200,19 @@ public class BackwardsElimination
 			String subsampleTrainingSet = subsampleDirectory + "/Train.txt";
 			String subsampleTestingSet = subsampleDirectory + "/Test.txt";
 			String internalFoldDirLoc = subsampleDirectory + "/Folds";
-			ctrl.variablesToIgnore = new ArrayList<String>();
-			BootstrapGeneration.main(subsampleTrainingSet, internalFoldDirLoc, internalSubsamplesToGenerate, true, 0.0);
 
-			List<Map<Integer, Double>> errorRates = new ArrayList<Map<Integer, Double>>();
-			Random seedGenerator = new Random();
-			for (int j = 0; j < internalSubsamplesToGenerate; j++)
-			{
-				currentTime = new Date();
-			    sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-			    strDate = sdfDate.format(currentTime);
-				System.out.format("\tNow performing elimination for internal bootstrap %d at %s.\n", j, strDate);
-				long seedToUse = seedGenerator.nextLong();  // Determine the seed to use for the feature selection process on this bootstrap sample.
-				String internalFoldTrainingSet = internalFoldDirLoc + "/" + Integer.toString(j) + "/Train.txt";
-				String internalFoldTestingSet = internalFoldDirLoc + "/" + Integer.toString(j) + "/Test.txt";
-				errorRates.add(internalEvaluation(internalFoldTrainingSet, internalFoldTestingSet, seedToUse, weights,
-						new TreeGrowthControl(ctrl), varImpCtrl, featuresUsed, fractionToElim));
-			}
-
-			// Determine the average error rate for each size of feature subset, and the best feature set size.
-			Map<Integer, Double> averageErrorRates = new HashMap<Integer, Double>();
-			int bestNumberOfFeatures = featuresUsed.size();
-			double lowestErrorRate = 100.0;
-			for (Integer j : errorRates.get(0).keySet())
-			{
-				double averageError = 0.0;
-				for (int k = 0; k < internalSubsamplesToGenerate; k++)
-				{
-					averageError += errorRates.get(k).get(j);
-				}
-				averageError /= internalSubsamplesToGenerate;
-				averageErrorRates.put(j, averageError);
-				if (averageError < lowestErrorRate)
-				{
-					bestNumberOfFeatures = j;
-					lowestErrorRate = averageError;
-				}
-			}
+			ImmutableTwoValues<Integer, Map<Integer, Double>> internalSelectionResults = internalSelection(subsampleTrainingSet,
+					internalFoldDirLoc, internalSubsamplesToGenerate, weights, ctrl, varImpCtrl, featuresUsed, fractionToElim);
+			int bestNumberOfFeatures = internalSelectionResults.first;
+			Map<Integer, Double> averageErrorRates = internalSelectionResults.second;
 
 			// Determine and validate best feature subset.
 			currentTime = new Date();
 		    sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 		    strDate = sdfDate.format(currentTime);
-			System.out.format("\tNow validating the feature set for subsample %d at %s.\n", i, strDate);
-			long seedToUse = seedGenerator.nextLong();
-			ImmutableTwoValues<List<String>, Double> validationResults = validateSubset(subsampleTrainingSet, subsampleTestingSet, seedToUse,
-					bestNumberOfFeatures, weights, new TreeGrowthControl(varImpCtrl), featuresUsed, validationIterations);
+			System.out.format("\tNow validating the feature set at %s.\n", strDate);
+			ImmutableTwoValues<List<String>, Double> validationResults = validateSubset(subsampleTrainingSet, subsampleTestingSet,
+					bestNumberOfFeatures, weights, new TreeGrowthControl(varImpCtrl), featuresUsed, validationIterations, false);
 			List<String> bestFeatureSet = validationResults.first;
 			double validatedError = validationResults.second;
 
@@ -277,7 +244,7 @@ public class BackwardsElimination
 
 				List<Integer> featureSetSizes = new ArrayList<Integer>(averageErrorRates.keySet());
 				Collections.sort(featureSetSizes, Collections.reverseOrder());
-				FileWriter errorRateOutputFile = new FileWriter(subsetSizeErrorRtes, true);
+				FileWriter errorRateOutputFile = new FileWriter(subsetSizeErrorRates, true);
 				BufferedWriter errorRateOutputWriter = new BufferedWriter(errorRateOutputFile);
 				String errorOutput = "";
 				for (Integer j : featureSetSizes)
@@ -295,7 +262,73 @@ public class BackwardsElimination
 				System.exit(0);
 			}
 		}
+
+		//---------------------------------------------//
+		// Perform the whole dataset feature selection //
+		//---------------------------------------------//
+		Date currentTime = new Date();
+	    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	    String strDate = sdfDate.format(currentTime);
+		System.out.format("Now working on the full feature set selection at %s.\n", strDate);
+
+		String finalSelectionOutputLoc = outputLocation + "/FinalSelection";
+		String finalSelectionErrorRates = finalSelectionOutputLoc + "/ErrorRates.txt";
+		String finalSelectionResults = finalSelectionOutputLoc + "/Results.txt";
+
+		ImmutableTwoValues<Integer, Map<Integer, Double>> internalSelectionResults = internalSelection(inputLocation,
+				finalSelectionOutputLoc, internalSubsamplesToGenerate, weights, ctrl, varImpCtrl, featuresUsed, fractionToElim);
+		int bestNumberOfFeatures = internalSelectionResults.first;
+		Map<Integer, Double> averageErrorRates = internalSelectionResults.second;
+
+		// Determine and validate best feature subset.
+		currentTime = new Date();
+	    sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	    strDate = sdfDate.format(currentTime);
+		System.out.format("\tNow validating the feature set at %s.\n", strDate);
+		ImmutableTwoValues<List<String>, Double> validationResults = validateSubset(inputLocation, bestNumberOfFeatures, weights,
+				new TreeGrowthControl(varImpCtrl), featuresUsed, validationIterations);
+		List<String> bestFeatureSet = validationResults.first;
+
+		// Write out the results for the whole dataset selection.
+		try
+		{
+			FileWriter resultsOutputFile = new FileWriter(finalSelectionResults);
+			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
+			for (String s : featuresUsed)
+			{
+				if (bestFeatureSet.contains(s))
+				{
+					resultsOutputWriter.write(s);
+					resultsOutputWriter.newLine();
+				}
+			}
+			resultsOutputWriter.close();
+
+			List<Integer> featureSetSizes = new ArrayList<Integer>(averageErrorRates.keySet());
+			Collections.sort(featureSetSizes, Collections.reverseOrder());
+			FileWriter errorRateOutputFile = new FileWriter(finalSelectionErrorRates, true);
+			BufferedWriter errorRateOutputWriter = new BufferedWriter(errorRateOutputFile);
+			String errorOutput = "";
+			String errorRateHeader = "";
+			for (Integer j : featureSetSizes)
+			{
+				errorRateHeader += Integer.toString(j) + "\t";
+				errorOutput += Double.toString(averageErrorRates.get(j)) + "\t";
+			}
+			errorRateHeader = errorRateHeader.substring(0, errorRateHeader.length() - 1);
+			errorOutput.substring(0, errorOutput.length() - 1);
+			errorRateOutputWriter.write(errorRateHeader);
+			errorRateOutputWriter.newLine();
+			errorRateOutputWriter.write(errorOutput);
+			errorRateOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
 	}
+
 
 	static Map<Integer, Double> internalEvaluation(String internalSubsampleTrainingSet, String internalSubsampleTestingSet, long internalSubsampleSeed,
 			Map<String, Double> weights, TreeGrowthControl eliminationControl, TreeGrowthControl variableImportanceControl, List<String> fullFeatureSet,
@@ -342,10 +375,82 @@ public class BackwardsElimination
 		return errorRates;
 	}
 
-	static ImmutableTwoValues<List<String>, Double> validateSubset(String externalSubsampleTrainingSet, String externalSubsampleTestingSet,
-			long externalSubsampleSeed, int numberOfFeatures, Map<String, Double> weights, TreeGrowthControl variableImportanceControl,
+
+	static ImmutableTwoValues<Integer, Map<Integer, Double>> internalSelection(String entireTrainingSet,
+			String locatonForInternalFolds, int internalSubsamplesToGenerate, Map<String, Double> weights, TreeGrowthControl ctrl,
+			TreeGrowthControl varImpCtrl, List<String> featuresUsed, double fractionToElim)
+	{
+		ctrl.variablesToIgnore = new ArrayList<String>();
+		BootstrapGeneration.main(entireTrainingSet, locatonForInternalFolds, internalSubsamplesToGenerate, true, 0.0);
+
+		List<Map<Integer, Double>> errorRates = new ArrayList<Map<Integer, Double>>();
+		List<Long> usedSeeds = new ArrayList<Long>();
+		Random seedGenerator = new Random();
+		for (int j = 0; j < internalSubsamplesToGenerate; j++)
+		{
+			Date currentTime = new Date();
+		    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		    String strDate = sdfDate.format(currentTime);
+			System.out.format("\tNow performing elimination for internal bootstrap %d at %s.\n", j, strDate);
+			long seedToUse = seedGenerator.nextLong();  // Determine the seed to use for the feature selection process on this bootstrap sample.
+			while (usedSeeds.contains(seedToUse))
+			{
+				seedToUse = seedGenerator.nextLong();
+			}
+			usedSeeds.add(seedToUse);
+			String internalFoldTrainingSet = locatonForInternalFolds + "/" + Integer.toString(j) + "/Train.txt";
+			String internalFoldTestingSet = locatonForInternalFolds + "/" + Integer.toString(j) + "/Test.txt";
+			errorRates.add(internalEvaluation(internalFoldTrainingSet, internalFoldTestingSet, seedToUse, weights,
+					new TreeGrowthControl(ctrl), varImpCtrl, featuresUsed, fractionToElim));
+		}
+
+		// Determine the average error rate for each size of feature subset, and the best feature set size.
+		Map<Integer, Double> averageErrorRates = new HashMap<Integer, Double>();
+		int bestNumberOfFeatures = featuresUsed.size();
+		double lowestErrorRate = 100.0;
+		for (Integer j : errorRates.get(0).keySet())
+		{
+			double averageError = 0.0;
+			for (int k = 0; k < internalSubsamplesToGenerate; k++)
+			{
+				averageError += errorRates.get(k).get(j);
+			}
+			averageError /= internalSubsamplesToGenerate;
+			averageErrorRates.put(j, averageError);
+			if (averageError < lowestErrorRate)
+			{
+				bestNumberOfFeatures = j;
+				lowestErrorRate = averageError;
+			}
+		}
+
+		return new ImmutableTwoValues<Integer, Map<Integer, Double>>(bestNumberOfFeatures, averageErrorRates);
+	}
+	
+
+	static ImmutableTwoValues<List<String>, Double> validateSubset(String externalSubsampleTrainingSet,
+			int numberOfFeatures, Map<String, Double> weights, TreeGrowthControl variableImportanceControl,
 			List<String> fullFeatureSet, int validationIterations)
 	{
+		return validateSubset(externalSubsampleTrainingSet, "", numberOfFeatures, weights, variableImportanceControl,
+				fullFeatureSet, validationIterations, true);
+	}
+
+	static ImmutableTwoValues<List<String>, Double> validateSubset(String externalSubsampleTrainingSet, String externalSubsampleTestingSet,
+			int numberOfFeatures, Map<String, Double> weights, TreeGrowthControl variableImportanceControl,
+			List<String> fullFeatureSet, int validationIterations, boolean isValidationSkipped)
+	{
+		Random seedGenerator = new Random();
+		List<Long> seedsToUse = new ArrayList<Long>();
+		for (int i = 0; i < validationIterations; i++)
+		{
+			long newSeed = seedGenerator.nextLong();
+			while (seedsToUse.contains(newSeed))
+			{
+				newSeed = seedGenerator.nextLong();
+			}
+			seedsToUse.add(newSeed);
+		}
 		//--------------------------------------------------------------------//
 		// Determine the order of the features by feature importance ranking. //
 		//--------------------------------------------------------------------//
@@ -356,7 +461,7 @@ public class BackwardsElimination
 		}
 		for (int i = 0; i < validationIterations; i++)
 		{
-			Forest forest = new Forest(externalSubsampleTrainingSet, variableImportanceControl, weights, externalSubsampleSeed);
+			Forest forest = new Forest(externalSubsampleTrainingSet, variableImportanceControl, weights, seedsToUse.get(i));
 			Map<String, Double> varImp = forest.variableImportance();
 			List<StringsSortedByDoubles> sortedVariables = new ArrayList<StringsSortedByDoubles>();
 			for (String s : varImp.keySet())
@@ -403,14 +508,18 @@ public class BackwardsElimination
 		variablesToIgnore.removeAll(bestFeatures);
 		variableImportanceControl.variablesToIgnore = variablesToIgnore;
 		double validatedErrorRate = 0.0;
-		for (int i = 0; i < validationIterations; i++)
+		if (!isValidationSkipped)
 		{
-			Forest forest = new Forest(externalSubsampleTrainingSet, variableImportanceControl, weights, externalSubsampleSeed);
-			validatedErrorRate += forest.predict(new ProcessDataForGrowing(externalSubsampleTestingSet, variableImportanceControl)).first;
+			for (int i = 0; i < validationIterations; i++)
+			{
+				Forest forest = new Forest(externalSubsampleTrainingSet, variableImportanceControl, weights, seedsToUse.get(i));
+				validatedErrorRate += forest.predict(new ProcessDataForGrowing(externalSubsampleTestingSet, variableImportanceControl)).first;
+			}
 		}
 		validatedErrorRate /= validationIterations;
 		return new ImmutableTwoValues<List<String>, Double>(bestFeatures, validatedErrorRate);
 	}
+
 
 	static void removeDirectoryContent(File directory)
 	{
