@@ -23,16 +23,6 @@ public class Learner
 	String dataForLearning;  // The location of the file that contains the dataset of positive and unlabelled data.
 	TreeGrowthControl ctrl;  // The controller object for growing the trees/forest.
 
-	Learner(String dataForLearning)
-	{
-		this.dataForLearning = dataForLearning;
-		TreeGrowthControl ctrl = new TreeGrowthControl();
-		ctrl.minCriterion = -Double.MAX_VALUE;
-		ctrl.isClassificationUsed = true;
-		ctrl.isProbabilisticPrediction = true;
-		this.ctrl = ctrl;
-	}
-
 	Learner(String dataForLearning, TreeGrowthControl ctrl)
 	{
 		this.dataForLearning = dataForLearning;
@@ -46,9 +36,8 @@ public class Learner
 	 */
 	List<Integer> learnNegativeSet(int maxNumberNeighbours, int numberOfIterationsToPerform)
 	{
-
 		// Calculate the Mahalanobis distance of every non-positive observation from the positive cluster, and sort them in ascending order.
-		CovarianceCalculator positiveCovCalc = new CovarianceCalculator(this.dataForLearning);
+		CovarianceCalculator positiveCovCalc = new CovarianceCalculator(this.dataForLearning, this.ctrl);
 		Map<Integer, Double> positiveMahalanobisDistance = positiveCovCalc.distanceMahalanobis();
 		List<IndexedDoubleData> sortedPositiveDistances = new ArrayList<IndexedDoubleData>();
 		double averageDistance = 0.0;
@@ -70,108 +59,108 @@ public class Learner
 			}
 		}
 
-		// Calculate the Mahalanobis distance of every non-negative observation from the reliable negative cluster, and sort them in ascending order.
-		CovarianceCalculator negativeCovCalc = new CovarianceCalculator(this.dataForLearning, reliableNegativeSet);
-		Map<Integer, Double> negativeMahalanobisDistance = negativeCovCalc.distanceMahalanobis();
-		List<IndexedDoubleData> sortedNegativeDistances = new ArrayList<IndexedDoubleData>();
-		for (Integer i : negativeMahalanobisDistance.keySet())
-		{
-			sortedNegativeDistances.add(new IndexedDoubleData(negativeMahalanobisDistance.get(i), i));
-		}
-
-		// Create subsets of observations for use in the distance calculations.
-		List<Integer> positiveSet = positiveCovCalc.clusterObservations;  // The positive observations in the dataset.
-		List<Integer> unlabelledObservations = positiveCovCalc.nonClusterObservations;  // The unlalled observations in the dataset.
-		List<Integer> unionPAndU = new ArrayList<Integer>();  // The union of all positive and unlabelled observation (i.e. every observation in the dataset).
-		unionPAndU.addAll(positiveSet);
-		unionPAndU.addAll(unlabelledObservations);
-		List<Integer> unionPAndUMinusRN = new ArrayList<Integer>(unionPAndU);  // All observation in the dataset minus the reliable negative ones.
-		unionPAndUMinusRN.removeAll(reliableNegativeSet);
-
-		//*****************************************
-		// Calculate distances.
-		//*****************************************
-		// Determine the distance between each observation in unionPAndU and all the others.
-		// This calculation assumes that all observations are really from the positive cluster, just that the unlabelled ones have not been
-		// marked as being so (and that the reliably negative ones are marked incorrectly).
-		Map<Integer, Map<Integer, Double>> positiveClusterAllDistances = positiveCovCalc.subsetMahalanobisDistance(unionPAndU);
-
-		// Determine the distance between each observation in unionPAndU and all the others.
-		// This calculation assumes that all observations are really from the negative cluster, just that the unlabelled ones have not been
-		// marked as being so (and that the positive ones are marked incorrectly).
-		Map<Integer, Map<Integer, Double>> negativeClusterAllDistances = negativeCovCalc.subsetMahalanobisDistance(unionPAndU);
-
-		// Determine the distance between each observation in unionPAndUMinusRN and all the others.
-		// This calculation assumes that all observations that are not reliably negative are really from the positive cluster,
-		// just that the non-reliably negative unlabelled ones have not been marked as being so.
-		Map<Integer, Map<Integer, Double>> positiveClusterMinusRNDistances = positiveCovCalc.subsetMahalanobisDistance(unionPAndUMinusRN);
-
-		// Determine the distance between each unlabelled observation and all the others.
-		// This calculation assumes that all observations are really from the negative cluster, just that the non-reliably negative ones
-		// have not been marked as being so.
-		Map<Integer, Map<Integer, Double>> negativeClusterUDistances = negativeCovCalc.subsetMahalanobisDistance(unlabelledObservations);
-
-		//*****************************************
-		// Calculate graph structures.
-		//*****************************************
-		// Determine the directed graph structures for the distance matrices for each of the observation subsets. The graph is represented
-		// as a mapping of an observation index to its neighbours, along with the weight on the edge. For each observation the
-		// maxNumberNeighbours nearest observations will be taken to be the neighbours of the observation.
-
-		// Calculate the graph for the distances of all the observations from the positive cluster.
-		Map<Integer, Map<Integer, Double>> positiveClusterAllGraph = initialiseGraph(unionPAndU, positiveClusterAllDistances, maxNumberNeighbours);
-
-		// Calculate the graph for the distances of all the observations from the negative cluster.
-		Map<Integer, Map<Integer, Double>> negativeClusterAllGraph = initialiseGraph(unionPAndU, negativeClusterAllDistances, maxNumberNeighbours);
-
-		// Calculate the graph for the distances of the non-reliably negative observations from the positive cluster.
-		Map<Integer, Map<Integer, Double>> positiveClusterMinusRNGraph = initialiseGraph(unionPAndUMinusRN, positiveClusterMinusRNDistances, maxNumberNeighbours);
-
-		// Calculate the graph for the distances of the unlabelled observations from the negative cluster.
-		Map<Integer, Map<Integer, Double>> negativeClusterUGraph = initialiseGraph(unlabelledObservations, negativeClusterUDistances, maxNumberNeighbours);
-
-		//*****************************************************************
-		// Calculate the initial probabilities for the observations.
-		//*****************************************************************
-		// Initialise the array of probabilities for the graph created from the distances of all the observations
-		// from the positive cluster. For observations from the set of positive observations the probability of being
-		// from the positive cluster is set to 1. For observations in the reliable negative set the probability of being
-		// from the positive cluster is set to 0. For all other observations the probability is set to 0.5 (no information
-		// about the positive or negative nature of the observation).
-		Map<Integer, Double> positiveClusterAllProbabilities = initiliaseProbabilities(unionPAndU, positiveSet, reliableNegativeSet);
-
-		// Initialise the array of probabilities for the graph created from the distances of all the observations
-		// from the negative cluster. For observations from the set of reliable negative observations, the probability of being
-		// from the reliable negative cluster is set to 1. For observations in the set of positive observations the probability of
-		// being from the reliable negative cluster is set to 0. For all other observations the probability is set to 0.5 (no information
-		// about the positive or negative nature of the observation).
-		Map<Integer, Double> negativeClusterAllProbabilities = initiliaseProbabilities(unionPAndU, reliableNegativeSet, positiveSet);
-
-		// Initialise the array of probabilities for the graph created from the distances of all non-reliably negative
-		// observations from the positive cluster. For observations from the set of positive observations, the probability of being
-		// from the positive cluster is set to 1. For all other observations the probability is set to 0.5 (no information
-		// about the positive or negative nature of the observation).
-		Map<Integer, Double> positiveClusterMinusRNProbabilities = initiliaseProbabilities(unionPAndUMinusRN, positiveSet);
-
-		// Initialise the array of probabilities for the graph created from the distances of all of the unlabelled
-		// observations from the negative cluster. For observations from the set of reliable negative observations, the probability of being
-		// from the reliable negative cluster is set to 1. For all other observations the probability is set to 0.5 (no information
-		// about the positive or negative nature of the observation).
-		Map<Integer, Double> negativeClusterUProbabilities = initiliaseProbabilities(unlabelledObservations, reliableNegativeSet);
-
-		//*****************************************************************
-		// Calculate the final probabilities for the observations.
-		//*****************************************************************
-		for (int i = 0; i < numberOfIterationsToPerform; i++)
-		{
-			positiveClusterAllProbabilities = updateProbabilities(positiveClusterAllProbabilities, positiveClusterAllGraph);
-			negativeClusterAllProbabilities = updateProbabilities(negativeClusterAllProbabilities, negativeClusterAllGraph);
-			positiveClusterMinusRNProbabilities = updateProbabilities(positiveClusterMinusRNProbabilities, positiveClusterMinusRNGraph);
-			negativeClusterUProbabilities = updateProbabilities(negativeClusterUProbabilities, negativeClusterUGraph);
-		}
-
 		return reliableNegativeSet;
 
+//		// Calculate the Mahalanobis distance of every non-negative observation from the reliable negative cluster, and sort them in ascending order.
+//		CovarianceCalculator negativeCovCalc = new CovarianceCalculator(this.dataForLearning, this.ctrl, reliableNegativeSet);
+//		Map<Integer, Double> negativeMahalanobisDistance = negativeCovCalc.distanceMahalanobis();
+//		List<IndexedDoubleData> sortedNegativeDistances = new ArrayList<IndexedDoubleData>();
+//		for (Integer i : negativeMahalanobisDistance.keySet())
+//		{
+//			sortedNegativeDistances.add(new IndexedDoubleData(negativeMahalanobisDistance.get(i), i));
+//		}
+//
+//		// Create subsets of observations for use in the distance calculations.
+//		List<Integer> positiveSet = positiveCovCalc.clusterObservations;  // The positive observations in the dataset.
+//		List<Integer> unlabelledObservations = positiveCovCalc.nonClusterObservations;  // The unlalled observations in the dataset.
+//		List<Integer> unionPAndU = new ArrayList<Integer>();  // The union of all positive and unlabelled observation (i.e. every observation in the dataset).
+//		unionPAndU.addAll(positiveSet);
+//		unionPAndU.addAll(unlabelledObservations);
+//		List<Integer> unionPAndUMinusRN = new ArrayList<Integer>(unionPAndU);  // All observation in the dataset minus the reliable negative ones.
+//		unionPAndUMinusRN.removeAll(reliableNegativeSet);
+//
+//		//*****************************************
+//		// Calculate distances.
+//		//*****************************************
+//		// Determine the distance between each observation in unionPAndU and all the others.
+//		// This calculation assumes that all observations are really from the positive cluster, just that the unlabelled ones have not been
+//		// marked as being so (and that the reliably negative ones are marked incorrectly).
+//		Map<Integer, Map<Integer, Double>> positiveClusterAllDistances = positiveCovCalc.subsetMahalanobisDistance(unionPAndU);
+//
+//		// Determine the distance between each observation in unionPAndU and all the others.
+//		// This calculation assumes that all observations are really from the negative cluster, just that the unlabelled ones have not been
+//		// marked as being so (and that the positive ones are marked incorrectly).
+//		Map<Integer, Map<Integer, Double>> negativeClusterAllDistances = negativeCovCalc.subsetMahalanobisDistance(unionPAndU);
+//
+//		// Determine the distance between each observation in unionPAndUMinusRN and all the others.
+//		// This calculation assumes that all observations that are not reliably negative are really from the positive cluster,
+//		// just that the non-reliably negative unlabelled ones have not been marked as being so.
+//		Map<Integer, Map<Integer, Double>> positiveClusterMinusRNDistances = positiveCovCalc.subsetMahalanobisDistance(unionPAndUMinusRN);
+//
+//		// Determine the distance between each unlabelled observation and all the others.
+//		// This calculation assumes that all observations are really from the negative cluster, just that the non-reliably negative ones
+//		// have not been marked as being so.
+//		Map<Integer, Map<Integer, Double>> negativeClusterUDistances = negativeCovCalc.subsetMahalanobisDistance(unlabelledObservations);
+//
+//		//*****************************************
+//		// Calculate graph structures.
+//		//*****************************************
+//		// Determine the directed graph structures for the distance matrices for each of the observation subsets. The graph is represented
+//		// as a mapping of an observation index to its neighbours, along with the weight on the edge. For each observation the
+//		// maxNumberNeighbours nearest observations will be taken to be the neighbours of the observation.
+//
+//		// Calculate the graph for the distances of all the observations from the positive cluster.
+//		Map<Integer, Map<Integer, Double>> positiveClusterAllGraph = initialiseGraph(unionPAndU, positiveClusterAllDistances, maxNumberNeighbours);
+//
+//		// Calculate the graph for the distances of all the observations from the negative cluster.
+//		Map<Integer, Map<Integer, Double>> negativeClusterAllGraph = initialiseGraph(unionPAndU, negativeClusterAllDistances, maxNumberNeighbours);
+//
+//		// Calculate the graph for the distances of the non-reliably negative observations from the positive cluster.
+//		Map<Integer, Map<Integer, Double>> positiveClusterMinusRNGraph = initialiseGraph(unionPAndUMinusRN, positiveClusterMinusRNDistances, maxNumberNeighbours);
+//
+//		// Calculate the graph for the distances of the unlabelled observations from the negative cluster.
+//		Map<Integer, Map<Integer, Double>> negativeClusterUGraph = initialiseGraph(unlabelledObservations, negativeClusterUDistances, maxNumberNeighbours);
+//
+//		//*****************************************************************
+//		// Calculate the initial probabilities for the observations.
+//		//*****************************************************************
+//		// Initialise the array of probabilities for the graph created from the distances of all the observations
+//		// from the positive cluster. For observations from the set of positive observations the probability of being
+//		// from the positive cluster is set to 1. For observations in the reliable negative set the probability of being
+//		// from the positive cluster is set to 0. For all other observations the probability is set to 0.5 (no information
+//		// about the positive or negative nature of the observation).
+//		Map<Integer, Double> positiveClusterAllProbabilities = initiliaseProbabilities(unionPAndU, positiveSet, reliableNegativeSet);
+//
+//		// Initialise the array of probabilities for the graph created from the distances of all the observations
+//		// from the negative cluster. For observations from the set of reliable negative observations, the probability of being
+//		// from the reliable negative cluster is set to 1. For observations in the set of positive observations the probability of
+//		// being from the reliable negative cluster is set to 0. For all other observations the probability is set to 0.5 (no information
+//		// about the positive or negative nature of the observation).
+//		Map<Integer, Double> negativeClusterAllProbabilities = initiliaseProbabilities(unionPAndU, reliableNegativeSet, positiveSet);
+//
+//		// Initialise the array of probabilities for the graph created from the distances of all non-reliably negative
+//		// observations from the positive cluster. For observations from the set of positive observations, the probability of being
+//		// from the positive cluster is set to 1. For all other observations the probability is set to 0.5 (no information
+//		// about the positive or negative nature of the observation).
+//		Map<Integer, Double> positiveClusterMinusRNProbabilities = initiliaseProbabilities(unionPAndUMinusRN, positiveSet);
+//
+//		// Initialise the array of probabilities for the graph created from the distances of all of the unlabelled
+//		// observations from the negative cluster. For observations from the set of reliable negative observations, the probability of being
+//		// from the reliable negative cluster is set to 1. For all other observations the probability is set to 0.5 (no information
+//		// about the positive or negative nature of the observation).
+//		Map<Integer, Double> negativeClusterUProbabilities = initiliaseProbabilities(unlabelledObservations, reliableNegativeSet);
+//
+//		//*****************************************************************
+//		// Calculate the final probabilities for the observations.
+//		//*****************************************************************
+//		for (int i = 0; i < numberOfIterationsToPerform; i++)
+//		{
+//			positiveClusterAllProbabilities = updateProbabilities(positiveClusterAllProbabilities, positiveClusterAllGraph);
+//			negativeClusterAllProbabilities = updateProbabilities(negativeClusterAllProbabilities, negativeClusterAllGraph);
+//			positiveClusterMinusRNProbabilities = updateProbabilities(positiveClusterMinusRNProbabilities, positiveClusterMinusRNGraph);
+//			negativeClusterUProbabilities = updateProbabilities(negativeClusterUProbabilities, negativeClusterUGraph);
+//		}
+//		return reliableNegativeSet;
 	}
 
 	/**
