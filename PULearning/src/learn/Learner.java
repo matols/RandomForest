@@ -22,12 +22,49 @@ public class Learner
 
 	String dataForLearning;  // The location of the file that contains the dataset of positive and unlabelled data.
 	TreeGrowthControl ctrl;  // The controller object for growing the trees/forest.
+	CovarianceCalculator positiveClusterCovCalc;  // The object used to calculate covariance of and distances from the positive observations.
+
 
 	Learner(String dataForLearning, TreeGrowthControl ctrl)
 	{
 		this.dataForLearning = dataForLearning;
 		this.ctrl = ctrl;
+		this.positiveClusterCovCalc = new CovarianceCalculator(this.dataForLearning, this.ctrl);
 	}
+
+
+	/**
+	 * Examine distances of datapoints from the positive cluster.
+	 * 
+	 * Helps to determine the number of distances to discard when determining the truncated/trimmed mean distance to use when calculating
+	 * the reliable negative set.
+	 * 
+	 * @return
+	 */
+	List<Double> examineDistances()
+	{
+		return examineDistances(this.positiveClusterCovCalc.nonClusterObservations);
+	}
+
+	List<Double> examineDistances(List<Integer> dataPoints)
+	{
+		Map<Integer, Double> mahalanobisDistances = this.positiveClusterCovCalc.distanceMahalanobis(dataPoints);
+		List<IndexedDoubleData> sortedDistances = new ArrayList<IndexedDoubleData>();
+		for (Integer i : mahalanobisDistances.keySet())
+		{
+			sortedDistances.add(new IndexedDoubleData(mahalanobisDistances.get(i), i));
+		}
+		Collections.sort(sortedDistances);
+
+		List<Double> returnedDistances = new ArrayList<Double>();
+		for (int i = 0; i < sortedDistances.size(); i++)
+		{
+			returnedDistances.add(sortedDistances.get(i).getData());
+		}
+
+		return returnedDistances;
+	}
+
 
 	/**
 	 * @param maxNumberNeighbours The maximum number of neighbours to find for each observation.
@@ -36,24 +73,34 @@ public class Learner
 	 */
 	List<Integer> learnNegativeSet(int maxNumberNeighbours, int numberOfIterationsToPerform)
 	{
+		return learnNegativeSet(maxNumberNeighbours, numberOfIterationsToPerform, 0);
+	}
+
+	List<Integer> learnNegativeSet(int maxNumberNeighbours, int numberOfIterationsToPerform, int numberOfObservationsToTruncate)
+	{
 		// Calculate the Mahalanobis distance of every non-positive observation from the positive cluster, and sort them in ascending order.
-		CovarianceCalculator positiveCovCalc = new CovarianceCalculator(this.dataForLearning, this.ctrl);
-		Map<Integer, Double> positiveMahalanobisDistance = positiveCovCalc.distanceMahalanobis();
+		Map<Integer, Double> positiveMahalanobisDistance = this.positiveClusterCovCalc.distanceMahalanobis();
 		List<IndexedDoubleData> sortedPositiveDistances = new ArrayList<IndexedDoubleData>();
-		double averageDistance = 0.0;
 		for (Integer i : positiveMahalanobisDistance.keySet())
 		{
-			averageDistance += positiveMahalanobisDistance.get(i);
 			sortedPositiveDistances.add(new IndexedDoubleData(positiveMahalanobisDistance.get(i), i));
 		}
-		averageDistance /= positiveMahalanobisDistance.size();
 		Collections.sort(sortedPositiveDistances);
 
-		// The reliable negative set is all the observations with a Mahalanobis distance greater than the mean distance.
+		double truncatedMeanDistance = 0.0;
+		for (int i = numberOfObservationsToTruncate; i < sortedPositiveDistances.size() - numberOfObservationsToTruncate; i++)
+		{
+			truncatedMeanDistance += sortedPositiveDistances.get(i).getData();
+		}
+		truncatedMeanDistance /= (sortedPositiveDistances.size() - (2 * numberOfObservationsToTruncate));
+
+		System.out.println(truncatedMeanDistance);
+
+		// The reliable negative set is all the observations with a Mahalanobis distance greater than the truncated mean distance.
 		List<Integer> reliableNegativeSet = new ArrayList<Integer>();
 		for (int i = 0; i < sortedPositiveDistances.size(); i++)
 		{
-			if (sortedPositiveDistances.get(i).getData() > averageDistance)
+			if (sortedPositiveDistances.get(i).getData() > truncatedMeanDistance)
 			{
 				reliableNegativeSet.add(sortedPositiveDistances.get(i).getIndex());
 			}
@@ -71,8 +118,8 @@ public class Learner
 //		}
 //
 //		// Create subsets of observations for use in the distance calculations.
-//		List<Integer> positiveSet = positiveCovCalc.clusterObservations;  // The positive observations in the dataset.
-//		List<Integer> unlabelledObservations = positiveCovCalc.nonClusterObservations;  // The unlalled observations in the dataset.
+//		List<Integer> positiveSet = this.positiveClusterCovCalc.clusterObservations;  // The positive observations in the dataset.
+//		List<Integer> unlabelledObservations = this.positiveClusterCovCalc.nonClusterObservations;  // The unlalled observations in the dataset.
 //		List<Integer> unionPAndU = new ArrayList<Integer>();  // The union of all positive and unlabelled observation (i.e. every observation in the dataset).
 //		unionPAndU.addAll(positiveSet);
 //		unionPAndU.addAll(unlabelledObservations);
@@ -85,7 +132,7 @@ public class Learner
 //		// Determine the distance between each observation in unionPAndU and all the others.
 //		// This calculation assumes that all observations are really from the positive cluster, just that the unlabelled ones have not been
 //		// marked as being so (and that the reliably negative ones are marked incorrectly).
-//		Map<Integer, Map<Integer, Double>> positiveClusterAllDistances = positiveCovCalc.subsetMahalanobisDistance(unionPAndU);
+//		Map<Integer, Map<Integer, Double>> positiveClusterAllDistances = this.positiveClusterCovCalc.subsetMahalanobisDistance(unionPAndU);
 //
 //		// Determine the distance between each observation in unionPAndU and all the others.
 //		// This calculation assumes that all observations are really from the negative cluster, just that the unlabelled ones have not been
@@ -95,7 +142,7 @@ public class Learner
 //		// Determine the distance between each observation in unionPAndUMinusRN and all the others.
 //		// This calculation assumes that all observations that are not reliably negative are really from the positive cluster,
 //		// just that the non-reliably negative unlabelled ones have not been marked as being so.
-//		Map<Integer, Map<Integer, Double>> positiveClusterMinusRNDistances = positiveCovCalc.subsetMahalanobisDistance(unionPAndUMinusRN);
+//		Map<Integer, Map<Integer, Double>> positiveClusterMinusRNDistances = this.positiveClusterCovCalc.subsetMahalanobisDistance(unionPAndUMinusRN);
 //
 //		// Determine the distance between each unlabelled observation and all the others.
 //		// This calculation assumes that all observations are really from the negative cluster, just that the non-reliably negative ones
