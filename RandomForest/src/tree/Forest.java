@@ -711,6 +711,67 @@ public class Forest
 	}
 
 
+	public Map<Integer, Map<String, Double>> predictRaw(ProcessDataForGrowing predData)
+	{
+		List<Integer> observationsToPredict = new ArrayList<Integer>();
+		for (int i = 0; i < predData.numberObservations; i++)
+		{
+			observationsToPredict.add(i);
+		}
+		List<Integer> treesToUseForPrediction = new ArrayList<Integer>();
+		for (int i = 0; i < forest.size(); i++)
+		{
+			treesToUseForPrediction.add(i);
+		}
+		return predictRaw(predData, observationsToPredict, treesToUseForPrediction);
+	}
+
+	public Map<Integer, Map<String, Double>> predictRaw(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
+	{
+		List<Integer> treesToUseForPrediction = new ArrayList<Integer>();
+		for (int i = 0; i < forest.size(); i++)
+		{
+			treesToUseForPrediction.add(i);
+		}
+		return predictRaw(predData, observationsToPredict, treesToUseForPrediction);
+	}
+
+	public Map<Integer, Map<String, Double>> predictRaw(ProcessDataForGrowing predData, List<Integer> observationsToPredict, List<Integer> treesToUseForPrediction)
+	{
+		Set<String> classNames = new HashSet<String>(this.processedData.responseData);  // A set containing the names of all the classes in the dataset.
+
+		// Set up the mapping from observation index to predictions. The key is the index of the observation in the dataset, the Map contains
+		// a mapping from each class to the weighted vote for it from the forest.
+		Map<Integer, Map<String, Double>> predictions = new HashMap<Integer,Map<String, Double>>();
+		Map<String, Double> possiblePredictions = new HashMap<String, Double>();
+		for (String s : classNames)
+		{
+			possiblePredictions.put(s, 0.0);
+		}
+		for (int i : observationsToPredict)
+		{
+			predictions.put(i, new HashMap<String, Double>(possiblePredictions));
+		}
+
+		// Get the raw predictions for each tree.
+		for (Integer i : treesToUseForPrediction)
+		{
+			Map<Integer, Map<String, Double>> predictedValues = forest.get(i).predict(predData, observationsToPredict);
+			for (Integer j : predictedValues.keySet())
+			{
+				for (String s : predictedValues.get(j).keySet())
+				{
+					Double oldPrediction = predictions.get(j).get(s);
+					Double newPrediction = predictedValues.get(j).get(s);
+					predictions.get(j).put(s, oldPrediction + newPrediction);
+				}
+			}
+		}
+
+		return predictions;
+	}
+
+
 	public void regrowForest()
 	{
 		// Regrow using old seeds.
