@@ -152,6 +152,8 @@ public class Boruta
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.write("Weights used - " + weights.toString());
 			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("Training observations used - " + Arrays.toString(trainingObsToUse));
+			parameterOutputWriter.newLine();
 			parameterOutputWriter.close();
 
 			ctrl.save(outputLocation + "/TreeGrowthController.txt");

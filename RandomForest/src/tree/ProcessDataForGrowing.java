@@ -194,6 +194,7 @@ public class ProcessDataForGrowing
 					this.covariableData.put(variableNames[i], new ArrayList<Double>());
 				}
 			}
+			int currentObservationIndex = 0;  // Used to determine the index of the current observation in the file.
 			while ((line = reader.readLine()) != null)
 			{
 				if (line.trim().length() == 0)
@@ -201,6 +202,14 @@ public class ProcessDataForGrowing
 					// If the line is made up of all whitespace, then ignore the line.
 					continue;
 				}
+				if (!ctrl.trainingObservations.isEmpty() && !ctrl.trainingObservations.contains(currentObservationIndex))
+				{
+					// If the current observation is not in the list of observations to be used, and there is a subset of
+					// observations specified, then ignore the observation.
+					currentObservationIndex += 1;
+					continue;
+				}
+				currentObservationIndex += 1;
 				this.numberObservations += 1;
 				line = line.replaceAll("\n", "");
 				String[] splitLine = line.split("\t");
