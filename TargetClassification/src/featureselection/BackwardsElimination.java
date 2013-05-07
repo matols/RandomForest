@@ -62,18 +62,18 @@ public class BackwardsElimination
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int externalSubsamplesToGenerate = 10;
+		int externalSubsamplesToGenerate = 50;
 		double fractionToReserveAsValidation = 0.3;
-		int internalSubsamplesToGenerate = 3;
+		int internalSubsamplesToGenerate = 2;
 		int validationIterations = 5;
-		double fractionToElim = 0.1;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
+		double fractionToElim = 0.5;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
 		double featuresToEliminate;
 		boolean continueRun = false;  // Whether or not you want to continue a run in progress or restart the whole process.
 		Integer[] trainingObsToUse = {};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 30;
+		ctrl.numberOfTreesToGrow = 2500;
 		ctrl.mtry = 10;
 		ctrl.isStratifiedBootstrapUsed = true;
 		ctrl.isCalculateOOB = false;
@@ -81,7 +81,7 @@ public class BackwardsElimination
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		TreeGrowthControl varImpCtrl = new TreeGrowthControl(ctrl);
-		varImpCtrl.numberOfTreesToGrow = 50;
+		varImpCtrl.numberOfTreesToGrow = 5000;
 		varImpCtrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		Map<String, Double> weights = new HashMap<String, Double>();
@@ -472,12 +472,11 @@ public class BackwardsElimination
 			{
 				sortedVariables.add(new StringsSortedByDoubles(varImp.get(s), s));
 			}
-			Collections.sort(sortedVariables);
-			Collections.reverse(sortedVariables);
-			Map<String, Integer> varToImpRank = new HashMap<String, Integer>();
+			Collections.sort(sortedVariables, Collections.reverseOrder());  // Larger importance first.
 			for (int j = 0; j < varImp.size(); j++)
 			{
-				varToImpRank.put(sortedVariables.get(j).getId(), j + 1);
+				String feature = sortedVariables.get(j).getId();
+				importanceRanking.get(feature).add(j + 1);
 			}
 		}
 
