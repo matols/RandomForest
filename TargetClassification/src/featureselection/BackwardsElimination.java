@@ -62,9 +62,9 @@ public class BackwardsElimination
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int externalSubsamplesToGenerate = 10;
+		int externalSubsamplesToGenerate = 50;
 		double fractionToReserveAsValidation = 0.3;
-		int internalSubsamplesToGenerate = 3;
+		int internalSubsamplesToGenerate = 30;
 		int validationIterations = 5;
 		double fractionToElim = 0.1;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
 		double featuresToEliminate;
@@ -73,7 +73,7 @@ public class BackwardsElimination
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 30;
+		ctrl.numberOfTreesToGrow = 3000;
 		ctrl.mtry = 10;
 		ctrl.isStratifiedBootstrapUsed = true;
 		ctrl.isCalculateOOB = false;
@@ -81,12 +81,12 @@ public class BackwardsElimination
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		TreeGrowthControl varImpCtrl = new TreeGrowthControl(ctrl);
-		varImpCtrl.numberOfTreesToGrow = 50;
+		varImpCtrl.numberOfTreesToGrow = 5000;
 		varImpCtrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
-		weights.put("Positive", 1.5);
+		weights.put("Positive", 1.0);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -161,6 +161,8 @@ public class BackwardsElimination
 				parameterOutputWriter.write("Trees used for variable importance - " + Integer.toString(varImpCtrl.numberOfTreesToGrow));
 				parameterOutputWriter.newLine();
 				parameterOutputWriter.write("Weights used - " + weights.toString());
+				parameterOutputWriter.newLine();
+				parameterOutputWriter.write("Training observations used - " + Arrays.toString(trainingObsToUse));
 				parameterOutputWriter.newLine();
 				parameterOutputWriter.close();
 
