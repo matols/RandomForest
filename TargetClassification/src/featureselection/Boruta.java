@@ -4,6 +4,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -106,12 +107,15 @@ public class Boruta
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
+		Integer[] trainingObsToUse = {};
+
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
 		ctrl.numberOfTreesToGrow = numberOfTrees;
 		ctrl.mtry = 10;
 		ctrl.isStratifiedBootstrapUsed = true;
 		ctrl.isCalculateOOB = false;
+		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);

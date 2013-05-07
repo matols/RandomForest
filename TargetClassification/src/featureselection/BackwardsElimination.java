@@ -10,6 +10,7 @@ import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -68,6 +69,7 @@ public class BackwardsElimination
 		double fractionToElim = 0.1;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
 		double featuresToEliminate;
 		boolean continueRun = false;  // Whether or not you want to continue a run in progress or restart the whole process.
+		Integer[] trainingObsToUse = {};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
@@ -76,9 +78,11 @@ public class BackwardsElimination
 		ctrl.isStratifiedBootstrapUsed = true;
 		ctrl.isCalculateOOB = false;
 		ctrl.minNodeSize = 1;
+		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		TreeGrowthControl varImpCtrl = new TreeGrowthControl(ctrl);
 		varImpCtrl.numberOfTreesToGrow = 50;
+		varImpCtrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
