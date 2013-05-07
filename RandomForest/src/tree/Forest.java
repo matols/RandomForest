@@ -449,18 +449,10 @@ public class Forest
 		this.weights = potentialWeights;
 
 		// Setup the observation selection variables.
-		List<Integer> observations;
-		if (!this.ctrl.trainingObservations.isEmpty())
+		List<Integer> observations = new ArrayList<Integer>();
+		for (int i = 0; i < this.processedData.numberObservations; i++)
 		{
-			observations = new ArrayList<Integer>(ctrl.trainingObservations);
-		}
-		else
-		{
-			observations = new ArrayList<Integer>();
-			for (int i = 0; i < this.processedData.numberObservations; i++)
-			{
-				observations.add(i);
-			}
+			observations.add(i);
 		}
 		int numberObservationsToSelect = 0;
 		if (!this.ctrl.isReplacementUsed)
