@@ -8,9 +8,6 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -260,26 +257,21 @@ public class InstanceSelection
 	    }
 		List<List<Integer>> population = new ArrayList<List<Integer>>();
 		List<Integer> parentSelector = new ArrayList<Integer>();
-		List<Integer> availableForSelection = new ArrayList<Integer>();
-		for (int i = 0; i < numberOfObservations; i++)
-		{
-			availableForSelection.add(i);
-		}
 		for (int i = 0; i < populationSize; i++)
 		{
 			List<Integer> newPopMember = new ArrayList<Integer>();
-			for (int j = 0; j < initialSetSize; j++)
+			for (String s : observations.keySet())
 			{
-				// Select a random available observation.
-				Integer chosenObservation = availableForSelection.get(observationSelector.nextInt(availableForSelection.size()));
-				newPopMember.add(chosenObservation);
-				availableForSelection.remove(chosenObservation);
-				if (availableForSelection.isEmpty())
+				List<Integer> availableForSelection = new ArrayList<Integer>(observations.get(s));
+				for (int j = 0; j < initialSetSize / observations.size(); j++)
 				{
-					// If all observations have been selected, then fill up the available observations again.
-					for (int k = 0; k < numberOfObservations; k++)
+					// Select a random available observation from class s.
+					Integer chosenObservation = availableForSelection.get(observationSelector.nextInt(availableForSelection.size()));
+					newPopMember.add(chosenObservation);
+					availableForSelection.remove(chosenObservation);
+					if (availableForSelection.isEmpty())
 					{
-						availableForSelection.add(k);
+						availableForSelection = new ArrayList<Integer>(observations.get(s));
 					}
 				}
 			}
@@ -297,21 +289,36 @@ public class InstanceSelection
 	    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
 	    	testObs.removeAll(geneSet);
 	    	Map<String, Map<String, Double>> predictedConfusionMatrix = forest.predict(processedInputFile, testObs).second;
-	    	double allTruePositives = 0.0;
-	    	double allFalsePositives = 0.0;
-	    	double allFalseNegatives = 0.0;
+	    	// Determine the number of training observations in each class.
+	    	Map<String, Integer> trainingSetClasses = new HashMap<String, Integer>();
+	    	for (String s : observations.keySet())
+	    	{
+	    		int numberInTrainingSet = 0;
+	    		List<Integer> observationsInClass = observations.get(s);
+	    		for (Integer i : geneSet)
+	    		{
+	    			if (observationsInClass.contains(i))
+	    			{
+	    				numberInTrainingSet++;
+	    			}
+	    		}
+	    		trainingSetClasses.put(s, numberInTrainingSet);
+	    	}
+	    	// Determine the macro f measure.
+	    	double macroFMeasure = 0.0;
 	    	for (String s : predictedConfusionMatrix.keySet())
 	    	{
-	    		double classTP = predictedConfusionMatrix.get(s).get("TruePositive");
-	    		allTruePositives += classTP;
-	    		allFalsePositives += predictedConfusionMatrix.get(s).get("FalsePositive");
-	    		allFalseNegatives += (observations.get(s).size() - classTP);  // The false negatives for the class are all observations in the class minus the true positive
+	    		double TP = predictedConfusionMatrix.get(s).get("TruePositive");
+	    		double FP = predictedConfusionMatrix.get(s).get("FalsePositive");
+	    		double FN = observations.get(s).size() - trainingSetClasses.get(s) - TP;  // The number of false positives is the number of observaitons from the class in the testing set - the number of true positives.
+	    		double recall = TP / (TP + FN);
+		    	double precision = TP / (TP + FP);
+		    	double fMeasure = 2 * ((precision * recall) / (precision + recall));
+		    	macroFMeasure += fMeasure;
 	    	}
-	    	double microRecall = allTruePositives / (allTruePositives + allFalseNegatives);
-	    	double microPrecision = allTruePositives / (allTruePositives + allFalsePositives);
-	    	double microFMeasure = 2 * ((microPrecision * microRecall) / (microPrecision + microRecall));
+	    	macroFMeasure /= predictedConfusionMatrix.size();
 	    	numberEvaluations += 1;
-	    	fitness.add(microFMeasure);
+	    	fitness.add(macroFMeasure);
 	    }
 
 	    // Sort the initial population.
@@ -393,26 +400,42 @@ public class InstanceSelection
 		    	List<Double> offspringFitness = new ArrayList<Double>();
 		    	for (List<Integer> geneSet : mutants)
 		 	    {
-		    		// Train and test the subsasmples.
+		    		// Train and test the subsamples.
 		    		ctrl.trainingObservations = geneSet;
 			    	Forest forest = new Forest(datasetLocation, ctrl, weights);
 			    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
 			    	testObs.removeAll(geneSet);
 			    	Map<String, Map<String, Double>> predictedConfusionMatrix = forest.predict(processedInputFile, testObs).second;
-			    	double allTruePositives = 0.0;
-			    	double allFalsePositives = 0.0;
-			    	double allFalseNegatives = 0.0;
+			    	// Determine the number of training observations in each class.
+			    	Map<String, Integer> trainingSetClasses = new HashMap<String, Integer>();
+			    	for (String s : observations.keySet())
+			    	{
+			    		int numberInTrainingSet = 0;
+			    		List<Integer> observationsInClass = observations.get(s);
+			    		for (Integer i : geneSet)
+			    		{
+			    			if (observationsInClass.contains(i))
+			    			{
+			    				numberInTrainingSet++;
+			    			}
+			    		}
+			    		trainingSetClasses.put(s, numberInTrainingSet);
+			    	}
+			    	// Determine the macro f measure.
+			    	double macroFMeasure = 0.0;
 			    	for (String s : predictedConfusionMatrix.keySet())
 			    	{
-			    		double classTP = predictedConfusionMatrix.get(s).get("TruePositive");
-			    		allTruePositives += classTP;
-			    		allFalsePositives += predictedConfusionMatrix.get(s).get("FalsePositive");
-			    		allFalseNegatives += (observations.get(s).size() - classTP);  // The false negatives for the class are all observations in the class minus the true positive
+			    		double TP = predictedConfusionMatrix.get(s).get("TruePositive");
+			    		double FP = predictedConfusionMatrix.get(s).get("FalsePositive");
+			    		double FN = observations.get(s).size() - trainingSetClasses.get(s) - TP;  // The number of false positives is the number of observaitons from the class in the testing set - the number of true positives.
+			    		double recall = TP / (TP + FN);
+				    	double precision = TP / (TP + FP);
+				    	double fMeasure = 2 * ((precision * recall) / (precision + recall));
+				    	macroFMeasure += fMeasure;
 			    	}
-			    	double microRecall = allTruePositives / (allTruePositives + allFalseNegatives);
-			    	double microPrecision = allTruePositives / (allTruePositives + allFalsePositives);
-			    	double microFMeasure = 2 * ((microPrecision * microRecall) / (microPrecision + microRecall));
-			    	offspringFitness.add(microFMeasure);
+			    	macroFMeasure /= predictedConfusionMatrix.size();
+			    	numberEvaluations += 1;
+			    	offspringFitness.add(macroFMeasure);
 		 	    	numberEvaluations += 1;
 			    }
 
@@ -461,26 +484,21 @@ public class InstanceSelection
 	    			}
 	    			// Generate the new population by copying over the best individuals found so far, and then randomly instantiating the rest of the population.
 	    			population = new ArrayList<List<Integer>>(new HashSet<List<Integer>>(this.bestMembersFound));
-	    			availableForSelection = new ArrayList<Integer>();
-	    			for (int i = 0; i < numberOfObservations; i++)
-	    			{
-	    				availableForSelection.add(i);
-	    			}
 	    			for (int i = 0; i < populationSize; i++)
 	    			{
 	    				List<Integer> newPopMember = new ArrayList<Integer>();
-	    				for (int j = 0; j < initialSetSize; j++)
+	    				for (String s : observations.keySet())
 	    				{
-	    					// Select a random available observation.
-	    					Integer chosenObservation = availableForSelection.get(observationSelector.nextInt(availableForSelection.size()));
-	    					newPopMember.add(chosenObservation);
-	    					availableForSelection.remove(chosenObservation);
-	    					if (availableForSelection.isEmpty())
+	    					List<Integer> availableForSelection = new ArrayList<Integer>(observations.get(s));
+	    					for (int j = 0; j < initialSetSize / observations.size(); j++)
 	    					{
-	    						// If all observations have been selected, then fill up the available observations again.
-	    						for (int k = 0; k < numberOfObservations; k++)
+	    						// Select a random available observation from class s.
+	    						Integer chosenObservation = availableForSelection.get(observationSelector.nextInt(availableForSelection.size()));
+	    						newPopMember.add(chosenObservation);
+	    						availableForSelection.remove(chosenObservation);
+	    						if (availableForSelection.isEmpty())
 	    						{
-	    							availableForSelection.add(k);
+	    							availableForSelection = new ArrayList<Integer>(observations.get(s));
 	    						}
 	    					}
 	    				}
@@ -490,26 +508,42 @@ public class InstanceSelection
 	    		    fitness = new ArrayList<Double>();
 	    		    for (List<Integer> geneSet : population)
 	    		    {
-	    		    	// Train and test the subsasmples.
+	    		    	// Train and test the subsamples.
 	    	    		ctrl.trainingObservations = geneSet;
 	    		    	Forest forest = new Forest(datasetLocation, ctrl, weights);
 	    		    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
 	    		    	testObs.removeAll(geneSet);
 	    		    	Map<String, Map<String, Double>> predictedConfusionMatrix = forest.predict(processedInputFile, testObs).second;
-	    		    	double allTruePositives = 0.0;
-	    		    	double allFalsePositives = 0.0;
-	    		    	double allFalseNegatives = 0.0;
+	    		    	// Determine the number of training observations in each class.
+	    		    	Map<String, Integer> trainingSetClasses = new HashMap<String, Integer>();
+	    		    	for (String s : observations.keySet())
+	    		    	{
+	    		    		int numberInTrainingSet = 0;
+	    		    		List<Integer> observationsInClass = observations.get(s);
+	    		    		for (Integer i : geneSet)
+	    		    		{
+	    		    			if (observationsInClass.contains(i))
+	    		    			{
+	    		    				numberInTrainingSet++;
+	    		    			}
+	    		    		}
+	    		    		trainingSetClasses.put(s, numberInTrainingSet);
+	    		    	}
+	    		    	// Determine the macro f measure.
+	    		    	double macroFMeasure = 0.0;
 	    		    	for (String s : predictedConfusionMatrix.keySet())
 	    		    	{
-	    		    		double classTP = predictedConfusionMatrix.get(s).get("TruePositive");
-	    		    		allTruePositives += classTP;
-	    		    		allFalsePositives += predictedConfusionMatrix.get(s).get("FalsePositive");
-	    		    		allFalseNegatives += (observations.get(s).size() - classTP);  // The false negatives for the class are all observations in the class minus the true positive
+	    		    		double TP = predictedConfusionMatrix.get(s).get("TruePositive");
+	    		    		double FP = predictedConfusionMatrix.get(s).get("FalsePositive");
+	    		    		double FN = observations.get(s).size() - trainingSetClasses.get(s) - TP;  // The number of false positives is the number of observaitons from the class in the testing set - the number of true positives.
+	    		    		double recall = TP / (TP + FN);
+	    			    	double precision = TP / (TP + FP);
+	    			    	double fMeasure = 2 * ((precision * recall) / (precision + recall));
+	    			    	macroFMeasure += fMeasure;
 	    		    	}
-				    	double microRecall = allTruePositives / (allTruePositives + allFalseNegatives);
-				    	double microPrecision = allTruePositives / (allTruePositives + allFalsePositives);
-				    	double microFMeasure = 2 * ((microPrecision * microRecall) / (microPrecision + microRecall));
-				    	fitness.add(microFMeasure);
+	    		    	macroFMeasure /= predictedConfusionMatrix.size();
+	    		    	numberEvaluations += 1;
+				    	fitness.add(macroFMeasure);
 	    		    	numberEvaluations += 1;
 	    		    }
 
