@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Random;
 
 import datasetgeneration.BootstrapGeneration;
+import datasetgeneration.CrossValidationFoldGenerationMultiClass;
 
 import tree.Forest;
 import tree.ImmutableTwoValues;
@@ -58,15 +59,22 @@ public class BackwardsElimination
 			System.out.println("The second argument must be a valid directory location or location where a directory can be created.");
 			System.exit(0);
 		}
+		String entireDatasetVarImpLocation = args[2];  // The location for the repetitions of the variable importance calculations for the entire dtaset.
+		File varImpFile = new File(entireDatasetVarImpLocation);
+		if (!varImpFile.isFile())
+		{
+			System.out.println("The third argument must be a valid file location, and must contain the variable importances calculated for the entire dataset.");
+			System.exit(0);
+		}
 
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int externalSubsamplesToGenerate = 50;
-		double fractionToReserveAsValidation = 0.3;
+		int externalSubsamplesToGenerate = 5;
+		double fractionToReserveAsValidation = 0.1;
 		int internalSubsamplesToGenerate = 2;
-		int validationIterations = 5;
-		double fractionToElim = 0.5;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
+		int validationIterations = 10;
+		double fractionToElim = 0.05;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
 		double featuresToEliminate;
 		boolean continueRun = false;  // Whether or not you want to continue a run in progress or restart the whole process.
 		Integer[] trainingObsToUse = {};
@@ -86,7 +94,7 @@ public class BackwardsElimination
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
-		weights.put("Positive", 1.5);
+		weights.put("Positive", 1.25);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -216,7 +224,7 @@ public class BackwardsElimination
 		    strDate = sdfDate.format(currentTime);
 			System.out.format("\tNow validating the feature set at %s.\n", strDate);
 			ImmutableTwoValues<List<String>, Double> validationResults = validateSubset(subsampleTrainingSet, subsampleTestingSet,
-					bestNumberOfFeatures, weights, new TreeGrowthControl(varImpCtrl), featuresUsed, validationIterations, false);
+					bestNumberOfFeatures, weights, new TreeGrowthControl(varImpCtrl), featuresUsed, validationIterations);
 			List<String> bestFeatureSet = validationResults.first;
 			double validatedError = validationResults.second;
 
@@ -280,7 +288,7 @@ public class BackwardsElimination
 		String finalSelectionResults = finalSelectionOutputLoc + "/Results.txt";
 
 		ImmutableTwoValues<Integer, Map<Integer, Double>> internalSelectionResults = internalSelection(inputLocation,
-				finalSelectionOutputLoc, internalSubsamplesToGenerate, weights, ctrl, varImpCtrl, featuresUsed, fractionToElim);
+				finalSelectionOutputLoc, internalSubsamplesToGenerate, weights, ctrl, varImpCtrl, featuresUsed, 0.0001);  // Use 0.0001 as the feature elimination fraction to ensure that only one feature is eliminated per iteraton.
 		int bestNumberOfFeatures = internalSelectionResults.first;
 		Map<Integer, Double> averageErrorRates = internalSelectionResults.second;
 
@@ -289,9 +297,40 @@ public class BackwardsElimination
 	    sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	    strDate = sdfDate.format(currentTime);
 		System.out.format("\tNow validating the feature set at %s.\n", strDate);
-		ImmutableTwoValues<List<String>, Double> validationResults = validateSubset(inputLocation, bestNumberOfFeatures, weights,
-				new TreeGrowthControl(varImpCtrl), featuresUsed, validationIterations);
-		List<String> bestFeatureSet = validationResults.first;
+
+		List<StringsSortedByDoubles> sortedVariables = new ArrayList<StringsSortedByDoubles>();
+		try (BufferedReader reader = Files.newBufferedReader(Paths.get(entireDatasetVarImpLocation), StandardCharsets.UTF_8))
+		{
+			String line;
+			while ((line = reader.readLine()) != null)
+			{
+				line = line.replaceAll("\n", "");
+				String[] chunks = line.split("\t");
+				double averageRank = 0.0;
+				for (int i = 1; i < chunks.length; i++)
+				{
+					averageRank += Integer.parseInt(chunks[i]);
+				}
+				averageRank /= (chunks.length - 1);
+				sortedVariables.add(new StringsSortedByDoubles(averageRank, chunks[0]));
+			}
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+		Collections.sort(sortedVariables);  // Smaller ranks first.
+		List<String> orderedFeaturesByImportance = new ArrayList<String>();
+		for (StringsSortedByDoubles ssbd : sortedVariables)
+		{
+			orderedFeaturesByImportance.add(ssbd.getId());
+		}
+		List<String> bestFeatureSet = new ArrayList<String>();
+		for (int i = 0; i < bestNumberOfFeatures; i++)
+		{
+			bestFeatureSet.add(orderedFeaturesByImportance.get(i));
+		}
 
 		// Write out the results for the whole dataset selection.
 		try
@@ -385,7 +424,8 @@ public class BackwardsElimination
 			TreeGrowthControl varImpCtrl, List<String> featuresUsed, double fractionToElim)
 	{
 		ctrl.variablesToIgnore = new ArrayList<String>();
-		BootstrapGeneration.main(entireTrainingSet, locatonForInternalFolds, internalSubsamplesToGenerate, true, 0.0);
+		CrossValidationFoldGenerationMultiClass.main(entireTrainingSet, locatonForInternalFolds, internalSubsamplesToGenerate);
+//		BootstrapGeneration.main(entireTrainingSet, locatonForInternalFolds, internalSubsamplesToGenerate, true, 0.0);
 
 		List<Map<Integer, Double>> errorRates = new ArrayList<Map<Integer, Double>>();
 		List<Long> usedSeeds = new ArrayList<Long>();
@@ -395,7 +435,7 @@ public class BackwardsElimination
 			Date currentTime = new Date();
 		    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 		    String strDate = sdfDate.format(currentTime);
-			System.out.format("\tNow performing elimination for internal bootstrap %d at %s.\n", j, strDate);
+			System.out.format("\tNow performing elimination for CV fold %d at %s.\n", j, strDate);
 			long seedToUse = seedGenerator.nextLong();  // Determine the seed to use for the feature selection process on this bootstrap sample.
 			while (usedSeeds.contains(seedToUse))
 			{
@@ -432,17 +472,9 @@ public class BackwardsElimination
 	}
 	
 
-	static ImmutableTwoValues<List<String>, Double> validateSubset(String externalSubsampleTrainingSet,
-			int numberOfFeatures, Map<String, Double> weights, TreeGrowthControl variableImportanceControl,
-			List<String> fullFeatureSet, int validationIterations)
-	{
-		return validateSubset(externalSubsampleTrainingSet, "", numberOfFeatures, weights, variableImportanceControl,
-				fullFeatureSet, validationIterations, true);
-	}
-
 	static ImmutableTwoValues<List<String>, Double> validateSubset(String externalSubsampleTrainingSet, String externalSubsampleTestingSet,
 			int numberOfFeatures, Map<String, Double> weights, TreeGrowthControl variableImportanceControl,
-			List<String> fullFeatureSet, int validationIterations, boolean isValidationSkipped)
+			List<String> fullFeatureSet, int validationIterations)
 	{
 		Random seedGenerator = new Random();
 		List<Long> seedsToUse = new ArrayList<Long>();
@@ -492,7 +524,7 @@ public class BackwardsElimination
 			averageRank /= validationIterations;
 			sortedVariables.add(new StringsSortedByDoubles(averageRank, s));
 		}
-		Collections.sort(sortedVariables, Collections.reverseOrder());  // Larger importance first.
+		Collections.sort(sortedVariables);  // Smaller ranks first.
 		List<String> orderedFeaturesByImportance = new ArrayList<String>();
 		for (StringsSortedByDoubles ssbd : sortedVariables)
 		{
@@ -511,13 +543,10 @@ public class BackwardsElimination
 		variablesToIgnore.removeAll(bestFeatures);
 		variableImportanceControl.variablesToIgnore = variablesToIgnore;
 		double validatedErrorRate = 0.0;
-		if (!isValidationSkipped)
+		for (int i = 0; i < validationIterations; i++)
 		{
-			for (int i = 0; i < validationIterations; i++)
-			{
-				Forest forest = new Forest(externalSubsampleTrainingSet, variableImportanceControl, weights, seedsToUse.get(i));
-				validatedErrorRate += forest.predict(new ProcessDataForGrowing(externalSubsampleTestingSet, variableImportanceControl)).first;
-			}
+			Forest forest = new Forest(externalSubsampleTrainingSet, variableImportanceControl, weights, seedsToUse.get(i));
+			validatedErrorRate += forest.predict(new ProcessDataForGrowing(externalSubsampleTestingSet, variableImportanceControl)).first;
 		}
 		validatedErrorRate /= validationIterations;
 		return new ImmutableTwoValues<List<String>, Double>(bestFeatures, validatedErrorRate);
