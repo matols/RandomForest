@@ -70,9 +70,9 @@ public class BackwardsElimination
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int externalSubsamplesToGenerate = 5;
+		int externalSubsamplesToGenerate = 50;
 		double fractionToReserveAsValidation = 0.1;
-		int internalSubsamplesToGenerate = 2;
+		int internalSubsamplesToGenerate = 10;
 		int validationIterations = 10;
 		double fractionToElim = 0.05;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
 		double featuresToEliminate;
