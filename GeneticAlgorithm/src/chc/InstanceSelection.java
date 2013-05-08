@@ -434,7 +434,6 @@ public class InstanceSelection
 				    	macroFMeasure += fMeasure;
 			    	}
 			    	macroFMeasure /= predictedConfusionMatrix.size();
-			    	numberEvaluations += 1;
 			    	offspringFitness.add(macroFMeasure);
 		 	    	numberEvaluations += 1;
 			    }
@@ -542,7 +541,6 @@ public class InstanceSelection
 	    			    	macroFMeasure += fMeasure;
 	    		    	}
 	    		    	macroFMeasure /= predictedConfusionMatrix.size();
-	    		    	numberEvaluations += 1;
 				    	fitness.add(macroFMeasure);
 	    		    	numberEvaluations += 1;
 	    		    }
