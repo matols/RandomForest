@@ -64,6 +64,10 @@ public class Controller
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
 		weights.put("Positive", 1.0);
+
+		Map<String, Double> fMeasureWeights = new HashMap<String, Double>();
+		fMeasureWeights.put("Unlabelled", 0.25);
+		fMeasureWeights.put("Positive", 0.75);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -78,7 +82,7 @@ public class Controller
 		newGAArgs[0] = args[0];
 		newGAArgs[1] = outputLocation;
 		TreeGrowthControl thisGAControl = new TreeGrowthControl(ctrl);
-		new chc.InstanceSelection(newGAArgs, thisGAControl, weights);
+		new chc.InstanceSelection(newGAArgs, thisGAControl, weights, fMeasureWeights);
 
 		// Extract the best individual.
 		List<Integer> bestIndividual = new ArrayList<Integer>();

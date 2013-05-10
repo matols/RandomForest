@@ -43,7 +43,7 @@ public class InstanceSelection
 	public List<List<Integer>> bestMembersFound = new ArrayList<List<Integer>>();
 
 
-	public InstanceSelection(String[] args, TreeGrowthControl ctrl, Map<String, Double> weights)
+	public InstanceSelection(String[] args, TreeGrowthControl ctrl, Map<String, Double> weights, Map<String, Double> fMeasureWeights)
 	{
 		// Required inputs.
 		String datasetLocation = args[0];  // The location of the file containing the entire dataset.
@@ -173,9 +173,10 @@ public class InstanceSelection
 			System.exit(0);
 		}
 
-		// Setup the generation stats file and write out the class weights being used.
+		// Setup the generation stats files and write out the class weights being used.
 		String genStatsOutputLocation = outputLocation + "/GenerationStatistics.txt";
 		String weightOutputLocation = outputLocation + "/Weights.txt";
+		Map<String, String> classFMeasureOutputLocations = new HashMap<String, String>();
 		try
 		{
 			FileWriter genStatsOutputFile = new FileWriter(genStatsOutputLocation);
@@ -186,12 +187,31 @@ public class InstanceSelection
 
 			FileWriter weightOutputFile = new FileWriter(weightOutputLocation);
 			BufferedWriter weightOutputWriter = new BufferedWriter(weightOutputFile);
+			weightOutputWriter.write("Tree Growth Weights");
 			for (String s : weights.keySet())
 			{
 				weightOutputWriter.write(s + "\t" + Double.toString(weights.get(s)));
 				weightOutputWriter.newLine();
 			}
+			weightOutputWriter.newLine();
+			weightOutputWriter.write("F Measure Discount Weights");
+			for (String s : fMeasureWeights.keySet())
+			{
+				weightOutputWriter.write(s + "\t" + Double.toString(fMeasureWeights.get(s)));
+				weightOutputWriter.newLine();
+			}
 			weightOutputWriter.close();
+
+			for (String s : fMeasureWeights.keySet())
+			{
+				String classOutputLoc = outputLocation + "/" + s + "FMeasures.txt";
+				classFMeasureOutputLocations.put(s, classOutputLoc);
+				FileWriter classStatsOutputFile = new FileWriter(classOutputLoc);
+				BufferedWriter classStatsOutputWriter = new BufferedWriter(classStatsOutputFile);
+				classStatsOutputWriter.write("Generation\tBestMemberFScore\tMeanFScore\tMedianFScore\tStdDevFScore");
+				classStatsOutputWriter.newLine();
+				classStatsOutputWriter.close();
+			}
 		}
 		catch (Exception e)
 		{
@@ -281,6 +301,11 @@ public class InstanceSelection
 
 	    // Calculate the fitness of the initial population.
 	    List<Double> fitness = new ArrayList<Double>();
+	    Map<String, List<Double>> classFMeasureResults = new HashMap<String, List<Double>>();
+	    for (String s : observations.keySet())
+	    {
+	    	classFMeasureResults.put(s, new ArrayList<Double>());
+	    }
 	    for (List<Integer> geneSet : population)
 	    {
 	    	// Train and test the subsasmples.
@@ -314,31 +339,12 @@ public class InstanceSelection
 	    		double recall = TP / (TP + FN);
 		    	double precision = TP / (TP + FP);
 		    	double fMeasure = 2 * ((precision * recall) / (precision + recall));
-		    	macroFMeasure += fMeasure;
+		    	macroFMeasure += (fMeasureWeights.get(s) * fMeasure);
+		    	classFMeasureResults.get(s).add(fMeasure);
 	    	}
-	    	macroFMeasure /= predictedConfusionMatrix.size();
 	    	numberEvaluations += 1;
 	    	fitness.add(macroFMeasure);
 	    }
-
-	    // Sort the initial population.
-	    List<IndexedDoubleData> sortedInitialPopulation = new ArrayList<IndexedDoubleData>();
-	    for (int j = 0; j < population.size(); j++)
-	    {
-	    	sortedInitialPopulation.add(new IndexedDoubleData(fitness.get(j), j));
-	    }
-	    Collections.sort(sortedInitialPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by F score.
-	    List<List<Integer>> newInitialPopulation = new ArrayList<List<Integer>>();
-	    List<Double> newInitialFitness = new ArrayList<Double>();
-	    for (int j = 0; j < populationSize; j ++)
-	    {
-	    	// Add the first populationSize population members with the lowest error rates.
-	    	int indexToAddFrom = sortedInitialPopulation.get(j).getIndex();
-	    	newInitialPopulation.add(population.get(indexToAddFrom));
-	    	newInitialFitness.add(fitness.get(indexToAddFrom));
-	    }
-	    population = newInitialPopulation;
-	    fitness = newInitialFitness;
 
 	    while (loopTermination(currentGeneration, maxGenerations, numberEvaluations, maxEvaluations, gaStartTime, maxTimeAllowed))
 	    {
@@ -350,10 +356,6 @@ public class InstanceSelection
 			    String strDate = sdfDate.format(now);
 	    		System.out.format("Now starting generation number : %d at %s.\n", currentGeneration, strDate);
 	    	}
-
-	    	// Write out the statistics of the population.
-	    	writeOutStatus(fitnessDirectoryLocation, fitness, populationDirectoryLocation, population, currentGeneration,
-	    			genStatsOutputLocation, populationSize, threshold, numberEvaluations);
 
 	    	// Generate mutants for possible inclusion in the next generation.
 	    	List<List<Integer>> mutants = new ArrayList<List<Integer>>();
@@ -397,9 +399,9 @@ public class InstanceSelection
 	    	if (isOffspringCreated)
 	    	{
 	    		// Calculate the fitness of the offspring.
-		    	List<Double> offspringFitness = new ArrayList<Double>();
 		    	for (List<Integer> geneSet : mutants)
 		 	    {
+		    		population.add(geneSet);
 		    		// Train and test the subsamples.
 		    		ctrl.trainingObservations = geneSet;
 			    	Forest forest = new Forest(datasetLocation, ctrl, weights);
@@ -431,56 +433,19 @@ public class InstanceSelection
 			    		double recall = TP / (TP + FN);
 				    	double precision = TP / (TP + FP);
 				    	double fMeasure = 2 * ((precision * recall) / (precision + recall));
-				    	macroFMeasure += fMeasure;
+				    	macroFMeasure += (fMeasureWeights.get(s) * fMeasure);
+				    	classFMeasureResults.get(s).add(fMeasure);
 			    	}
-			    	macroFMeasure /= predictedConfusionMatrix.size();
-			    	offspringFitness.add(macroFMeasure);
+			    	fitness.add(macroFMeasure);
 		 	    	numberEvaluations += 1;
 			    }
-
-			    // Update the population.
-			    for (int j = 0; j < mutants.size(); j++)
-			    {
-			    	// Extend the population and the fitnesses to include the newly created offspring.
-			    	population.add(mutants.get(j));
-			    	fitness.add(offspringFitness.get(j));
-			    }
-			    List<IndexedDoubleData> sortedPopulation = new ArrayList<IndexedDoubleData>();
-			    for (int j = 0; j < population.size(); j++)
-			    {
-			    	sortedPopulation.add(new IndexedDoubleData(fitness.get(j), j));
-			    }
-			    Collections.sort(sortedPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by F score.
-			    List<List<Integer>> newPopulation = new ArrayList<List<Integer>>();
-			    List<Double> newFitness = new ArrayList<Double>();
-			    for (int j = 0; j < populationSize; j ++)
-			    {
-			    	// Add the first populationSize population members with the lowest error rates.
-			    	int indexToAddFrom = sortedPopulation.get(j).getIndex();
-			    	newPopulation.add(population.get(indexToAddFrom));
-			    	newFitness.add(fitness.get(indexToAddFrom));
-			    }
-			    population = newPopulation;
-			    fitness = newFitness;
 	    	}
 	    	else
 	    	{
 	    		threshold -= 1;
 	    		if (threshold < 1)
 	    		{
-	    			try
-	    			{
-	    				FileWriter genStatsOutputFile = new FileWriter(genStatsOutputLocation, true);
-	    				BufferedWriter genStatsOutputWriter = new BufferedWriter(genStatsOutputFile);
-	    				genStatsOutputWriter.write("Extinction");
-	    				genStatsOutputWriter.newLine();
-	    				genStatsOutputWriter.close();
-	    			}
-	    			catch (Exception e)
-	    			{
-	    				e.printStackTrace();
-	    				System.exit(0);
-	    			}
+	    			threshold = initialSetSize / 4;
 	    			// Generate the new population by copying over the best individuals found so far, and then randomly instantiating the rest of the population.
 	    			population = new ArrayList<List<Integer>>(new HashSet<List<Integer>>(this.bestMembersFound));
 	    			for (int i = 0; i < populationSize; i++)
@@ -505,6 +470,10 @@ public class InstanceSelection
 	    			}
 	    			// Calculate the fitness of the new population.
 	    		    fitness = new ArrayList<Double>();
+	    		    for (String s : observations.keySet())
+	    		    {
+	    		    	classFMeasureResults.put(s, new ArrayList<Double>());
+	    		    }
 	    		    for (List<Integer> geneSet : population)
 	    		    {
 	    		    	// Train and test the subsamples.
@@ -538,34 +507,47 @@ public class InstanceSelection
 	    		    		double recall = TP / (TP + FN);
 	    			    	double precision = TP / (TP + FP);
 	    			    	double fMeasure = 2 * ((precision * recall) / (precision + recall));
-	    			    	macroFMeasure += fMeasure;
+	    			    	macroFMeasure += (fMeasureWeights.get(s) * fMeasure);
+	    			    	classFMeasureResults.get(s).add(fMeasure);
 	    		    	}
-	    		    	macroFMeasure /= predictedConfusionMatrix.size();
 				    	fitness.add(macroFMeasure);
 	    		    	numberEvaluations += 1;
 	    		    }
-
-	    		    // Sort the new population.
-	    		    sortedInitialPopulation = new ArrayList<IndexedDoubleData>();
-	    		    for (int j = 0; j < population.size(); j++)
-	    		    {
-	    		    	sortedInitialPopulation.add(new IndexedDoubleData(fitness.get(j), j));
-	    		    }
-	    		    Collections.sort(sortedInitialPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by F score.
-	    		    newInitialPopulation = new ArrayList<List<Integer>>();
-	    		    newInitialFitness = new ArrayList<Double>();
-	    		    for (int j = 0; j < populationSize; j ++)
-	    		    {
-	    		    	// Add the first populationSize population members with the lowest error rates.
-	    		    	int indexToAddFrom = sortedInitialPopulation.get(j).getIndex();
-	    		    	newInitialPopulation.add(population.get(indexToAddFrom));
-	    		    	newInitialFitness.add(fitness.get(indexToAddFrom));
-	    		    }
-	    		    population = newInitialPopulation;
-	    		    fitness = newInitialFitness;
-	    		    threshold = initialSetSize / 4;
 	    		}
 	    	}
+
+	    	// Update the population.
+		    List<IndexedDoubleData> sortedPopulation = new ArrayList<IndexedDoubleData>();
+		    for (int j = 0; j < population.size(); j++)
+		    {
+		    	sortedPopulation.add(new IndexedDoubleData(fitness.get(j), j));
+		    }
+		    Collections.sort(sortedPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by F score.
+		    List<List<Integer>> newPopulation = new ArrayList<List<Integer>>();
+		    List<Double> newFitness = new ArrayList<Double>();
+		    Map<String, List<Double>> newClassFMeasures = new HashMap<String, List<Double>>();
+		    for (String s : observations.keySet())
+		    {
+		    	newClassFMeasures.put(s, new ArrayList<Double>());
+		    }
+		    for (int j = 0; j < populationSize; j ++)
+		    {
+		    	// Add the first populationSize population members with the lowest error rates.
+		    	int indexToAddFrom = sortedPopulation.get(j).getIndex();
+		    	newPopulation.add(population.get(indexToAddFrom));
+		    	newFitness.add(fitness.get(indexToAddFrom));
+		    	for (String s : observations.keySet())
+		    	{
+		    		newClassFMeasures.get(s).add(classFMeasureResults.get(s).get(indexToAddFrom));
+		    	}
+		    }
+		    population = newPopulation;
+		    fitness = newFitness;
+		    classFMeasureResults = newClassFMeasures;
+
+		    // Write out the statistics of the population.
+	    	writeOutStatus(fitnessDirectoryLocation, fitness, populationDirectoryLocation, population, currentGeneration,
+	    			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classFMeasureResults, classFMeasureOutputLocations);
 
 	    	if (fitness.get(0) > this.currentBestFitness)
 	    	{
@@ -612,7 +594,7 @@ public class InstanceSelection
 
 	    // Write out the statistics of the final population.
     	writeOutStatus(fitnessDirectoryLocation, fitness, populationDirectoryLocation, population, currentGeneration,
-    			genStatsOutputLocation, populationSize, threshold, numberEvaluations);
+    			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classFMeasureResults, classFMeasureOutputLocations);
 
 	    // Write out the best member(s) of the population.
 	    Set<List<Integer>> recordedIndividuals = new HashSet<List<Integer>>();
@@ -710,7 +692,7 @@ public class InstanceSelection
 
 	void writeOutStatus(String fitnessDirectoryLocation, List<Double> fitness, String populationDirectoryLocation,
 			List<List<Integer>> population, int currentGeneration, String genStatsOutputLocation, int populationSize,
-			int threshold, int numberEvaluations)
+			int threshold, int numberEvaluations, Map<String, List<Double>> classFMeasureResults, Map<String, String> classFMeasureOutputLocations)
 	{
 		// Write out the fitness info for the current generation.
 		String fitnessOutputLocation = fitnessDirectoryLocation + "/" + Integer.toString(currentGeneration) + ".txt";
@@ -757,7 +739,7 @@ public class InstanceSelection
 		double meanErrorRate = 0.0;
 		double medianErrorRate = 0.0;
 		double stdDevErrorRate = 0.0;
-		for (double d : fitness)
+		for (Double d : fitness)
 		{
 			meanErrorRate += d;
 		}
@@ -774,11 +756,49 @@ public class InstanceSelection
 			medianErrorRate = fitness.get(populationSize / 2);  // Works as integer division causes this to be rounded down.
 		}
 		double squaredDiffWithMean = 0.0;
-		for (double d : fitness)
+		for (Double d : fitness)
 		{
 			squaredDiffWithMean += Math.pow(d - meanErrorRate, 2);
 		}
 		stdDevErrorRate = Math.pow(squaredDiffWithMean / populationSize, 0.5);
+
+		Map<String, List<Double>> classResults = new HashMap<String, List<Double>>();
+		for (String s : classFMeasureResults.keySet())
+		{
+			// Calculate the mean and median fitness for the current generation.
+			double meanClassFMeasure = 0.0;
+			double medianClassFMeasure = 0.0;
+			double stdDevClassFMeasure = 0.0;
+			for (Double d : classFMeasureResults.get(s))
+			{
+				meanClassFMeasure += d;
+			}
+			meanClassFMeasure /= populationSize;
+			if (populationSize % 2 == 0)
+			{
+				// If the size of the population is even.
+				int midPointOne = populationSize / 2;
+				int midPointTwo = midPointOne - 1;
+				medianClassFMeasure = (classFMeasureResults.get(s).get(midPointOne) + classFMeasureResults.get(s).get(midPointTwo)) / 2.0;
+			}
+			else
+			{
+				medianClassFMeasure = classFMeasureResults.get(s).get(populationSize / 2);  // Works as integer division causes this to be rounded down.
+			}
+			squaredDiffWithMean = 0.0;
+			for (Double d : classFMeasureResults.get(s))
+			{
+				squaredDiffWithMean += Math.pow(d - meanClassFMeasure, 2);
+			}
+			stdDevClassFMeasure = Math.pow(squaredDiffWithMean / populationSize, 0.5);
+
+			List<Double> resultsList = new ArrayList<Double>();
+			resultsList.add(classFMeasureResults.get(s).get(0));
+			resultsList.add(meanClassFMeasure);
+			resultsList.add(medianClassFMeasure);
+			resultsList.add(stdDevClassFMeasure);
+			classResults.put(s, resultsList);
+		}
 
 		// Write out the fitness statistics for the current generation.
 		try
@@ -804,6 +824,23 @@ public class InstanceSelection
 			genStatsOutputWriter.write(Integer.toString(numberEvaluations));
 			genStatsOutputWriter.newLine();
 			genStatsOutputWriter.close();
+
+			for (String s : classFMeasureResults.keySet())
+			{
+				FileWriter classStatsOutputFile = new FileWriter(classFMeasureOutputLocations.get(s), true);
+				BufferedWriter classStatsOutputWriter = new BufferedWriter(classStatsOutputFile);
+				classStatsOutputWriter.write(Integer.toString(currentGeneration));
+				classStatsOutputWriter.write("\t");
+				classStatsOutputWriter.write(Double.toString(classResults.get(s).get(0)));
+				classStatsOutputWriter.write("\t");
+				classStatsOutputWriter.write(Double.toString(classResults.get(s).get(1)));
+				classStatsOutputWriter.write("\t");
+				classStatsOutputWriter.write(Double.toString(classResults.get(s).get(2)));
+				classStatsOutputWriter.write("\t");
+				classStatsOutputWriter.write(Double.toString(classResults.get(s).get(3)));
+				classStatsOutputWriter.newLine();
+				classStatsOutputWriter.close();
+			}
 		}
 		catch (Exception e)
 		{
