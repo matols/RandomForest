@@ -413,6 +413,7 @@ public class Forest
 		Set<String> responseClasses = new HashSet<String>(this.processedData.responseData);
 		if (ctrl.isStratifiedBootstrapUsed)
 		{
+			isSampSizeUsed = true;
 			for (String s : responseClasses)
 			{
 				ctrl.sampSize.put(s, Collections.frequency(this.processedData.responseData, s));
