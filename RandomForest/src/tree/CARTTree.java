@@ -285,12 +285,6 @@ public class CARTTree
 		//**********************************************
 		// Check whether growth should stop.
 		//**********************************************
-		if (numberOfObservationsInNode <= this.ctrl.minNodeSize)
-		{
-			// The number of observations in the node is too few to perform a split.
-			// A terminal node must therefore be created.
-			return new NodeTerminal(classCountsForNode, currentDepth, weights);
-		}
 		if (!(classesPresentInNode.size() > 1))
 		{
 			// There are too few classes present in the observations in the node to warrant a split.
@@ -317,7 +311,7 @@ public class CARTTree
 
 		DetermineSplit splitCalculator = new DetermineSplit();
 		ImmutableThreeValues<Boolean, Double, String> splitResult = splitCalculator.findBestSplit(this.processedData.covariableData,
-				this.processedData.responseData, observationsInNode, variablesToSplitOn, weights);
+				this.processedData.responseData, observationsInNode, variablesToSplitOn, weights, this.ctrl);
 		isSplitFound = splitResult.first;
 		splitValue = splitResult.second;
 		covarToSplitOn = splitResult.third;

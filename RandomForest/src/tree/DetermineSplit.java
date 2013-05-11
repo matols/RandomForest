@@ -17,7 +17,7 @@ public class DetermineSplit
 {
 
 	ImmutableThreeValues<Boolean, Double, String> findBestSplit(Map<String, List<Double>> covariableData, List<String> responseData,
-			List<Integer> observationsInNode, List<String> variablesToSplitOn, Map<String, Double> weights)
+			List<Integer> observationsInNode, List<String> variablesToSplitOn, Map<String, Double> weights, TreeGrowthControl ctrl)
 	{
 		double maxSumDaughterNodeGini = -Double.MAX_VALUE;
 		double splitValue = 0.0;
@@ -88,8 +88,9 @@ public class DetermineSplit
 				IndexedDoubleData currentCovariableInstance = sortedCovariableValues.get(i);
 				double covariableValue = currentCovariableInstance.getData();
 				int covariableIndex = currentCovariableInstance.getIndex();
-				double covariableWeightedOccurences = parentObservationCounts.get(covariableIndex);
+//				double covariableWeightedOccurences = parentObservationCounts.get(covariableIndex);
 				String covariableClass = responseData.get(covariableIndex);
+				double covariableWeightedOccurences = weights.get(covariableClass);
 
 				// Update the child node Gini numerators and denominators.
 				rightChildNumerator = covariableWeightedOccurences * (-2 * rightChildWeghtedCounts.get(covariableClass) + covariableWeightedOccurences);
@@ -103,22 +104,26 @@ public class DetermineSplit
 				double oldLeftChildCount = leftChildWeghtedCounts.get(covariableClass);
 				leftChildWeghtedCounts.put(covariableClass, oldLeftChildCount + covariableWeightedOccurences);
 
+				if ((i + 1) < ctrl.minNodeSize || (observationsInNode.size() - (i + 1)) < ctrl.minNodeSize)
+				{
+					// Can't split if the children would be too small.
+					// (i + 1) observations down left branch and (observationsInNode.size() - (i + 1)) down right.
+					continue;
+				}
+
 				double nextValue = sortedCovariableValues.get(i + 1).getData();
 				if (covariableValue < nextValue)
 				{
 					// If the value of the covariable at position i in the sorted list is < (and therefore not equal to)
-					// the value of the cvariable at the next sorted position, then determine whether the split is worth keeping.
-					if (Math.min(covariableValue, nextValue) > 1.0e-5)
+					// the value of the covariable at the next sorted position, then determine whether the split is worth keeping.
+					double crit = (leftChildNumerator / leftChildDenominator) + (rightChildNumerator / rightChildDenominator);
+					if (crit > maxSumDaughterNodeGini)
 					{
-						double crit = (leftChildNumerator / leftChildDenominator) + (rightChildNumerator / rightChildDenominator);
-						if (crit > maxSumDaughterNodeGini)
-						{
-							// If the sum of the Gini impurity for the children nodes is better than any found before, then
-							// record this fact.
-							maxSumDaughterNodeGini = crit;
-							covariableToSplitOn = s;
-							splitValue = covariableValue;
-						}
+						// If the sum of the Gini impurity for the children nodes is better than any found before, then
+						// record this fact.
+						maxSumDaughterNodeGini = crit;
+						covariableToSplitOn = s;
+						splitValue = covariableValue;
 					}
 				}
 			}
@@ -126,7 +131,7 @@ public class DetermineSplit
 
 		if (maxSumDaughterNodeGini >= -1.0e10)
 		{
-			// Only return the best split if the sum of the children nodes Gini impurity is greater than a threshol value.
+			// Only return the best split if the sum of the children nodes Gini impurity is greater than a threshold value.
 			isSplitFound = true;
 		}
 		return new ImmutableThreeValues<Boolean, Double, String>(isSplitFound, splitValue, covariableToSplitOn);
