@@ -43,7 +43,8 @@ public class InstanceSelection
 	public List<List<Integer>> bestMembersFound = new ArrayList<List<Integer>>();
 
 
-	public InstanceSelection(String[] args, TreeGrowthControl ctrl, Map<String, Double> weights, Map<String, Double> fMeasureWeights)
+	public InstanceSelection(String[] args, TreeGrowthControl ctrl, Map<String, Double> weights, Map<String, Double> fMeasureWeights,
+			Map<String, Integer> fractionsToSelect)
 	{
 		// Required inputs.
 		String datasetLocation = args[0];  // The location of the file containing the entire dataset.
@@ -77,7 +78,6 @@ public class InstanceSelection
 		int maxEvaluations = 0;  // The maximum number of fitness evaluations to perform.
 		boolean verbose = false;  // Whether status updates should be displayed.
 		long maxTimeAllowed = 0;  // What the maximum time allowed (in ms) for the run is. 0 indicates that timing is not used.
-		int initialSetSize = 100;
 
 		// Read in the user input.
 		int argIndex = 2;
@@ -104,11 +104,6 @@ public class InstanceSelection
 			case "-t":
 				argIndex += 1;
 				maxTimeAllowed = Long.parseLong(args[argIndex]);
-				argIndex += 1;
-				break;
-			case "-i":
-				argIndex += 1;
-				initialSetSize = Integer.parseInt(args[argIndex]);
 				argIndex += 1;
 				break;
 			case "-v":
@@ -195,9 +190,18 @@ public class InstanceSelection
 			}
 			weightOutputWriter.newLine();
 			weightOutputWriter.write("F Measure Discount Weights");
+			weightOutputWriter.newLine();
 			for (String s : fMeasureWeights.keySet())
 			{
 				weightOutputWriter.write(s + "\t" + Double.toString(fMeasureWeights.get(s)));
+				weightOutputWriter.newLine();
+			}
+			weightOutputWriter.newLine();
+			weightOutputWriter.write("Number of Observations to Start With");
+			weightOutputWriter.newLine();
+			for (String s : fractionsToSelect.keySet())
+			{
+				weightOutputWriter.write(s + "\t" + Integer.toString(fractionsToSelect.get(s)));
 				weightOutputWriter.newLine();
 			}
 			weightOutputWriter.close();
@@ -221,7 +225,7 @@ public class InstanceSelection
 
 		// Determine the number of genes/features in the dataset.
 		int numberOfObservations = 0;
-		ProcessDataForGrowing processedInputFile =new ProcessDataForGrowing(datasetLocation, ctrl);
+		ProcessDataForGrowing processedInputFile = new ProcessDataForGrowing(datasetLocation, ctrl);
 		List<Integer> observationIndices = new ArrayList<Integer>();
 		Map<String, List<Integer>> observations = new HashMap<String, List<Integer>>();
 		Map<Integer, String> observationsToClass = new HashMap<Integer, String>();
@@ -258,6 +262,18 @@ public class InstanceSelection
 			e.printStackTrace();
 			System.exit(0);
 		}
+
+		// Determine the threshold used.
+		if (!observations.keySet().containsAll(fractionsToSelect.keySet()))
+		{
+			System.out.println("You specified a class to select a certain number of observations from, but this class does not exist.");
+			System.exit(0);
+		}
+		int initialSetSize = 0;
+		for (String s : fractionsToSelect.keySet())
+		{
+			initialSetSize += fractionsToSelect.get(s);
+		}
 		int threshold = initialSetSize / 4;
 
 		//----------------------
@@ -283,7 +299,7 @@ public class InstanceSelection
 			for (String s : observations.keySet())
 			{
 				List<Integer> availableForSelection = new ArrayList<Integer>(observations.get(s));
-				for (int j = 0; j < initialSetSize / observations.size(); j++)
+				for (int j = 0; j < fractionsToSelect.get(s); j++)
 				{
 					// Select a random available observation from class s.
 					Integer chosenObservation = availableForSelection.get(observationSelector.nextInt(availableForSelection.size()));
@@ -330,20 +346,18 @@ public class InstanceSelection
 	    		trainingSetClasses.put(s, numberInTrainingSet);
 	    	}
 	    	// Determine the macro f measure.
-	    	double macroFMeasure = 0.0;
+	    	double macroGMean = 1.0;
 	    	for (String s : predictedConfusionMatrix.keySet())
 	    	{
 	    		double TP = predictedConfusionMatrix.get(s).get("TruePositive");
-	    		double FP = predictedConfusionMatrix.get(s).get("FalsePositive");
 	    		double FN = observations.get(s).size() - trainingSetClasses.get(s) - TP;  // The number of false positives is the number of observaitons from the class in the testing set - the number of true positives.
 	    		double recall = TP / (TP + FN);
-		    	double precision = TP / (TP + FP);
-		    	double fMeasure = 2 * ((precision * recall) / (precision + recall));
-		    	macroFMeasure += (fMeasureWeights.get(s) * fMeasure);
-		    	classFMeasureResults.get(s).add(fMeasure);
+	    		macroGMean *= recall;
+		    	classFMeasureResults.get(s).add(recall);
 	    	}
+	    	macroGMean = Math.pow(macroGMean, (1.0 / observations.size()));
 	    	numberEvaluations += 1;
-	    	fitness.add(macroFMeasure);
+	    	fitness.add(macroGMean);
 	    }
 
 	    while (loopTermination(currentGeneration, maxGenerations, numberEvaluations, maxEvaluations, gaStartTime, maxTimeAllowed))
@@ -424,19 +438,17 @@ public class InstanceSelection
 			    		trainingSetClasses.put(s, numberInTrainingSet);
 			    	}
 			    	// Determine the macro f measure.
-			    	double macroFMeasure = 0.0;
+			    	double macroGMean = 1.0;
 			    	for (String s : predictedConfusionMatrix.keySet())
 			    	{
 			    		double TP = predictedConfusionMatrix.get(s).get("TruePositive");
-			    		double FP = predictedConfusionMatrix.get(s).get("FalsePositive");
 			    		double FN = observations.get(s).size() - trainingSetClasses.get(s) - TP;  // The number of false positives is the number of observaitons from the class in the testing set - the number of true positives.
 			    		double recall = TP / (TP + FN);
-				    	double precision = TP / (TP + FP);
-				    	double fMeasure = 2 * ((precision * recall) / (precision + recall));
-				    	macroFMeasure += (fMeasureWeights.get(s) * fMeasure);
-				    	classFMeasureResults.get(s).add(fMeasure);
+			    		macroGMean *= recall;
+				    	classFMeasureResults.get(s).add(recall);
 			    	}
-			    	fitness.add(macroFMeasure);
+			    	macroGMean = Math.pow(macroGMean, (1.0 / observations.size()));
+			    	fitness.add(macroGMean);
 		 	    	numberEvaluations += 1;
 			    }
 	    	}
@@ -454,7 +466,7 @@ public class InstanceSelection
 	    				for (String s : observations.keySet())
 	    				{
 	    					List<Integer> availableForSelection = new ArrayList<Integer>(observations.get(s));
-	    					for (int j = 0; j < initialSetSize / observations.size(); j++)
+	    					for (int j = 0; j < fractionsToSelect.get(s); j++)
 	    					{
 	    						// Select a random available observation from class s.
 	    						Integer chosenObservation = availableForSelection.get(observationSelector.nextInt(availableForSelection.size()));
@@ -498,19 +510,17 @@ public class InstanceSelection
 	    		    		trainingSetClasses.put(s, numberInTrainingSet);
 	    		    	}
 	    		    	// Determine the macro f measure.
-	    		    	double macroFMeasure = 0.0;
+	    		    	double macroGMean = 1.0;
 	    		    	for (String s : predictedConfusionMatrix.keySet())
 	    		    	{
 	    		    		double TP = predictedConfusionMatrix.get(s).get("TruePositive");
-	    		    		double FP = predictedConfusionMatrix.get(s).get("FalsePositive");
 	    		    		double FN = observations.get(s).size() - trainingSetClasses.get(s) - TP;  // The number of false positives is the number of observaitons from the class in the testing set - the number of true positives.
 	    		    		double recall = TP / (TP + FN);
-	    			    	double precision = TP / (TP + FP);
-	    			    	double fMeasure = 2 * ((precision * recall) / (precision + recall));
-	    			    	macroFMeasure += (fMeasureWeights.get(s) * fMeasure);
-	    			    	classFMeasureResults.get(s).add(fMeasure);
+	    		    		macroGMean *= recall;
+	    			    	classFMeasureResults.get(s).add(recall);
 	    		    	}
-				    	fitness.add(macroFMeasure);
+	    		    	macroGMean = Math.pow(macroGMean, (1.0 / observations.size()));
+				    	fitness.add(macroGMean);
 	    		    	numberEvaluations += 1;
 	    		    }
 	    		}
