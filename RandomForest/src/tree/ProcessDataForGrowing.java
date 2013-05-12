@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -254,6 +255,48 @@ public class ProcessDataForGrowing
 			System.out.println("There was an error while processing the input data file.");
 			e.printStackTrace();
 			System.exit(0);
+		}
+
+		if (ctrl.isScaled)
+		{
+			for (String s : this.covariableData.keySet())
+			{
+				List<Double> covariableValues = this.covariableData.get(s);
+				List<Double> scaledValues = new ArrayList<Double>();
+				double minValue = Collections.min(covariableValues);
+				double maxValue = Collections.max(covariableValues);
+				double valueRange = maxValue - minValue;
+				for (Double d : covariableValues)
+				{
+					scaledValues.add((d - minValue) / valueRange);
+				}
+				this.covariableData.put(s, scaledValues);
+			}
+		}
+		else if (ctrl.isStandardised)
+		{
+			for (String s : this.covariableData.keySet())
+			{
+				List<Double> covariableValues = this.covariableData.get(s);
+				List<Double> standardisedValues = new ArrayList<Double>();
+				double meanValue = 0.0;
+				for (Double d : covariableValues)
+				{
+					meanValue += d;
+				}
+				meanValue /= covariableValues.size();
+				double squaredDiffWithMean = 0.0;
+				for (Double d : covariableValues)
+				{
+					squaredDiffWithMean += Math.pow(d - meanValue, 2);
+				}
+				double stdDev = Math.pow(squaredDiffWithMean / covariableValues.size(), 0.5);
+				for (Double d : covariableValues)
+				{
+					standardisedValues.add((d - meanValue) / stdDev);
+				}
+				this.covariableData.put(s, standardisedValues);
+			}
 		}
 
 	}
