@@ -3,11 +3,14 @@ package featureselection;
 import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import tree.Forest;
+import tree.ProcessDataForGrowing;
 import tree.TreeGrowthControl;
 
 public class MultipleForestRunAndTest
@@ -27,11 +30,17 @@ public class MultipleForestRunAndTest
 	 */
 	static void forestTraining(Map<String, Map<String, Double>> confusionMatrix,
 			Map<String, Double> weights, TreeGrowthControl ctrl, String inputFile, List<Long> seeds, int repetitions,
-			String negClass, String posClass, String resultsLocation, String mccResultsLocation, int analysisBeingRun)
+			String resultsLocation, String mccResultsLocation, int analysisBeingRun)
 	{
 		double cumulativeOOBError = 0.0;
-		List<Double> mccValues = new ArrayList<Double>();
+		List<Double> gMeanValues = new ArrayList<Double>();
 		long oobTime = 0l;
+		ProcessDataForGrowing processedInputFile = new ProcessDataForGrowing(inputFile, ctrl);
+		Map<String, Integer> countsOfClass = new HashMap<String, Integer>();
+		for (String s : weights.keySet())
+		{
+			countsOfClass.put(s, Collections.frequency(processedInputFile.responseData, s));
+		}
 
 		Date startTime;
 		Date endTime;
@@ -56,29 +65,41 @@ public class MultipleForestRunAndTest
     		}
     		endTime = new Date();
     		oobTime += endTime.getTime() - startTime.getTime();
-    		Double oobTP = oobConfMatrix.get(posClass).get("TruePositive");
-			Double oobFP = oobConfMatrix.get(posClass).get("FalsePositive");
-			Double oobTN = oobConfMatrix.get(negClass).get("TruePositive");
-			Double oobFN = oobConfMatrix.get(negClass).get("FalsePositive");
-			mccValues.add((((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN))));
+    		double macroGMean = 1.0;
+    		for (String s : oobConfMatrix.keySet())
+	    	{
+	    		double TP = oobConfMatrix.get(s).get("TruePositive");
+	    		double FN = countsOfClass.get(s) - TP;  // The number of false positives is the number of observations from the class  - the number of true positives.
+	    		double recall = TP / (TP + FN);
+	    		macroGMean *= recall;
+	    	}
+	    	macroGMean = Math.pow(macroGMean, (1.0 / oobConfMatrix.size()));
+			gMeanValues.add(macroGMean);
 		}
 		oobTime /= (double) repetitions;
 
 		// Aggregate OOB results over all the repetitions.
 		cumulativeOOBError /= repetitions;
-		Double oobTP = confusionMatrix.get(posClass).get("TruePositive");
-		Double oobFP = confusionMatrix.get(posClass).get("FalsePositive");
-		Double oobTN = confusionMatrix.get(negClass).get("TruePositive");
-		Double oobFN = confusionMatrix.get(negClass).get("FalsePositive");
-		Double oobSensitivityOrRecall = oobTP / (oobTP + oobFN);
-		Double oobSpecificity = oobTN / (oobTN + oobFP);
-		Double oobAccuracy = (oobTP + oobTN) / (oobTP + oobTN + oobFP + oobFN);
-		Double oobPrecisionOrPPV = oobTP / (oobTP + oobFP);
-		Double oobNegPredictiveVal = oobTN / (oobTN + oobFN);
-		Double oobFHalf = (1 + (0.5 * 0.5)) * ((oobPrecisionOrPPV * oobSensitivityOrRecall) / ((0.5 * 0.5 * oobPrecisionOrPPV) + oobSensitivityOrRecall));;
-		Double oobFOne = 2 * ((oobPrecisionOrPPV * oobSensitivityOrRecall) / (oobPrecisionOrPPV + oobSensitivityOrRecall));
-		Double oobFTwo = (1 + (2 * 2)) * ((oobPrecisionOrPPV * oobSensitivityOrRecall) / ((2 * 2 * oobPrecisionOrPPV) + oobSensitivityOrRecall));
-		Double oobMCC = (((oobTP * oobTN)  - (oobFP * oobFN)) / Math.sqrt((oobTP + oobFP) * (oobTP + oobFN) * (oobTN + oobFP) * (oobTN + oobFN)));
+		double macroRecall = 0.0;
+		double macroPrecision = 0.0;
+		double macroGMean = 1.0;
+		for (String s : confusionMatrix.keySet())
+		{
+			double TP = confusionMatrix.get(s).get("TruePositive");
+			double FP = confusionMatrix.get(s).get("FalsePositive");
+    		double FN = (repetitions * countsOfClass.get(s)) - TP;  // The number of false positives is the number of observations from the class  - the number of true positives.
+    		double recall = (TP / (TP + FN));
+    		macroRecall += recall;
+    		double precision = (TP / (TP + FP));
+    		macroPrecision += precision;
+    		macroGMean *= recall;
+		}
+		macroRecall /= confusionMatrix.size();
+		macroPrecision /= confusionMatrix.size();
+		double fHalf = (1 + (0.5 * 0.5)) * ((macroPrecision * macroRecall) / ((0.5 * 0.5 * macroPrecision) + macroRecall));;
+		double fOne = 2 * ((macroPrecision * macroRecall) / (macroPrecision + macroRecall));
+		double fTwo = (1 + (2 * 2)) * ((macroPrecision * macroRecall) / ((2 * 2 * macroPrecision) + macroRecall));
+		double gMean = Math.pow(macroGMean, (1.0 / confusionMatrix.size()));;
 
 		// Write out the OOB results for this set of repetitions.
 		try
@@ -99,10 +120,10 @@ public class MultipleForestRunAndTest
 				{
 					sampleSize += ctrl.sampSize.get(s);
 				}
-				double posClassFraction = ((double) ctrl.sampSize.get(posClass)) / sampleSize;
+				//TODO				double posClassFraction = ((double) ctrl.sampSize.get(posClass)) / sampleSize;
 				resultsOutputWriter.write(Integer.toString(sampleSize));
 				resultsOutputWriter.write("\t");
-				resultsOutputWriter.write(String.format("%.5f", posClassFraction));
+				//TODO				resultsOutputWriter.write(String.format("%.5f", posClassFraction));
 				resultsOutputWriter.write("\t");
 				resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
 				resultsOutputWriter.write("\t");
@@ -112,33 +133,24 @@ public class MultipleForestRunAndTest
 				resultsOutputWriter.write(Integer.toString(ctrl.minNodeSize));
 				resultsOutputWriter.write("\t");
 			}
-			resultsOutputWriter.write(String.format("%.5f", oobMCC));
+			resultsOutputWriter.write(String.format("%.5f", gMean));
 			resultsOutputWriter.write("\t");
-			resultsOutputWriter.write(String.format("%.5f", oobFHalf));
+			resultsOutputWriter.write(String.format("%.5f", fHalf));
 			resultsOutputWriter.write("\t");
-			resultsOutputWriter.write(String.format("%.5f", oobFOne));
+			resultsOutputWriter.write(String.format("%.5f", fOne));
 			resultsOutputWriter.write("\t");
-			resultsOutputWriter.write(String.format("%.5f", oobFTwo));
+			resultsOutputWriter.write(String.format("%.5f", fTwo));
 			resultsOutputWriter.write("\t");
-			resultsOutputWriter.write(String.format("%.5f", oobAccuracy));
+			resultsOutputWriter.write(String.format("%.5f", 1 - cumulativeOOBError));
 			resultsOutputWriter.write("\t");
 			resultsOutputWriter.write(String.format("%.5f", cumulativeOOBError));
-			resultsOutputWriter.write("\t");
-			resultsOutputWriter.write(String.format("%.5f", oobPrecisionOrPPV));
-			resultsOutputWriter.write("\t");
-			resultsOutputWriter.write(String.format("%.5f", oobSensitivityOrRecall));
-			resultsOutputWriter.write("\t");
-			resultsOutputWriter.write(String.format("%.5f", oobSpecificity));
-			resultsOutputWriter.write("\t");
-			resultsOutputWriter.write(String.format("%.5f", oobNegPredictiveVal));
-			resultsOutputWriter.write("\t");
-			resultsOutputWriter.write(String.format("%.5f", oobTP));
-			resultsOutputWriter.write("\t");
-			resultsOutputWriter.write(String.format("%.5f", oobFP));
-			resultsOutputWriter.write("\t");
-			resultsOutputWriter.write(String.format("%.5f", oobTN));
-			resultsOutputWriter.write("\t");
-			resultsOutputWriter.write(String.format("%.5f", oobFN));
+			for (String s : confusionMatrix.keySet())
+			{
+				resultsOutputWriter.write("\t");
+				resultsOutputWriter.write(String.format("%.5f", confusionMatrix.get(s).get("TruePositive")));
+				resultsOutputWriter.write("\t");
+				resultsOutputWriter.write(String.format("%.5f", confusionMatrix.get(s).get("FalsePositive")));
+			}
 			resultsOutputWriter.write("\t");
 			resultsOutputWriter.write(Long.toString(oobTime));
 			resultsOutputWriter.newLine();
@@ -169,10 +181,10 @@ public class MultipleForestRunAndTest
 				{
 					sampleSize += ctrl.sampSize.get(s);
 				}
-				double posClassFraction = ((double) ctrl.sampSize.get(posClass)) / sampleSize;
+//TODO				double posClassFraction = ((double) ctrl.sampSize.get(posClass)) / sampleSize;
 				resultsOutputWriter.write(Integer.toString(sampleSize));
 				resultsOutputWriter.write("\t");
-				resultsOutputWriter.write(String.format("%.5f", posClassFraction));
+//TODO				resultsOutputWriter.write(String.format("%.5f", posClassFraction));
 				resultsOutputWriter.write("\t");
 				resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
 				resultsOutputWriter.write("\t");
@@ -182,7 +194,7 @@ public class MultipleForestRunAndTest
 				resultsOutputWriter.write(Integer.toString(ctrl.minNodeSize));
 				resultsOutputWriter.write("\t");
 			}
-			for (Double d : mccValues)
+			for (Double d : gMeanValues)
 			{
 				resultsOutputWriter.write(String.format("%.5f", d));
 				resultsOutputWriter.write("\t");
