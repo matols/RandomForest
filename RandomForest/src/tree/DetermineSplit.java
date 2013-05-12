@@ -123,7 +123,7 @@ public class DetermineSplit
 						// record this fact.
 						maxSumDaughterNodeGini = crit;
 						covariableToSplitOn = s;
-						splitValue = covariableValue;
+						splitValue = (covariableValue + nextValue) / 2.0;
 					}
 				}
 			}
