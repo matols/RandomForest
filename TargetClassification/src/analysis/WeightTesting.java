@@ -1,4 +1,4 @@
-package featureselection;
+package analysis;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -15,11 +15,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 import tree.ProcessDataForGrowing;
 import tree.TreeGrowthControl;
 
-public class NodeSizeTesting
+public class WeightTesting
 {
 
 	/**
@@ -78,58 +79,66 @@ public class NodeSizeTesting
 			System.exit(0);
 		}
 
-		// Setup the results output file.
-		String fullDatasetResultsLocation = resultsDir + "/FullDatasetResults.txt";
-		try
-		{
-			FileWriter resultsOutputFile = new FileWriter(fullDatasetResultsLocation);
-			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("NodeSize\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN\tTimeTaken(ms)");
-			resultsOutputWriter.newLine();
-			resultsOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
-		String fullDatasetMCCResultsLocation = resultsDir + "/FullDatasetMCCResults.txt";
-		try
-		{
-			FileWriter resultsOutputFile = new FileWriter(fullDatasetMCCResultsLocation);
-			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("NodeSize");
-			resultsOutputWriter.newLine();
-			resultsOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
-
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
 		int repetitions = 50;
-		Integer[] nodeSizeValues = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20};
+		Double[] weightsToUse = {0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0};
+		Integer[] mtryToUse = {5, 10, 15, 20};
+		Integer[] trainingObsToUse = {};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
 		ctrl.numberOfTreesToGrow = 500;
-		ctrl.mtry = 10;
 		ctrl.isStratifiedBootstrapUsed = true;
-
-		ProcessDataForGrowing procData = new ProcessDataForGrowing(inputFile, ctrl);
-		String negClass = "Unlabelled";
-		String posClass = "Positive";
-
-		Map<String, Double> weights = new HashMap<String, Double>();
-		weights.put("Unlabelled", 1.0);
-		weights.put("Positive", 1.0);
+		ctrl.minNodeSize = 1;
+		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
+
+		Map<String, Double> weights = new HashMap<String, Double>();
+		weights.put("Unlabelled", 1.0);
+
+		ProcessDataForGrowing procData = new ProcessDataForGrowing(inputFile, ctrl);
+		Set<String> classesInDataset = new HashSet<String>(procData.responseData);
+
+		// Setup the results output files.
+		String fullDatasetResultsLocation = resultsDir + "/FullDatasetResults.txt";
+		String fullDatasetMCCResultsLocation = resultsDir + "/FullDatasetGMeanResults.txt";
+		try
+		{
+			FileWriter resultsOutputFile = new FileWriter(fullDatasetResultsLocation);
+			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
+			resultsOutputWriter.write("Weight\tMtry\tGMean\tF0.5\tF1\tF2\tAccuracy\tOOBError");
+			for (String s : classesInDataset)
+			{
+				resultsOutputWriter.write("\t");
+				resultsOutputWriter.write(s);
+				resultsOutputWriter.write("\t");
+			}
+			resultsOutputWriter.write("\tTimeTaken(ms)");
+			resultsOutputWriter.newLine();
+			resultsOutputWriter.write("\t\t\t\t\t\t\t");
+			for (String s : classesInDataset)
+			{
+				resultsOutputWriter.write("\tTrue\tFalse");
+			}
+			resultsOutputWriter.write("\t");
+			resultsOutputWriter.newLine();
+			resultsOutputWriter.close();
+
+			resultsOutputFile = new FileWriter(fullDatasetMCCResultsLocation);
+			resultsOutputWriter = new BufferedWriter(resultsOutputFile);
+			resultsOutputWriter.write("Weight\tMtry");
+			resultsOutputWriter.newLine();
+			resultsOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
 
 		// Generate the seeds for the repetitions, and the CV folds for each repetition.
 		Random randGen = new Random();
@@ -165,7 +174,21 @@ public class NodeSizeTesting
 			{
 				FileWriter resultsOutputFile = new FileWriter(subsetResultsLocation);
 				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-				resultsOutputWriter.write("NodeSize\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN\tTimeTaken(ms)");
+				resultsOutputWriter.write("Weight\tMtry\tGMean\tF0.5\tF1\tF2\tAccuracy\tOOBError");
+				for (String s : classesInDataset)
+				{
+					resultsOutputWriter.write("\t");
+					resultsOutputWriter.write(s);
+					resultsOutputWriter.write("\t");
+				}
+				resultsOutputWriter.write("\tTimeTaken(ms)");
+				resultsOutputWriter.newLine();
+				resultsOutputWriter.write("\t\t\t\t\t\t\t");
+				for (String s : classesInDataset)
+				{
+					resultsOutputWriter.write("\tTrue\tFalse");
+				}
+				resultsOutputWriter.write("\t");
 				resultsOutputWriter.newLine();
 				resultsOutputWriter.close();
 			}
@@ -178,7 +201,7 @@ public class NodeSizeTesting
 			{
 				FileWriter resultsOutputFile = new FileWriter(subsetMCCResultsLocation);
 				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-				resultsOutputWriter.write("NodeSize");
+				resultsOutputWriter.write("Weight\tMtry");
 				resultsOutputWriter.newLine();
 				resultsOutputWriter.close();
 			}
@@ -188,12 +211,13 @@ public class NodeSizeTesting
 				System.exit(0);
 			}
 		}
+
+		// Setup alternate forest growth control objects.
 		TreeGrowthControl subsetCtrl = new TreeGrowthControl();
 		subsetCtrl.isReplacementUsed = ctrl.isReplacementUsed;
 		subsetCtrl.numberOfTreesToGrow = ctrl.numberOfTreesToGrow;
-		subsetCtrl.mtry = ctrl.mtry;
-		subsetCtrl.isStratifiedBootstrapUsed = ctrl.isStratifiedBootstrapUsed;
 		subsetCtrl.variablesToIgnore = covarsToRemove;
+		subsetCtrl.isStratifiedBootstrapUsed = true;
 
 		// Write out the parameters used.
 		String parameterLocation = resultsDir + "/Parameters.txt";
@@ -207,11 +231,11 @@ public class NodeSizeTesting
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.write("Repetitions used - " + Integer.toString(repetitions));
 			parameterOutputWriter.newLine();
-			parameterOutputWriter.write("Weights used - " + weights.toString());
+			parameterOutputWriter.write("Weights used - " + Arrays.toString(weightsToUse));
 			parameterOutputWriter.newLine();
-			parameterOutputWriter.write("Mtry used - " + Integer.toString(ctrl.mtry));
+			parameterOutputWriter.write("Mtry used - " + Arrays.toString(mtryToUse));
 			parameterOutputWriter.newLine();
-			parameterOutputWriter.write("Sizes of datasets used - " + Arrays.toString(nodeSizeValues));
+			parameterOutputWriter.write("Training observations used - " + Arrays.toString(trainingObsToUse));
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.close();
 		}
@@ -223,31 +247,24 @@ public class NodeSizeTesting
 
 		Map<String, Map<String, Double>> confusionMatrix;
 
-		// Generate the subsets.
-		for (Integer nodeSize : nodeSizeValues)
+		for (Integer mtry : mtryToUse)
 		{
-			Date startTime = new Date();
-		    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-		    String strDate = sdfDate.format(startTime);
-			System.out.format("Now working on node size %d at %s.\n", nodeSize, strDate);
+			ctrl.mtry = mtry;
+			subsetCtrl.mtry = mtry;
 
-			// Setup the sample size constraints.
-			ctrl.minNodeSize = nodeSize;
-			subsetCtrl.minNodeSize = nodeSize;
+			System.out.format("Now working on mtry - %d.\n", mtry);
 
-			// Perform the analysis for the entire dataset.
-			confusionMatrix = new HashMap<String, Map<String, Double>>();
-			for (String s : new HashSet<String>(procData.responseData))
+			// Generate the results for this weighting.
+			for (Double posWeight : weightsToUse)
 			{
-				confusionMatrix.put(s, new HashMap<String, Double>());
-				confusionMatrix.get(s).put("TruePositive", 0.0);
-				confusionMatrix.get(s).put("FalsePositive", 0.0);
-			}
-			MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, negClass, posClass, fullDatasetResultsLocation, fullDatasetMCCResultsLocation, 3);
+				weights.put("Positive", posWeight);
 
-			if (isSubsetUsed)
-			{
-				// Perform the analysis for the chosen subset.
+				DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			    Date startTime = new Date();
+			    String strDate = sdfDate.format(startTime);
+				System.out.format("\tNow starting weight - %f at %s.\n", posWeight, strDate);
+
+				// Perform the analysis for the entire dataset.
 				confusionMatrix = new HashMap<String, Map<String, Double>>();
 				for (String s : new HashSet<String>(procData.responseData))
 				{
@@ -255,7 +272,20 @@ public class NodeSizeTesting
 					confusionMatrix.get(s).put("TruePositive", 0.0);
 					confusionMatrix.get(s).put("FalsePositive", 0.0);
 				}
-				MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, negClass, posClass, subsetResultsLocation, subsetMCCResultsLocation, 3);
+				MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, fullDatasetResultsLocation, fullDatasetMCCResultsLocation, 1);
+
+				if (isSubsetUsed)
+				{
+					// Perform the analysis for the chosen subset.
+					confusionMatrix = new HashMap<String, Map<String, Double>>();
+					for (String s : new HashSet<String>(procData.responseData))
+					{
+						confusionMatrix.put(s, new HashMap<String, Double>());
+						confusionMatrix.get(s).put("TruePositive", 0.0);
+						confusionMatrix.get(s).put("FalsePositive", 0.0);
+					}
+					MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, subsetResultsLocation, subsetMCCResultsLocation, 1);
+				}
 			}
 		}
 	}

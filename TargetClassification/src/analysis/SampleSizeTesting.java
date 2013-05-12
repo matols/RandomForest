@@ -1,4 +1,4 @@
-package featureselection;
+package analysis;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -94,7 +94,7 @@ public class SampleSizeTesting
 			e.printStackTrace();
 			System.exit(0);
 		}
-		String fullDatasetMCCResultsLocation = resultsDir + "/FullDatasetMCCResults.txt";
+		String fullDatasetMCCResultsLocation = resultsDir + "/FullDatasetGMeanResults.txt";
 		try
 		{
 			FileWriter resultsOutputFile = new FileWriter(fullDatasetMCCResultsLocation);
@@ -113,9 +113,9 @@ public class SampleSizeTesting
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
 		int repetitions = 2;
-		Integer[] sizeOfDatasets = {2000};
-		Double[] fractionOfPositives = {0.0};
-		Double[] weightsToUse = {10.0, 20.0, 30.0, 40.0, 50.0};
+		Integer[] sizeOfDatasets = {1000};
+		Double[] fractionOfPositives = {0.5};
+		Double[] weightsToUse = {1.0, 2.0, 3.0, 4.0, 5.0};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;

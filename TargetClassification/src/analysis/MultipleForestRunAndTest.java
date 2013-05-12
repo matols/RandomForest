@@ -1,4 +1,4 @@
-package featureselection;
+package analysis;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
