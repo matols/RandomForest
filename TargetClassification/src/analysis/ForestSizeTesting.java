@@ -62,12 +62,12 @@ public class ForestSizeTesting
 		ctrl.isReplacementUsed = true;
 		ctrl.isStratifiedBootstrapUsed = true;
 		ctrl.minNodeSize = 1;
-		ctrl.mtry = 15;
+		ctrl.mtry = 10;
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
-		weights.put("Positive", 22.0);
+		weights.put("Positive", 1.1);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================

@@ -20,6 +20,11 @@ public abstract class Node
 	Map<String, Integer> classCountsInNode = new HashMap<String, Integer>();
 	Map<String, Double> weights = new HashMap<String, Double>();
 
+	int countTerminalNodes()
+	{
+		return -1;
+	}
+
 	String display()
 	{
 		return null;

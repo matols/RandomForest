@@ -45,6 +45,11 @@ public class NodeTerminal extends Node
 		this.children[1] = null;
 	}
 
+	int countTerminalNodes()
+	{
+		return 1;
+	}
+
 	String display()
 	{
 		String outputString = "";

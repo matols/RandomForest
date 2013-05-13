@@ -129,7 +129,7 @@ public class DetermineSplit
 			}
 		}
 
-		if (maxSumDaughterNodeGini >= -1.0e10)
+		if (maxSumDaughterNodeGini >= 0.1)
 		{
 			// Only return the best split if the sum of the children nodes Gini impurity is greater than a threshold value.
 			isSplitFound = true;

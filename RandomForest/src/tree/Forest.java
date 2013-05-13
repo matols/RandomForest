@@ -455,15 +455,6 @@ public class Forest
 		{
 			observations.add(i);
 		}
-		int numberObservationsToSelect = 0;
-		if (!this.ctrl.isReplacementUsed)
-		{
-			numberObservationsToSelect = (int) Math.floor(this.ctrl.selectionFraction * observations.size());
-		}
-		else
-		{
-			numberObservationsToSelect = observations.size();
-		}
 
 		for (int i = 0; i < ctrl.numberOfTreesToGrow; i++)
 		{
@@ -478,7 +469,7 @@ public class Forest
 					if (!ctrl.isReplacementUsed)
 					{
 						Collections.shuffle(thisClassObservations, new Random(randGenerator.nextLong()));
-						for (int j = 0; j < observationsToSelect; j++)
+						for (int j = 0; j < observationsToSelect * this.ctrl.selectionFraction; j++)
 						{
 							observationsForTheTree.add(thisClassObservations.get(j));
 						}
@@ -498,6 +489,7 @@ public class Forest
 			{
 				if (!ctrl.isReplacementUsed)
 				{
+					int numberObservationsToSelect = (int) Math.floor(this.ctrl.selectionFraction * observations.size());
 					Collections.shuffle(observations, new Random(randGenerator.nextLong()));
 					for (int j = 0; j < numberObservationsToSelect; j++)
 					{
@@ -506,6 +498,7 @@ public class Forest
 				}
 				else
 				{
+					int numberObservationsToSelect = observations.size();
 					int selectedObservation;
 					for (int j = 0; j < numberObservationsToSelect; j++)
 					{

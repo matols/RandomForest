@@ -233,6 +233,11 @@ public class CARTTree
 		this.cartTree = growTree(observationsUsed, potentialWeights, 0);
 	}
 
+	public int countTerminalNodes()
+	{
+		return this.cartTree.countTerminalNodes();
+	}
+
 	/**
 	 * Displays the tree.
 	 */

@@ -89,6 +89,11 @@ public class NodeNonTerminal extends Node
 
 	}
 
+	int countTerminalNodes()
+	{
+		return this.children[0].countTerminalNodes() + this.children[1].countTerminalNodes();
+	}
+
 	String display()
 	{
 		String outputString = "";

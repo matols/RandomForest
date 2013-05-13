@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import tree.CARTTree;
 import tree.Forest;
 import tree.ImmutableTwoValues;
 import tree.ProcessDataForGrowing;
@@ -40,13 +41,24 @@ public class TestDriver
 	{
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 100;
+		ctrl.numberOfTreesToGrow = 1;
 		ctrl.mtry = 10;
 		ctrl.isStratifiedBootstrapUsed = true;
 		int gaRepetitions = 20;
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
 		weights.put("Positive", 1.0);
+
+		Forest forest = new Forest(args[0], ctrl, weights);
+		double averageTerminals = 0.0;
+		for (CARTTree t : forest.forest)
+		{
+			averageTerminals += t.countTerminalNodes();
+		}
+		System.out.println(forest.forest.get(0).display());
+		System.out.println(averageTerminals / forest.forest.size());
+		System.out.println(forest.oobErrorEstimate);
+		System.out.println(forest.oobConfusionMatrix);
 
 
 //		ctrl.isCalculateOOB = false;
