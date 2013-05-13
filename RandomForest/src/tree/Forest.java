@@ -41,6 +41,11 @@ public class Forest
 	public List<List<Integer>> oobObservations = new ArrayList<List<Integer>>();
 
 	/**
+	 * A mapping from each integer to a list of the trees that it is oob on.
+	 */
+	public Map<Integer, List<Integer>> oobOnTree = new HashMap<Integer, List<Integer>>();
+
+	/**
 	 * The oob error estimate.
 	 */
 	public double oobErrorEstimate = 0.0;
@@ -135,6 +140,19 @@ public class Forest
 					this.weights.put(indivWeights[0], Double.parseDouble(indivWeights[1]));
 				}
 				this.seed = Long.parseLong(splitLine[5]);
+
+				String[] obsOOBSplits = splitLine[6].split(";");
+				for (String s : obsOOBSplits)
+				{
+					String[] indivObsOOB = s.split(",");
+					int obs = Integer.parseInt(indivObsOOB[0]);
+					List<Integer> treesOOBOn = new ArrayList<Integer>();
+					for (int i = 1; i < indivObsOOB.length; i++)
+					{
+						treesOOBOn.add(Integer.parseInt(indivObsOOB[i]));
+					}
+					this.oobOnTree.put(obs, treesOOBOn);
+				}
 			}
 			catch (Exception e)
 			{
@@ -408,6 +426,12 @@ public class Forest
 			this.processedData = procData;
 		}
 
+		// Set up the oob mapping.
+		for (int i = 0; i < this.processedData.numberObservations; i++)
+		{
+			oobOnTree.put(i, new ArrayList<Integer>());
+		}
+
 		// Determine if sub sampling is used, and if so record the response of each observation.
 		boolean isSampSizeUsed = this.ctrl.sampSize.size() > 0;
 		Set<String> responseClasses = new HashSet<String>(this.processedData.responseData);
@@ -516,6 +540,7 @@ public class Forest
 				{
 					// If the observation is not in the observations to use when growing the tree, then it is oob for the tree.
 					oobOnThisTree.add(j);
+					oobOnTree.get(j).add(i);
 				}
 			}
 			this.oobObservations.add(oobOnThisTree);
@@ -541,24 +566,25 @@ public class Forest
 			int numberOobObservations = 0;
 			for (int i = 0; i < this.processedData.numberObservations; i++)
 			{
-				boolean isIOob = false;
+//				boolean isIOob = false;
+				boolean isIOob = !oobOnTree.get(i).isEmpty();
 				List<Integer> obsToPredict = new ArrayList<Integer>();
 				obsToPredict.add(i);
-				// Gather the trees or which observation i is oob.
-				List<Integer> treesToPredictFrom = new ArrayList<Integer>();
-				for (int j = 0; j < this.ctrl.numberOfTreesToGrow; j++)
-				{
-					if (this.oobObservations.get(j).contains(i))
-					{
-						// If the jth tree contains the ith observation as an oob observation.
-						treesToPredictFrom.add(j);
-						isIOob = true;
-					}
-				}
+//				// Gather the trees or which observation i is oob.
+//				List<Integer> treesToPredictFrom = new ArrayList<Integer>();
+//				for (int j = 0; j < this.ctrl.numberOfTreesToGrow; j++)
+//				{
+//					if (this.oobObservations.get(j).contains(i))
+//					{
+//						// If the jth tree contains the ith observation as an oob observation.
+//						treesToPredictFrom.add(j);
+//						isIOob = true;
+//					}
+//				}
 				if (isIOob)
 				{
 					numberOobObservations += 1;
-					ImmutableTwoValues<Double, Map<String, Map<String, Double>>> oobPrediction = predict(this.processedData, obsToPredict, treesToPredictFrom);
+					ImmutableTwoValues<Double, Map<String, Map<String, Double>>> oobPrediction = predict(this.processedData, obsToPredict, oobOnTree.get(i));
 					cumulativeErrorRate += oobPrediction.first;
 					for (String s : oobPrediction.second.keySet())
 					{
@@ -870,6 +896,20 @@ public class Forest
 			weightsOutput = weightsOutput.substring(0, weightsOutput.length() - 1);  // Chop off the last ';'.
 			outputWriter.write(weightsOutput + "\t");
 			outputWriter.write(Long.toString(this.seed));
+			outputWriter.write("\t");
+			String oobTreeOutput = "";
+			for (Integer i : oobOnTree.keySet())
+			{
+				oobTreeOutput += Integer.toString(i) + ",";
+				for (Integer j : oobOnTree.get(i))
+				{
+					oobTreeOutput += Integer.toString(j) + ",";
+				}
+				oobTreeOutput = oobTreeOutput.substring(0, oobTreeOutput.length() - 1);  // Chop off the last ','.
+				oobTreeOutput += ";";
+			}
+			oobTreeOutput = oobTreeOutput.substring(0, oobTreeOutput.length() - 1);  // Chop off the last ';'.
+			outputWriter.write(oobTreeOutput);
 			outputWriter.close();
 		}
 		catch (Exception e)
