@@ -132,6 +132,8 @@ public class MultipleForestRunAndTest
 			{
 				resultsOutputWriter.write(Integer.toString(ctrl.minNodeSize));
 				resultsOutputWriter.write("\t");
+				resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
+				resultsOutputWriter.write("\t");
 			}
 			resultsOutputWriter.write(String.format("%.5f", gMean));
 			resultsOutputWriter.write("\t");
@@ -162,7 +164,7 @@ public class MultipleForestRunAndTest
 			System.exit(0);
 		}
 
-		// Write out the MCC results for this set of repetitions.
+		// Write out the G mean results for this set of repetitions.
 		try
 		{
 			FileWriter resultsOutputFile = new FileWriter(mccResultsLocation, true);
@@ -192,6 +194,8 @@ public class MultipleForestRunAndTest
 			else if (analysisBeingRun == 3)
 			{
 				resultsOutputWriter.write(Integer.toString(ctrl.minNodeSize));
+				resultsOutputWriter.write("\t");
+				resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
 				resultsOutputWriter.write("\t");
 			}
 			for (Double d : gMeanValues)
