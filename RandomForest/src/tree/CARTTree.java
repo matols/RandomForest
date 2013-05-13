@@ -190,16 +190,6 @@ public class CARTTree
 
 	void controlTreeGrowth(Map<String, Double> potentialWeights)
 	{
-		// Setup the class weights.
-		for (String s : this.processedData.responseData)
-		{
-			if (!potentialWeights.containsKey(s))
-			{
-				// Any classes without a weight are assigned a weight of 1.
-				potentialWeights.put(s, 1.0);
-			}
-		}
-
 		// Setup the list of observations.
 		List<Integer> observationsUsed = new ArrayList<Integer>();
 		for (int i = 0; i < this.processedData.numberObservations; i++)
@@ -208,13 +198,13 @@ public class CARTTree
 		}
 
 		// Grow the tree.
-		this.cartTree = growTree(observationsUsed, potentialWeights, 0);
+		controlTreeGrowth(potentialWeights, observationsUsed);
 	}
 
 	void controlTreeGrowth(List<Integer> observationsUsed)
 	{
 		// Grow the tree.
-		this.cartTree = growTree(observationsUsed, new HashMap<String, Double>(), 0);
+		controlTreeGrowth(new HashMap<String, Double>(), observationsUsed);
 	}
 
 	void controlTreeGrowth(Map<String, Double> potentialWeights, List<Integer> observationsUsed)
