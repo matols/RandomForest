@@ -19,7 +19,7 @@ public class DetermineSplit
 	ImmutableThreeValues<Boolean, Double, String> findBestSplit(Map<String, List<Double>> covariableData, List<String> responseData,
 			List<Integer> observationsInNode, List<String> variablesToSplitOn, Map<String, Double> weights, TreeGrowthControl ctrl)
 	{
-		double maxSumDaughterNodeGini = -Double.MAX_VALUE;
+		double maxSumDaughterNodeGini = 1.0;
 		double splitValue = 0.0;
 		String covariableToSplitOn = null;
 		boolean isSplitFound = false;
@@ -27,7 +27,6 @@ public class DetermineSplit
 		// Calculate the weighted number of observations of each class that are present in the parent node.
 		// Also calculate the weighted number of occurrences of each observation in the parent node.
 		Map<String, Double> parentClassCount = new HashMap<String, Double>();
-		Map<Integer, Double> parentObservationCounts = new HashMap<Integer, Double>();
 		for (String s : weights.keySet())
 		{
 			parentClassCount.put(s, 0.0);
@@ -36,41 +35,22 @@ public class DetermineSplit
 		{
 			String response = responseData.get(i);
 			parentClassCount.put(response, parentClassCount.get(response) + weights.get(response));
-			if (parentObservationCounts.containsKey(i))
-			{
-				double oldObsCount = parentObservationCounts.get(i);
-				parentObservationCounts.put(i, oldObsCount + weights.get(response));
-			}
-			else
-			{
-				parentObservationCounts.put(i, weights.get(response));
-			}
-		}
-
-		// Calculate Gini index for parent node.
-		double parentGiniNumerator = 0.0;
-		double parentGiniDenominator = 0.0;
-		for (String s : weights.keySet())
-		{
-			double classWeightedCount = parentClassCount.get(s);
-			parentGiniNumerator += Math.pow(classWeightedCount, 2);
-			parentGiniDenominator += classWeightedCount;
 		}
 
 		for (String s : variablesToSplitOn)
 		{
-			// Initialise the child nodes' Gini numerators and denominators.
-			double rightChildNumerator = parentGiniNumerator;
-			double rightChildDenominator = parentGiniDenominator;
-			double leftChildNumerator = 0.0;
-			double leftChildDenominator = 0.0;
-
 			// Initialise the right and left child node weighted class counts.
 			Map<String, Double> rightChildWeghtedCounts = new HashMap<String, Double>();
 			Map<String, Double> leftChildWeghtedCounts = new HashMap<String, Double>();
+			double totalParentWeight = 0.0;
+			double totalLeftChildWeight = 0.0;
+			double totalRightChildWeight = 0.0;
 			for (String i : parentClassCount.keySet())
 			{
-				rightChildWeghtedCounts.put(i, parentClassCount.get(i));
+				double classWeight = parentClassCount.get(i);
+				totalParentWeight += classWeight;
+				totalRightChildWeight += classWeight;
+				rightChildWeghtedCounts.put(i, classWeight);
 				leftChildWeghtedCounts.put(i, 0.0);
 			}
 
@@ -87,22 +67,29 @@ public class DetermineSplit
 			{
 				IndexedDoubleData currentCovariableInstance = sortedCovariableValues.get(i);
 				double covariableValue = currentCovariableInstance.getData();
-				int covariableIndex = currentCovariableInstance.getIndex();
-//				double covariableWeightedOccurences = parentObservationCounts.get(covariableIndex);
-				String covariableClass = responseData.get(covariableIndex);
+				int observationIndex = currentCovariableInstance.getIndex();
+//				double covariableWeightedOccurences = parentObservationCounts.get(observationIndex);
+				String covariableClass = responseData.get(observationIndex);
 				double covariableWeightedOccurences = weights.get(covariableClass);
-
-				// Update the child node Gini numerators and denominators.
-				rightChildNumerator = covariableWeightedOccurences * (-2 * rightChildWeghtedCounts.get(covariableClass) + covariableWeightedOccurences);
-				rightChildDenominator -= covariableWeightedOccurences;
-				leftChildNumerator = covariableWeightedOccurences * (2 * leftChildWeghtedCounts.get(covariableClass) + covariableWeightedOccurences);;
-				leftChildDenominator += covariableWeightedOccurences;
 
 				// Update the child node weighted observations counts.
 				double oldRightChildCount = rightChildWeghtedCounts.get(covariableClass);
 				rightChildWeghtedCounts.put(covariableClass, oldRightChildCount - covariableWeightedOccurences);
+				totalRightChildWeight -= covariableWeightedOccurences;
 				double oldLeftChildCount = leftChildWeghtedCounts.get(covariableClass);
 				leftChildWeghtedCounts.put(covariableClass, oldLeftChildCount + covariableWeightedOccurences);
+				totalLeftChildWeight += covariableWeightedOccurences;
+
+				double leftGini = 1.0;
+				for (String p : leftChildWeghtedCounts.keySet())
+				{
+					leftGini -= Math.pow(leftChildWeghtedCounts.get(p) / totalLeftChildWeight, 2);
+				}
+				double rightGini = 1.0;
+				for (String p : leftChildWeghtedCounts.keySet())
+				{
+					rightGini -= Math.pow(rightChildWeghtedCounts.get(p) / totalRightChildWeight, 2);
+				}
 
 				if ((i + 1) < ctrl.minNodeSize || (observationsInNode.size() - (i + 1)) < ctrl.minNodeSize)
 				{
@@ -116,8 +103,8 @@ public class DetermineSplit
 				{
 					// If the value of the covariable at position i in the sorted list is < (and therefore not equal to)
 					// the value of the covariable at the next sorted position, then determine whether the split is worth keeping.
-					double crit = (leftChildNumerator / leftChildDenominator) + (rightChildNumerator / rightChildDenominator);
-					if (crit > maxSumDaughterNodeGini)
+					double crit = ((totalLeftChildWeight / totalParentWeight) * leftGini) + ((totalRightChildWeight / totalParentWeight) * rightGini);
+					if (crit < maxSumDaughterNodeGini)
 					{
 						// If the sum of the Gini impurity for the children nodes is better than any found before, then
 						// record this fact.
@@ -129,7 +116,7 @@ public class DetermineSplit
 			}
 		}
 
-		if (maxSumDaughterNodeGini >= 0.1)
+		if (maxSumDaughterNodeGini < 1.0)
 		{
 			// Only return the best split if the sum of the children nodes Gini impurity is greater than a threshold value.
 			isSplitFound = true;
