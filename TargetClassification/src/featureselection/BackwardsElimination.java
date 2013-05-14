@@ -14,6 +14,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -22,6 +23,7 @@ import datasetgeneration.BootstrapGeneration;
 import datasetgeneration.CrossValidationFoldGenerationMultiClass;
 
 import tree.Forest;
+import tree.ImmutableThreeValues;
 import tree.ImmutableTwoValues;
 import tree.ProcessDataForGrowing;
 import tree.TreeGrowthControl;
@@ -70,9 +72,9 @@ public class BackwardsElimination
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int externalSubsamplesToGenerate = 50;
+		int externalSubsamplesToGenerate = 5;
 		double fractionToReserveAsValidation = 0.1;
-		int internalSubsamplesToGenerate = 10;
+		int internalSubsamplesToGenerate = 2;
 		int validationIterations = 10;
 		double fractionToElim = 0.05;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
 		double featuresToEliminate;
@@ -81,7 +83,7 @@ public class BackwardsElimination
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 2500;
+		ctrl.numberOfTreesToGrow = 5;
 		ctrl.mtry = 10;
 		ctrl.isStratifiedBootstrapUsed = true;
 		ctrl.isCalculateOOB = false;
@@ -89,12 +91,12 @@ public class BackwardsElimination
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		TreeGrowthControl varImpCtrl = new TreeGrowthControl(ctrl);
-		varImpCtrl.numberOfTreesToGrow = 5000;
+		varImpCtrl.numberOfTreesToGrow = 10;
 		varImpCtrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
-		weights.put("Positive", 1.25);
+		weights.put("Positive", 1.0);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -135,6 +137,7 @@ public class BackwardsElimination
 		String resultsOutputLoc = outputLocation + "/Results.txt";
 		String parameterLocation = outputLocation + "/Parameters.txt";
 		String subsetSizeErrorRates = outputLocation + "/ErrorRates.txt";
+		String subsetSizeGMeans = outputLocation + "/GMeans.txt";
 		if (!continueRun)
 		{
 			// Generate bootstraps and recreate the results file.
@@ -148,7 +151,7 @@ public class BackwardsElimination
 				{
 					featureFractionsOutputWriter.write(s + "\t");
 				}
-				featureFractionsOutputWriter.write("ErrorRate");
+				featureFractionsOutputWriter.write("GMean\tErrorRate");
 				featureFractionsOutputWriter.newLine();
 				featureFractionsOutputWriter.close();
 
@@ -175,17 +178,22 @@ public class BackwardsElimination
 				FileWriter errorRateOutputFile = new FileWriter(subsetSizeErrorRates);
 				BufferedWriter errorRateOutputWriter = new BufferedWriter(errorRateOutputFile);
 				int numberOfFeaturesRemaining = featuresUsed.size();
-				String errorRateHeader = "";
+				String featureNumberHeader = "";
 				while (numberOfFeaturesRemaining > 0)
 				{
-					errorRateHeader += Integer.toString(numberOfFeaturesRemaining) + "\t";
+					featureNumberHeader += Integer.toString(numberOfFeaturesRemaining) + "\t";
 					featuresToEliminate = (int) Math.ceil(numberOfFeaturesRemaining * fractionToElim);
 					numberOfFeaturesRemaining -= featuresToEliminate;
 				}
-				errorRateHeader = errorRateHeader.substring(0, errorRateHeader.length() - 1);
-				errorRateOutputWriter.write(errorRateHeader);
+				featureNumberHeader = featureNumberHeader.substring(0, featureNumberHeader.length() - 1);
+				errorRateOutputWriter.write(featureNumberHeader);
 				errorRateOutputWriter.newLine();
 				errorRateOutputWriter.close();
+				FileWriter gMeanOutputFile = new FileWriter(subsetSizeGMeans);
+				BufferedWriter gMeanOutputWriter = new BufferedWriter(gMeanOutputFile);
+				gMeanOutputWriter.write(featureNumberHeader);
+				gMeanOutputWriter.newLine();
+				gMeanOutputWriter.close();
 
 				ctrl.save(outputLocation + "/RegularCtrl.txt");
 				varImpCtrl.save(outputLocation + "/VariableImportanceCtrl.txt");
@@ -213,20 +221,22 @@ public class BackwardsElimination
 			String subsampleTestingSet = subsampleDirectory + "/Test.txt";
 			String internalFoldDirLoc = subsampleDirectory + "/Folds";
 
-			ImmutableTwoValues<Integer, Map<Integer, Double>> internalSelectionResults = internalSelection(subsampleTrainingSet,
+			ImmutableThreeValues<Integer, Map<Integer, Double>, Map<Integer, Double>> internalSelectionResults = internalSelection(subsampleTrainingSet,
 					internalFoldDirLoc, internalSubsamplesToGenerate, weights, ctrl, varImpCtrl, featuresUsed, fractionToElim);
 			int bestNumberOfFeatures = internalSelectionResults.first;
 			Map<Integer, Double> averageErrorRates = internalSelectionResults.second;
+			Map<Integer, Double> averageGMeans = internalSelectionResults.third;
 
 			// Determine and validate best feature subset.
 			currentTime = new Date();
 		    sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 		    strDate = sdfDate.format(currentTime);
 			System.out.format("\tNow validating the feature set at %s.\n", strDate);
-			ImmutableTwoValues<List<String>, Double> validationResults = validateSubset(subsampleTrainingSet, subsampleTestingSet,
+			ImmutableThreeValues<List<String>, Double, Double> validationResults = validateSubset(subsampleTrainingSet, subsampleTestingSet,
 					bestNumberOfFeatures, weights, new TreeGrowthControl(varImpCtrl), featuresUsed, validationIterations);
 			List<String> bestFeatureSet = validationResults.first;
 			double validatedError = validationResults.second;
+			double validatedGMean = validationResults.third;
 
 			// Write out the results for this external subsample.
 			try
@@ -244,6 +254,8 @@ public class BackwardsElimination
 						featureFractionsOutputWriter.write("0\t");
 					}
 				}
+				featureFractionsOutputWriter.write(Double.toString(validatedGMean));
+				featureFractionsOutputWriter.write("\t");
 				featureFractionsOutputWriter.write(Double.toString(validatedError));
 				featureFractionsOutputWriter.newLine();
 				featureFractionsOutputWriter.close();
@@ -258,15 +270,24 @@ public class BackwardsElimination
 				Collections.sort(featureSetSizes, Collections.reverseOrder());
 				FileWriter errorRateOutputFile = new FileWriter(subsetSizeErrorRates, true);
 				BufferedWriter errorRateOutputWriter = new BufferedWriter(errorRateOutputFile);
+				FileWriter gMeanOutputFile = new FileWriter(subsetSizeGMeans, true);
+				BufferedWriter gMeanOutputWriter = new BufferedWriter(gMeanOutputFile);
 				String errorOutput = "";
+				String gMeanOutput = "";
 				for (Integer j : featureSetSizes)
 				{
 					errorOutput += Double.toString(averageErrorRates.get(j)) + "\t";
+					gMeanOutput += Double.toString(averageGMeans.get(j)) + "\t";
 				}
 				errorOutput.substring(0, errorOutput.length() - 1);
 				errorRateOutputWriter.write(errorOutput);
 				errorRateOutputWriter.newLine();
 				errorRateOutputWriter.close();
+				gMeanOutput.substring(0, gMeanOutput.length() - 1);
+				gMeanOutputWriter.write(gMeanOutput);
+				gMeanOutputWriter.newLine();
+				gMeanOutputWriter.close();
+				
 			}
 			catch (Exception e)
 			{
@@ -285,12 +306,14 @@ public class BackwardsElimination
 
 		String finalSelectionOutputLoc = outputLocation + "/FinalSelection";
 		String finalSelectionErrorRates = finalSelectionOutputLoc + "/ErrorRates.txt";
+		String finalSelectionGMeans = finalSelectionOutputLoc + "/GMeans.txt";
 		String finalSelectionResults = finalSelectionOutputLoc + "/Results.txt";
 
-		ImmutableTwoValues<Integer, Map<Integer, Double>> internalSelectionResults = internalSelection(inputLocation,
+		ImmutableThreeValues<Integer, Map<Integer, Double>, Map<Integer, Double>> internalSelectionResults = internalSelection(inputLocation,
 				finalSelectionOutputLoc, internalSubsamplesToGenerate, weights, ctrl, varImpCtrl, featuresUsed, 0.0001);  // Use 0.0001 as the feature elimination fraction to ensure that only one feature is eliminated per iteraton.
 		int bestNumberOfFeatures = internalSelectionResults.first;
 		Map<Integer, Double> averageErrorRates = internalSelectionResults.second;
+		Map<Integer, Double> averageGMeans = internalSelectionResults.third;
 
 		// Determine and validate best feature subset.
 		currentTime = new Date();
@@ -364,6 +387,20 @@ public class BackwardsElimination
 			errorRateOutputWriter.newLine();
 			errorRateOutputWriter.write(errorOutput);
 			errorRateOutputWriter.close();
+
+			featureSetSizes = new ArrayList<Integer>(averageGMeans.keySet());
+			Collections.sort(featureSetSizes, Collections.reverseOrder());
+			FileWriter gMeanOutputFile = new FileWriter(finalSelectionGMeans, true);
+			BufferedWriter gMeanOutputWriter = new BufferedWriter(gMeanOutputFile);
+			String gMeanOutput = "";
+			for (Integer j : featureSetSizes)
+			{
+				gMeanOutput += Double.toString(averageGMeans.get(j)) + "\t";
+			}
+			gMeanOutput.substring(0, gMeanOutput.length() - 1);
+			gMeanOutputWriter.write(gMeanOutput);
+			gMeanOutputWriter.newLine();
+			gMeanOutputWriter.close();
 		}
 		catch (Exception e)
 		{
@@ -373,10 +410,17 @@ public class BackwardsElimination
 	}
 
 
-	static Map<Integer, Double> internalEvaluation(String internalSubsampleTrainingSet, String internalSubsampleTestingSet, long internalSubsampleSeed,
-			Map<String, Double> weights, TreeGrowthControl eliminationControl, TreeGrowthControl variableImportanceControl, List<String> fullFeatureSet,
-			double fractionToElim)
+	static ImmutableTwoValues<Map<Integer, Double>, Map<Integer, Double>> internalEvaluation(String internalSubsampleTrainingSet,
+			String internalSubsampleTestingSet, long internalSubsampleSeed, Map<String, Double> weights, TreeGrowthControl eliminationControl,
+			TreeGrowthControl variableImportanceControl, List<String> fullFeatureSet, double fractionToElim)
 	{
+		ProcessDataForGrowing processedInputData = new ProcessDataForGrowing(internalSubsampleTestingSet, eliminationControl);
+		Map<String, Integer> classCounts = new HashMap<String, Integer>();
+		for (String s : new HashSet<String>(processedInputData.responseData))
+		{
+			classCounts.put(s, Collections.frequency(processedInputData.responseData, s));
+		}
+
 		//--------------------------------------------------------------------//
 		// Determine the order of the features by feature importance ranking. //
 		//--------------------------------------------------------------------//
@@ -400,6 +444,7 @@ public class BackwardsElimination
 		// Perform the elimination. //
 		//--------------------------//
 		Map<Integer, Double> errorRates = new HashMap<Integer, Double>();
+		Map<Integer, Double> gMeans = new HashMap<Integer, Double>();
 		int featuresToEliminate;
 		while (!orderedFeaturesByImportance.isEmpty())
 		{
@@ -407,7 +452,19 @@ public class BackwardsElimination
 			variablesToIgnore.removeAll(orderedFeaturesByImportance);
 			eliminationControl.variablesToIgnore = variablesToIgnore;
 			forest = new Forest(internalSubsampleTrainingSet, eliminationControl, weights, internalSubsampleSeed);
-			errorRates.put(orderedFeaturesByImportance.size(), forest.predict(new ProcessDataForGrowing(internalSubsampleTestingSet, eliminationControl)).first);
+			ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predictionResults = forest.predict(new ProcessDataForGrowing(internalSubsampleTestingSet, eliminationControl));
+			errorRates.put(orderedFeaturesByImportance.size(), predictionResults.first);
+			Map<String, Map<String, Double>> confusionMatrix = predictionResults.second;
+			// Determine the macro G mean.
+	    	double macroGMean = 1.0;
+	    	for (String s : confusionMatrix.keySet())
+	    	{
+	    		double TP = confusionMatrix.get(s).get("TruePositive");
+	    		double FN = classCounts.get(s) - TP;  // The number of false positives is the number of observations from the class in the test set - the number of true positives.
+	    		double recall = TP / (TP + FN);
+	    		macroGMean *= recall;
+	    	}
+	    	gMeans.put(orderedFeaturesByImportance.size(), Math.pow(macroGMean, (1.0 / classCounts.size())));
 			featuresToEliminate = (int) Math.ceil(orderedFeaturesByImportance.size() * fractionToElim);
 			for (int j = 0; j < featuresToEliminate; j++)
 			{
@@ -415,19 +472,19 @@ public class BackwardsElimination
 			}
 		}
 
-		return errorRates;
+		return new ImmutableTwoValues<Map<Integer, Double>, Map<Integer, Double>>(errorRates, gMeans);
 	}
 
 
-	static ImmutableTwoValues<Integer, Map<Integer, Double>> internalSelection(String entireTrainingSet,
+	static ImmutableThreeValues<Integer, Map<Integer, Double>, Map<Integer, Double>> internalSelection(String entireTrainingSet,
 			String locatonForInternalFolds, int internalSubsamplesToGenerate, Map<String, Double> weights, TreeGrowthControl ctrl,
 			TreeGrowthControl varImpCtrl, List<String> featuresUsed, double fractionToElim)
 	{
 		ctrl.variablesToIgnore = new ArrayList<String>();
 		CrossValidationFoldGenerationMultiClass.main(entireTrainingSet, locatonForInternalFolds, internalSubsamplesToGenerate);
-//		BootstrapGeneration.main(entireTrainingSet, locatonForInternalFolds, internalSubsamplesToGenerate, true, 0.0);
 
 		List<Map<Integer, Double>> errorRates = new ArrayList<Map<Integer, Double>>();
+		List<Map<Integer, Double>> gMeans = new ArrayList<Map<Integer, Double>>();
 		List<Long> usedSeeds = new ArrayList<Long>();
 		Random seedGenerator = new Random();
 		for (int j = 0; j < internalSubsamplesToGenerate; j++)
@@ -444,35 +501,42 @@ public class BackwardsElimination
 			usedSeeds.add(seedToUse);
 			String internalFoldTrainingSet = locatonForInternalFolds + "/" + Integer.toString(j) + "/Train.txt";
 			String internalFoldTestingSet = locatonForInternalFolds + "/" + Integer.toString(j) + "/Test.txt";
-			errorRates.add(internalEvaluation(internalFoldTrainingSet, internalFoldTestingSet, seedToUse, weights,
-					new TreeGrowthControl(ctrl), varImpCtrl, featuresUsed, fractionToElim));
+			ImmutableTwoValues<Map<Integer, Double>, Map<Integer, Double>> internalEvalResults = internalEvaluation(internalFoldTrainingSet,
+					internalFoldTestingSet, seedToUse, weights, new TreeGrowthControl(ctrl), varImpCtrl, featuresUsed, fractionToElim);
+			errorRates.add(internalEvalResults.first);
+			gMeans.add(internalEvalResults.second);
 		}
 
-		// Determine the average error rate for each size of feature subset, and the best feature set size.
+		// Determine the average error rate and gMean for each size of feature subset, and the best feature set size.
 		Map<Integer, Double> averageErrorRates = new HashMap<Integer, Double>();
+		Map<Integer, Double> averageGMeans = new HashMap<Integer, Double>();
 		int bestNumberOfFeatures = featuresUsed.size();
-		double lowestErrorRate = 100.0;
+		double lowestGMean = 0.0;
 		for (Integer j : errorRates.get(0).keySet())
 		{
 			double averageError = 0.0;
+			double averageGMean = 0.0;
 			for (int k = 0; k < internalSubsamplesToGenerate; k++)
 			{
 				averageError += errorRates.get(k).get(j);
+				averageGMean += gMeans.get(k).get(j);
 			}
 			averageError /= internalSubsamplesToGenerate;
 			averageErrorRates.put(j, averageError);
-			if (averageError < lowestErrorRate)
+			averageGMean /= internalSubsamplesToGenerate;
+			averageGMeans.put(j, averageGMean);
+			if (averageGMean > lowestGMean)
 			{
 				bestNumberOfFeatures = j;
-				lowestErrorRate = averageError;
+				lowestGMean = averageGMean;
 			}
 		}
 
-		return new ImmutableTwoValues<Integer, Map<Integer, Double>>(bestNumberOfFeatures, averageErrorRates);
+		return new ImmutableThreeValues<Integer, Map<Integer, Double>, Map<Integer, Double>>(bestNumberOfFeatures, averageErrorRates, averageGMeans);
 	}
 	
 
-	static ImmutableTwoValues<List<String>, Double> validateSubset(String externalSubsampleTrainingSet, String externalSubsampleTestingSet,
+	static ImmutableThreeValues<List<String>, Double, Double> validateSubset(String externalSubsampleTrainingSet, String externalSubsampleTestingSet,
 			int numberOfFeatures, Map<String, Double> weights, TreeGrowthControl variableImportanceControl,
 			List<String> fullFeatureSet, int validationIterations)
 	{
@@ -487,6 +551,14 @@ public class BackwardsElimination
 			}
 			seedsToUse.add(newSeed);
 		}
+
+		ProcessDataForGrowing processedInputData = new ProcessDataForGrowing(externalSubsampleTestingSet, variableImportanceControl);
+		Map<String, Integer> classCounts = new HashMap<String, Integer>();
+		for (String s : new HashSet<String>(processedInputData.responseData))
+		{
+			classCounts.put(s, Collections.frequency(processedInputData.responseData, s));
+		}
+
 		//--------------------------------------------------------------------//
 		// Determine the order of the features by feature importance ranking. //
 		//--------------------------------------------------------------------//
@@ -543,13 +615,27 @@ public class BackwardsElimination
 		variablesToIgnore.removeAll(bestFeatures);
 		variableImportanceControl.variablesToIgnore = variablesToIgnore;
 		double validatedErrorRate = 0.0;
+		double validatedGMean = 0.0;
 		for (int i = 0; i < validationIterations; i++)
 		{
 			Forest forest = new Forest(externalSubsampleTrainingSet, variableImportanceControl, weights, seedsToUse.get(i));
-			validatedErrorRate += forest.predict(new ProcessDataForGrowing(externalSubsampleTestingSet, variableImportanceControl)).first;
+			ImmutableTwoValues<Double, Map<String, Map<String, Double>>> validationResults = forest.predict(new ProcessDataForGrowing(externalSubsampleTestingSet, variableImportanceControl));
+			validatedErrorRate += validationResults.first;
+			// Determine the macro G mean.
+			Map<String, Map<String, Double>> confusionMatrix = validationResults.second;
+	    	double macroGMean = 1.0;
+	    	for (String s : confusionMatrix.keySet())
+	    	{
+	    		double TP = confusionMatrix.get(s).get("TruePositive");
+	    		double FN = classCounts.get(s) - TP;  // The number of false positives is the number of observaitons from the class - the number of true positives.
+	    		double recall = TP / (TP + FN);
+	    		macroGMean *= recall;
+	    	}
+	    	validatedGMean += Math.pow(macroGMean, (1.0 / classCounts.size()));
 		}
 		validatedErrorRate /= validationIterations;
-		return new ImmutableTwoValues<List<String>, Double>(bestFeatures, validatedErrorRate);
+		validatedGMean /= validationIterations;
+		return new ImmutableThreeValues<List<String>, Double, Double>(bestFeatures, validatedErrorRate, validatedGMean);
 	}
 
 
