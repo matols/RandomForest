@@ -82,14 +82,14 @@ public class WeightTesting
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int repetitions = 50;
-		Double[] weightsToUse = {0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0};
+		int repetitions = 100;
+		Double[] weightsToUse = {10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 24.0, 26.0, 28.0, 30.0, 32.0, 34.0, 36.0, 38.0, 40.0};
 		Integer[] mtryToUse = {5, 10, 15, 20};
 		Integer[] trainingObsToUse = {};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 500;
+		ctrl.numberOfTreesToGrow = 1000;
 		ctrl.isStratifiedBootstrapUsed = true;
 		ctrl.minNodeSize = 1;
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
@@ -105,7 +105,7 @@ public class WeightTesting
 
 		// Setup the results output files.
 		String fullDatasetResultsLocation = resultsDir + "/FullDatasetResults.txt";
-		String fullDatasetMCCResultsLocation = resultsDir + "/FullDatasetGMeanResults.txt";
+		String fullDatasetGMeanResultsLocation = resultsDir + "/FullDatasetGMeanResults.txt";
 		try
 		{
 			FileWriter resultsOutputFile = new FileWriter(fullDatasetResultsLocation);
@@ -128,7 +128,7 @@ public class WeightTesting
 			resultsOutputWriter.newLine();
 			resultsOutputWriter.close();
 
-			resultsOutputFile = new FileWriter(fullDatasetMCCResultsLocation);
+			resultsOutputFile = new FileWriter(fullDatasetGMeanResultsLocation);
 			resultsOutputWriter = new BufferedWriter(resultsOutputFile);
 			resultsOutputWriter.write("Weight\tMtry");
 			resultsOutputWriter.newLine();
@@ -156,7 +156,7 @@ public class WeightTesting
 		// Determine the subset of feature to remove.
 		boolean isSubsetUsed = false;
 		String subsetResultsLocation = resultsDir + "/SubsetResults.txt";
-		String subsetMCCResultsLocation = resultsDir + "/SubsetMCCResults.txt";
+		String subsetGMeanResultsLocation = resultsDir + "/SubsetMCCResults.txt";
 		List<String> covarsToRemove = new ArrayList<String>();
 		if (!covarsToKeep.isEmpty())
 		{
@@ -199,7 +199,7 @@ public class WeightTesting
 			}
 			try
 			{
-				FileWriter resultsOutputFile = new FileWriter(subsetMCCResultsLocation);
+				FileWriter resultsOutputFile = new FileWriter(subsetGMeanResultsLocation);
 				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
 				resultsOutputWriter.write("Weight\tMtry");
 				resultsOutputWriter.newLine();
@@ -272,7 +272,7 @@ public class WeightTesting
 					confusionMatrix.get(s).put("TruePositive", 0.0);
 					confusionMatrix.get(s).put("FalsePositive", 0.0);
 				}
-				MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, fullDatasetResultsLocation, fullDatasetMCCResultsLocation, 1);
+				MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, fullDatasetResultsLocation, fullDatasetGMeanResultsLocation, 1);
 
 				if (isSubsetUsed)
 				{
@@ -284,7 +284,7 @@ public class WeightTesting
 						confusionMatrix.get(s).put("TruePositive", 0.0);
 						confusionMatrix.get(s).put("FalsePositive", 0.0);
 					}
-					MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, subsetResultsLocation, subsetMCCResultsLocation, 1);
+					MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, subsetResultsLocation, subsetGMeanResultsLocation, 1);
 				}
 			}
 		}

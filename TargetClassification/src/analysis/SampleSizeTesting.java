@@ -79,49 +79,21 @@ public class SampleSizeTesting
 			System.exit(0);
 		}
 
-		// Setup the results output files.
-		String fullDatasetResultsLocation = resultsDir + "/FullDatasetResults.txt";
-		try
-		{
-			FileWriter resultsOutputFile = new FileWriter(fullDatasetResultsLocation);
-			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("SampleSize\tPositiveFraction\tPositiveWeight\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN\tTimeTaken(ms)");
-			resultsOutputWriter.newLine();
-			resultsOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
-		String fullDatasetMCCResultsLocation = resultsDir + "/FullDatasetGMeanResults.txt";
-		try
-		{
-			FileWriter resultsOutputFile = new FileWriter(fullDatasetMCCResultsLocation);
-			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("SampleSize\tPositiveFraction");
-			resultsOutputWriter.newLine();
-			resultsOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
-
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int repetitions = 2;
-		Integer[] sizeOfDatasets = {1000};
+		int repetitions = 100;
+		Integer[] sizeOfDatasets = {50, 75};
 		Double[] fractionOfPositives = {0.5};
 		Double[] weightsToUse = {1.0, 2.0, 3.0, 4.0, 5.0};
+		Integer[] trainingObsToUse = {};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 500;
+		ctrl.numberOfTreesToGrow = 1000;
 		ctrl.mtry = 10;
 		ctrl.minNodeSize = 1;
+		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
@@ -147,6 +119,43 @@ public class SampleSizeTesting
 		int numberPosObs = responseSplits.get(posClass).size();
 		int numberUnlabObs = responseSplits.get(negClass).size();
 
+		// Setup the results output files.
+		String fullDatasetResultsLocation = resultsDir + "/FullDatasetResults.txt";
+		String fullDatasetGMeanResultsLocation = resultsDir + "/FullDatasetGMeanResults.txt";
+		try
+		{
+			FileWriter resultsOutputFile = new FileWriter(fullDatasetResultsLocation);
+			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
+			resultsOutputWriter.write("SampleSize\tPositiveFraction\tWeight\tGMean\tF0.5\tF1\tF2\tAccuracy\tOOBError");
+			for (String s : responseClasses)
+			{
+				resultsOutputWriter.write("\t");
+				resultsOutputWriter.write(s);
+				resultsOutputWriter.write("\t");
+			}
+			resultsOutputWriter.write("\tTimeTaken(ms)");
+			resultsOutputWriter.newLine();
+			resultsOutputWriter.write("\t\t\t\t\t\t\t\t");
+			for (String s : responseClasses)
+			{
+				resultsOutputWriter.write("\tTrue\tFalse");
+			}
+			resultsOutputWriter.write("\t");
+			resultsOutputWriter.newLine();
+			resultsOutputWriter.close();
+
+			resultsOutputFile = new FileWriter(fullDatasetGMeanResultsLocation);
+			resultsOutputWriter = new BufferedWriter(resultsOutputFile);
+			resultsOutputWriter.write("SampleSize\tPositiveFraction\tWeight");
+			resultsOutputWriter.newLine();
+			resultsOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+
 		// Generate the seeds for the repetitions, and the CV folds for each repetition.
 		Random randGen = new Random();
 		List<Long> seeds = new ArrayList<Long>();
@@ -163,7 +172,7 @@ public class SampleSizeTesting
 		// Determine the subset of feature to remove.
 		boolean isSubsetUsed = false;
 		String subsetResultsLocation = resultsDir + "/SubsetResults.txt";
-		String subsetMCCResultsLocation = resultsDir + "/SubsetMCCResults.txt";
+		String subsetGMeanResultsLocation = resultsDir + "/SubsetGMeanResults.txt";
 		List<String> covarsToRemove = new ArrayList<String>();
 		if (!covarsToKeep.isEmpty())
 		{
@@ -181,7 +190,21 @@ public class SampleSizeTesting
 			{
 				FileWriter resultsOutputFile = new FileWriter(subsetResultsLocation);
 				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-				resultsOutputWriter.write("SampleSize\tPositiveFraction\tPositiveWeight\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError\tPrecision\tSensitivity\tSpecificity\tNPV\tTP\tFP\tTN\tFN\tTimeTaken(ms)");
+				resultsOutputWriter.write("SampleSize\tPositiveFraction\tWeight\tGMean\tF0.5\tF1\tF2\tAccuracy\tOOBError");
+				for (String s : responseClasses)
+				{
+					resultsOutputWriter.write("\t");
+					resultsOutputWriter.write(s);
+					resultsOutputWriter.write("\t");
+				}
+				resultsOutputWriter.write("\tTimeTaken(ms)");
+				resultsOutputWriter.newLine();
+				resultsOutputWriter.write("\t\t\t\t\t\t\t\t");
+				for (String s : responseClasses)
+				{
+					resultsOutputWriter.write("\tTrue\tFalse");
+				}
+				resultsOutputWriter.write("\t");
 				resultsOutputWriter.newLine();
 				resultsOutputWriter.close();
 			}
@@ -192,9 +215,9 @@ public class SampleSizeTesting
 			}
 			try
 			{
-				FileWriter resultsOutputFile = new FileWriter(subsetMCCResultsLocation);
+				FileWriter resultsOutputFile = new FileWriter(subsetGMeanResultsLocation);
 				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-				resultsOutputWriter.write("SampleSize\tPositiveFraction");
+				resultsOutputWriter.write("SampleSize\tPositiveFraction\tWeight");
 				resultsOutputWriter.newLine();
 				resultsOutputWriter.close();
 			}
@@ -227,6 +250,8 @@ public class SampleSizeTesting
 			parameterOutputWriter.write("Sizes of datasets used - " + Arrays.toString(sizeOfDatasets));
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.write("Fractions of dataset that is positive observations used - " + Arrays.toString(fractionOfPositives));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("Weights used - " + weights.toString());
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.close();
 		}
@@ -283,7 +308,7 @@ public class SampleSizeTesting
 						confusionMatrix.get(s).put("TruePositive", 0.0);
 						confusionMatrix.get(s).put("FalsePositive", 0.0);
 					}
-					MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, negClass, posClass, fullDatasetResultsLocation, fullDatasetMCCResultsLocation, 2);
+					MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, fullDatasetResultsLocation, fullDatasetGMeanResultsLocation, 2);
 	
 					if (isSubsetUsed)
 					{
@@ -295,7 +320,7 @@ public class SampleSizeTesting
 							confusionMatrix.get(s).put("TruePositive", 0.0);
 							confusionMatrix.get(s).put("FalsePositive", 0.0);
 						}
-						MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, negClass, posClass, subsetResultsLocation, subsetMCCResultsLocation, 2);
+						MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, subsetResultsLocation, subsetGMeanResultsLocation, 2);
 					}
 				}
 			}
