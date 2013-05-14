@@ -32,6 +32,13 @@ public class MultipleForestRunAndTest
 			Map<String, Double> weights, TreeGrowthControl ctrl, String inputFile, List<Long> seeds, int repetitions,
 			String resultsLocation, String mccResultsLocation, int analysisBeingRun)
 	{
+		forestTraining(confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, resultsLocation, mccResultsLocation, analysisBeingRun, 0.0);
+	}
+
+	static void forestTraining(Map<String, Map<String, Double>> confusionMatrix,
+			Map<String, Double> weights, TreeGrowthControl ctrl, String inputFile, List<Long> seeds, int repetitions,
+			String resultsLocation, String mccResultsLocation, int analysisBeingRun, double callSpecificValue)
+	{
 		double cumulativeOOBError = 0.0;
 		List<Double> gMeanValues = new ArrayList<Double>();
 		long oobTime = 0l;
@@ -120,10 +127,9 @@ public class MultipleForestRunAndTest
 				{
 					sampleSize += ctrl.sampSize.get(s);
 				}
-				double posClassFraction = ((double) ctrl.sampSize.get("Positive")) / sampleSize;
 				resultsOutputWriter.write(Integer.toString(sampleSize));
 				resultsOutputWriter.write("\t");
-				resultsOutputWriter.write(String.format("%.5f", posClassFraction));
+				resultsOutputWriter.write(String.format("%.5f", callSpecificValue));
 				resultsOutputWriter.write("\t");
 				resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
 				resultsOutputWriter.write("\t");
@@ -131,6 +137,15 @@ public class MultipleForestRunAndTest
 			else if (analysisBeingRun == 3)
 			{
 				resultsOutputWriter.write(Integer.toString(ctrl.minNodeSize));
+				resultsOutputWriter.write("\t");
+				resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
+				resultsOutputWriter.write("\t");
+			}
+			else if (analysisBeingRun == 4)
+			{
+				resultsOutputWriter.write(Integer.toString(ctrl.sampSize.get("Positive")));
+				resultsOutputWriter.write("\t");
+				resultsOutputWriter.write(Integer.toString(ctrl.sampSize.get("Unlabelled")));
 				resultsOutputWriter.write("\t");
 				resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
 				resultsOutputWriter.write("\t");
@@ -183,10 +198,9 @@ public class MultipleForestRunAndTest
 				{
 					sampleSize += ctrl.sampSize.get(s);
 				}
-				double posClassFraction = ((double) ctrl.sampSize.get("Positive")) / sampleSize;
 				resultsOutputWriter.write(Integer.toString(sampleSize));
 				resultsOutputWriter.write("\t");
-				resultsOutputWriter.write(String.format("%.5f", posClassFraction));
+				resultsOutputWriter.write(String.format("%.5f", callSpecificValue));
 				resultsOutputWriter.write("\t");
 				resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
 				resultsOutputWriter.write("\t");
@@ -194,6 +208,15 @@ public class MultipleForestRunAndTest
 			else if (analysisBeingRun == 3)
 			{
 				resultsOutputWriter.write(Integer.toString(ctrl.minNodeSize));
+				resultsOutputWriter.write("\t");
+				resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
+				resultsOutputWriter.write("\t");
+			}
+			else if (analysisBeingRun == 4)
+			{
+				resultsOutputWriter.write(Integer.toString(ctrl.sampSize.get("Positive")));
+				resultsOutputWriter.write("\t");
+				resultsOutputWriter.write(Integer.toString(ctrl.sampSize.get("Unlabelled")));
 				resultsOutputWriter.write("\t");
 				resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
 				resultsOutputWriter.write("\t");

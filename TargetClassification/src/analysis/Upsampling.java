@@ -20,7 +20,7 @@ import java.util.Set;
 import tree.ProcessDataForGrowing;
 import tree.TreeGrowthControl;
 
-public class SampleSizeTesting
+public class Upsampling
 {
 
 	/**
@@ -83,9 +83,8 @@ public class SampleSizeTesting
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
 		int repetitions = 100;
-		Integer[] sizeOfDatasets = {50, 75};
-		Double[] fractionOfPositives = {0.5};
-		Double[] weightsToUse = {1.0, 2.0, 3.0, 4.0, 5.0};
+		Double[] upsampleFractions = {0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
+		Double[] weightsToUse = {0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0};
 		Integer[] trainingObsToUse = {};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
@@ -103,8 +102,8 @@ public class SampleSizeTesting
 
 		// Determine the observations of each class.
 		ProcessDataForGrowing procData = new ProcessDataForGrowing(inputFile, ctrl);
-		String negClass = "Unlabelled";
-		String posClass = "Positive";
+		String majorityClass = "Unlabelled";
+		String minorityClass = "Positive";
 		Set<String> responseClasses = new HashSet<String>(procData.responseData);
 		Map<String, List<Integer>> responseSplits = new HashMap<String, List<Integer>>();
 		for (String s : responseClasses)
@@ -115,9 +114,10 @@ public class SampleSizeTesting
 		{
 			responseSplits.get(procData.responseData.get(i)).add(i);
 		}
-		int numberOfObservations = procData.numberObservations;
-		int numberPosObs = responseSplits.get(posClass).size();
-		int numberUnlabObs = responseSplits.get(negClass).size();
+		int numberMinorityObs = responseSplits.get(minorityClass).size();
+		int numberMajorityObs = responseSplits.get(majorityClass).size();
+		int differenceInNumber = numberMajorityObs - numberMinorityObs;
+		ctrl.sampSize.put(majorityClass, numberMajorityObs);
 
 		// Setup the results output files.
 		String fullDatasetResultsLocation = resultsDir + "/FullDatasetResults.txt";
@@ -126,7 +126,7 @@ public class SampleSizeTesting
 		{
 			FileWriter resultsOutputFile = new FileWriter(fullDatasetResultsLocation);
 			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("SampleSize\tPositiveFraction\tWeight\tGMean\tF0.5\tF1\tF2\tAccuracy\tOOBError");
+			resultsOutputWriter.write("MinoritySampleSize\tMajoritySampleSize\tWeight\tGMean\tF0.5\tF1\tF2\tAccuracy\tOOBError");
 			for (String s : responseClasses)
 			{
 				resultsOutputWriter.write("\t");
@@ -135,7 +135,7 @@ public class SampleSizeTesting
 			}
 			resultsOutputWriter.write("\tTimeTaken(ms)");
 			resultsOutputWriter.newLine();
-			resultsOutputWriter.write("\t\t\t\t\t\t\t\t");
+			resultsOutputWriter.write("\t\t\t\t\t\t\t\t\t");
 			for (String s : responseClasses)
 			{
 				resultsOutputWriter.write("\tTrue\tFalse");
@@ -146,7 +146,7 @@ public class SampleSizeTesting
 
 			resultsOutputFile = new FileWriter(fullDatasetGMeanResultsLocation);
 			resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("SampleSize\tPositiveFraction\tWeight");
+			resultsOutputWriter.write("MinoritySampleSize\tMajoritySampleSize\tWeight");
 			resultsOutputWriter.newLine();
 			resultsOutputWriter.close();
 		}
@@ -190,7 +190,7 @@ public class SampleSizeTesting
 			{
 				FileWriter resultsOutputFile = new FileWriter(subsetResultsLocation);
 				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-				resultsOutputWriter.write("SampleSize\tPositiveFraction\tWeight\tGMean\tF0.5\tF1\tF2\tAccuracy\tOOBError");
+				resultsOutputWriter.write("MinoritySampleSize\tMajoritySampleSize\tWeight\tGMean\tF0.5\tF1\tF2\tAccuracy\tOOBError");
 				for (String s : responseClasses)
 				{
 					resultsOutputWriter.write("\t");
@@ -199,7 +199,7 @@ public class SampleSizeTesting
 				}
 				resultsOutputWriter.write("\tTimeTaken(ms)");
 				resultsOutputWriter.newLine();
-				resultsOutputWriter.write("\t\t\t\t\t\t\t\t");
+				resultsOutputWriter.write("\t\t\t\t\t\t\t\t\t");
 				for (String s : responseClasses)
 				{
 					resultsOutputWriter.write("\tTrue\tFalse");
@@ -217,7 +217,7 @@ public class SampleSizeTesting
 			{
 				FileWriter resultsOutputFile = new FileWriter(subsetGMeanResultsLocation);
 				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-				resultsOutputWriter.write("SampleSize\tPositiveFraction\tWeight");
+				resultsOutputWriter.write("MinoritySampleSize\tMajoritySampleSize\tWeight");
 				resultsOutputWriter.newLine();
 				resultsOutputWriter.close();
 			}
@@ -232,6 +232,7 @@ public class SampleSizeTesting
 		subsetCtrl.numberOfTreesToGrow = ctrl.numberOfTreesToGrow;
 		subsetCtrl.mtry = ctrl.mtry;
 		subsetCtrl.variablesToIgnore = covarsToRemove;
+		subsetCtrl.sampSize.put(majorityClass, ctrl.sampSize.get(majorityClass));
 
 		// Write out the parameters used.
 		String parameterLocation = resultsDir + "/Parameters.txt";
@@ -247,9 +248,7 @@ public class SampleSizeTesting
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.write("Mtry used - " + Integer.toString(ctrl.mtry));
 			parameterOutputWriter.newLine();
-			parameterOutputWriter.write("Sizes of datasets used - " + Arrays.toString(sizeOfDatasets));
-			parameterOutputWriter.newLine();
-			parameterOutputWriter.write("Fractions of dataset that is positive observations used - " + Arrays.toString(fractionOfPositives));
+			parameterOutputWriter.write("Upsample fractions used - " + Arrays.toString(upsampleFractions));
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.write("Weights used - " + weights.toString());
 			parameterOutputWriter.newLine();
@@ -264,43 +263,39 @@ public class SampleSizeTesting
 		Map<String, Map<String, Double>> confusionMatrix;
 
 		// Generate the subsets.
-		for (Integer datasetSize : sizeOfDatasets)
+		for (Double upFraction : upsampleFractions)
 		{
-			System.out.format("Now working on dataset size - %d.\n", datasetSize);
+			System.out.format("Now working on upscaling fraction - %f.\n", upFraction);
 
-			for (Double positiveFraction : fractionOfPositives)
+			int minorityObsToAdd = (int) Math.round(differenceInNumber * upFraction);
+			int minorityObsToUse = numberMinorityObs + minorityObsToAdd;
+
+			// Setup the sample size constraints.
+			ctrl.sampSize.put(minorityClass, minorityObsToUse);
+			subsetCtrl.sampSize.put(minorityClass, minorityObsToUse);
+
+			for (Double posWeight : weightsToUse)
 			{
 			    Date startTime = new Date();
 			    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			    String strDate = sdfDate.format(startTime);
-				System.out.format("\tNow starting positive fraction %f at %s.\n", positiveFraction, strDate);
+				System.out.format("\tNow starting positive weight %f at %s.\n", posWeight, strDate);
 
-				if (positiveFraction == 0.0)
+				weights.put("Positive", posWeight);
+
+				// Perform the analysis for the entire dataset.
+				confusionMatrix = new HashMap<String, Map<String, Double>>();
+				for (String s : new HashSet<String>(procData.responseData))
 				{
-					// If the fraction of the minority class to include is 0, then set the minority class to be the same fraction as it is in the whole dataset.
-					positiveFraction = ((double) numberPosObs) / numberOfObservations;
+					confusionMatrix.put(s, new HashMap<String, Double>());
+					confusionMatrix.get(s).put("TruePositive", 0.0);
+					confusionMatrix.get(s).put("FalsePositive", 0.0);
 				}
-				int positiveObservationsToUse = (int) Math.floor(positiveFraction * datasetSize);
-//				positiveObservationsToUse = Math.min(positiveObservationsToUse, numberPosObs);  // Can't have more positive observations than there are.
-				int unlabelledObservationsToUse = datasetSize - positiveObservationsToUse;
-//				weights.put("Positive", (1 - positiveFraction) / positiveFraction);
+				MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, fullDatasetResultsLocation, fullDatasetGMeanResultsLocation, 4);
 
-				// Setup the sample size constraints.
-				ctrl.sampSize.put(posClass, positiveObservationsToUse);
-				ctrl.sampSize.put(negClass, unlabelledObservationsToUse);
-				subsetCtrl.sampSize.put(posClass, positiveObservationsToUse);
-				subsetCtrl.sampSize.put(negClass, unlabelledObservationsToUse);
-
-				for (Double posWeight : weightsToUse)
+				if (isSubsetUsed)
 				{
-					startTime = new Date();
-				    sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-				    strDate = sdfDate.format(startTime);
-					System.out.format("\t\tNow starting positive weight %f at %s.\n", posWeight, strDate);
-
-					weights.put("Positive", posWeight);
-	
-					// Perform the analysis for the entire dataset.
+					// Perform the analysis for the chosen subset.
 					confusionMatrix = new HashMap<String, Map<String, Double>>();
 					for (String s : new HashSet<String>(procData.responseData))
 					{
@@ -308,20 +303,7 @@ public class SampleSizeTesting
 						confusionMatrix.get(s).put("TruePositive", 0.0);
 						confusionMatrix.get(s).put("FalsePositive", 0.0);
 					}
-					MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, fullDatasetResultsLocation, fullDatasetGMeanResultsLocation, 2, positiveFraction);
-	
-					if (isSubsetUsed)
-					{
-						// Perform the analysis for the chosen subset.
-						confusionMatrix = new HashMap<String, Map<String, Double>>();
-						for (String s : new HashSet<String>(procData.responseData))
-						{
-							confusionMatrix.put(s, new HashMap<String, Double>());
-							confusionMatrix.get(s).put("TruePositive", 0.0);
-							confusionMatrix.get(s).put("FalsePositive", 0.0);
-						}
-						MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, subsetResultsLocation, subsetGMeanResultsLocation, 2, positiveFraction);
-					}
+					MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, subsetResultsLocation, subsetGMeanResultsLocation, 4);
 				}
 			}
 		}
