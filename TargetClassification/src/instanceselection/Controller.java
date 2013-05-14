@@ -13,8 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import datasetgeneration.CrossValidationFoldGenerationMultiClass;
-
 import tree.TreeGrowthControl;
 
 public class Controller
@@ -65,10 +63,6 @@ public class Controller
 		weights.put("Unlabelled", 1.0);
 		weights.put("Positive", 1.0);
 
-		Map<String, Double> fMeasureWeights = new HashMap<String, Double>();
-		fMeasureWeights.put("Unlabelled", 0.5);
-		fMeasureWeights.put("Positive", 0.5);
-
 		Map<String, Integer> fractionsToSelect = new HashMap<String, Integer>();
 		fractionsToSelect.put("Unlabelled", 500);
 		fractionsToSelect.put("Positive", 500);
@@ -86,7 +80,7 @@ public class Controller
 		newGAArgs[0] = args[0];
 		newGAArgs[1] = outputLocation;
 		TreeGrowthControl thisGAControl = new TreeGrowthControl(ctrl);
-		new chc.InstanceSelection(newGAArgs, thisGAControl, weights, fMeasureWeights, fractionsToSelect);
+		new chc.InstanceSelection(newGAArgs, thisGAControl, weights, fractionsToSelect);
 
 		// Extract the best individual.
 		List<Integer> bestIndividual = new ArrayList<Integer>();

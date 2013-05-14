@@ -48,13 +48,6 @@ public class GeneticAlgorithm {
 			System.out.println("The second argument must be a valid directory location or location where a directory can be created.");
 			System.exit(0);
 		}
-		String inputCrossValLocation = args[2];
-		File inputCrossValDirectory = new File(inputCrossValLocation);
-		if (!inputCrossValDirectory.isDirectory())
-		{
-			System.out.println("The third argument must be the location of the directory containing the cross validation files.");
-			System.exit(0);
-		}
 
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
@@ -65,14 +58,14 @@ public class GeneticAlgorithm {
 		TreeGrowthControl ctrl = new TreeGrowthControl();;
 		ctrl.isReplacementUsed = true;
 		ctrl.isStratifiedBootstrapUsed = true;
-		ctrl.numberOfTreesToGrow = 500;
+		ctrl.numberOfTreesToGrow = 1000;
 		ctrl.mtry = 10;
 		ctrl.minNodeSize = 1;
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
-		weights.put("Positive", 1.1);
+		weights.put("Positive", 1.0);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -84,7 +77,7 @@ public class GeneticAlgorithm {
 			String thisGAArgs[] = args.clone();
 			thisGAArgs[1] += "/" + Integer.toString(i);
 			TreeGrowthControl thisGAControl = new TreeGrowthControl(ctrl);
-			new chc.Controller(thisGAArgs, thisGAControl, weights);
+			new chc.FeatureSelection(thisGAArgs, thisGAControl, weights);
 		}
 
 		gaAnalysis(args[0], args[1], ctrl);
