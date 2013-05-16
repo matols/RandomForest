@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Random;
 
 import tree.Forest;
+import tree.ImmutableTwoValues;
 import tree.ProcessDataForGrowing;
 import tree.TreeGrowthControl;
 
@@ -190,19 +191,19 @@ public class VariableImportance {
 
 			Forest forest = new Forest(inputLocation, ctrl, weights, seedToUse);
 			System.out.println("\tNow determining variable importances.");
+			ImmutableTwoValues<Map<String,Double>, Map<String,Double>> varImp = forest.variableImportance();
 			Map<String, Double> varImp = forest.variableImportance();
 		    System.out.println("\tNow determining proximities.");
-//			Map<Integer, Map<Integer, Double>> prox = forest.calculatProximities(outputLocation + "/TempProximities.txt");
-			Map<Integer, Map<Integer, Double>> prox = forest.calculatProximities();
-			for (int j : prox.keySet())
-			{
-				Map<Integer, Double> currentProx = proximities.get(j);
-				Map<Integer, Double> newProx = prox.get(j);
-				for (int k : prox.get(j).keySet())
-				{
-					currentProx.put(k, currentProx.get(k) + newProx.get(k));
-				}
-			}
+//			Map<Integer, Map<Integer, Double>> prox = forest.calculatProximities();
+//			for (int j : prox.keySet())
+//			{
+//				Map<Integer, Double> currentProx = proximities.get(j);
+//				Map<Integer, Double> newProx = prox.get(j);
+//				for (int k : prox.get(j).keySet())
+//				{
+//					currentProx.put(k, currentProx.get(k) + newProx.get(k));
+//				}
+//			}
 
 			// Determine the importance ordering for the variables, largest importance first.
 			List<StringsSortedByDoubles> sortedVariables = new ArrayList<StringsSortedByDoubles>();
@@ -244,103 +245,35 @@ public class VariableImportance {
 			}
 		}
 
-		// Normalise and write out the proximities.
-		for (int j : proximities.keySet())
-		{
-			Map<Integer, Double> currentProx = proximities.get(j);
-			for (int k : currentProx.keySet())
-			{
-				currentProx.put(k, currentProx.get(k) / repetitions);
-			}
-		}
-		String proximitiesLocation = outputLocation + "/Proximities.txt";
-		try
-		{
-			FileWriter proximitiesOutputFile = new FileWriter(proximitiesLocation);
-			BufferedWriter proximitiesOutputWriter = new BufferedWriter(proximitiesOutputFile);
-			for (int i = 0; i < inputData.numberObservations; i++)
-			{
-				proximitiesOutputWriter.write("\t" + Integer.toString(i));
-			}
-			proximitiesOutputWriter.newLine();
-			for (int i = 0; i < inputData.numberObservations; i++)
-			{
-				proximitiesOutputWriter.write(Integer.toString(i));
-				for (int j = 0; j < inputData.numberObservations; j++)
-				{
-					proximitiesOutputWriter.write("\t" + Double.toString(proximities.get(i).get(j)));
-				}
-				proximitiesOutputWriter.newLine();
-			}
-			proximitiesOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
-
-//		ProcessDataForGrowing procInputData = new ProcessDataForGrowing(inputLocation, ctrl);
-//		int numberOfObservations = procInputData.numberObservations;
-//		int numberOfTrees = 0;
-//		Path dataPath = Paths.get(outputLocation + "/TempProximities.txt");
+//		// Normalise and write out the proximities.
+//		for (int j : proximities.keySet())
+//		{
+//			Map<Integer, Double> currentProx = proximities.get(j);
+//			for (int k : currentProx.keySet())
+//			{
+//				currentProx.put(k, currentProx.get(k) / repetitions);
+//			}
+//		}
+//		String proximitiesLocation = outputLocation + "/Proximities.txt";
 //		try
 //		{
-//			FileWriter proxOutputFile = new FileWriter(outputLocation + "/Proximities.txt");
-//			BufferedWriter proxOutputWriter = new BufferedWriter(proxOutputFile);
-//			for (int i = 0; i < numberOfObservations; i++)
+//			FileWriter proximitiesOutputFile = new FileWriter(proximitiesLocation);
+//			BufferedWriter proximitiesOutputWriter = new BufferedWriter(proximitiesOutputFile);
+//			for (int i = 0; i < inputData.numberObservations; i++)
 //			{
-//				proxOutputWriter.write("\t" + Integer.toString(i));
+//				proximitiesOutputWriter.write("\t" + Integer.toString(i));
 //			}
-//			proxOutputWriter.newLine();
-//			for (int i = 0; i < numberOfObservations; i++)
+//			proximitiesOutputWriter.newLine();
+//			for (int i = 0; i < inputData.numberObservations; i++)
 //			{
-//				// For each observation
-//				String currentObs = Integer.toString(i);
-//				Map<String, Double> sameTermNodeWithI = new HashMap<String, Double>();
-//				for (int j = 0; j < numberOfObservations; j++)
+//				proximitiesOutputWriter.write(Integer.toString(i));
+//				for (int j = 0; j < inputData.numberObservations; j++)
 //				{
-//					// Set up coocurences where obs appears in same terminal node with other obs
-//					sameTermNodeWithI.put(Integer.toString(j), 0.0);
+//					proximitiesOutputWriter.write("\t" + Double.toString(proximities.get(i).get(j)));
 //				}
-//				try (BufferedReader reader = Files.newBufferedReader(dataPath, StandardCharsets.UTF_8))
-//				{
-//					String line;
-//					numberOfTrees = 0;
-//					while ((line = reader.readLine()) != null)
-//					{
-//						numberOfTrees += 1;
-//						String[] proxims = line.trim().split("\t");
-//						for (String s : proxims)
-//						{
-//							List<String> termNodeObs = Arrays.asList(s.split(","));
-//							if (termNodeObs.contains(currentObs))
-//							{
-//								for (String p : termNodeObs)
-//								{
-//									sameTermNodeWithI.put(p, sameTermNodeWithI.get(p) + 1.0);
-//								}
-//							}
-//						}
-//					}
-//				}
-//				catch (Exception e)
-//				{
-//					e.printStackTrace();
-//					System.exit(0);
-//				}
-//				for (String s : sameTermNodeWithI.keySet())
-//				{
-//					sameTermNodeWithI.put(s, sameTermNodeWithI.get(s) / numberOfTrees);
-//				}
-//				proxOutputWriter.write(currentObs);
-//				for (int j = 0; j < numberOfObservations; j++)
-//				{
-//					proxOutputWriter.write("\t" + Double.toString(sameTermNodeWithI.get(Integer.toString(j))));
-//				}
-//				proxOutputWriter.newLine();
+//				proximitiesOutputWriter.newLine();
 //			}
-//			proxOutputWriter.close();
+//			proximitiesOutputWriter.close();
 //		}
 //		catch (Exception e)
 //		{
