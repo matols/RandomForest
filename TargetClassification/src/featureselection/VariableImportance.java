@@ -58,20 +58,20 @@ public class VariableImportance {
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int repetitions = 200;
+		int repetitions = 2;
 		Integer[] trainingObsToUse = {};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();;
 		ctrl.isReplacementUsed = true;
 		ctrl.isStratifiedBootstrapUsed = true;
-		ctrl.numberOfTreesToGrow = 5000;
+		ctrl.numberOfTreesToGrow = 100;
 		ctrl.mtry = 10;
 		ctrl.minNodeSize = 1;
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
-		weights.put("Positive", 1.1);
+		weights.put("Positive", 1.0);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -128,18 +128,27 @@ public class VariableImportance {
 		}
 
 		// Write out the importance header
-		String varImpLocation = outputLocation + "/VariableImportances.txt";
+		String accVarImpLocation = outputLocation + "/AccuracyVariableImportances.txt";
+		String gMeanVarImpLocation = outputLocation + "/GMeanVariableImportances.txt";
 		try
 		{
-			FileWriter varImpOutputFile = new FileWriter(varImpLocation, true);
-			BufferedWriter varImpOutputWriter = new BufferedWriter(varImpOutputFile);
-			varImpOutputWriter.write(featuresUsed.get(0));
+			FileWriter accVarImpOutputFile = new FileWriter(accVarImpLocation, true);
+			BufferedWriter accVarImpOutputWriter = new BufferedWriter(accVarImpOutputFile);
+			FileWriter gMeanVarImpOutputFile = new FileWriter(gMeanVarImpLocation, true);
+			BufferedWriter gMeanVarImpOutputWriter = new BufferedWriter(gMeanVarImpOutputFile);
+
+			accVarImpOutputWriter.write(featuresUsed.get(0));
+			gMeanVarImpOutputWriter.write(featuresUsed.get(0));
 			for (String s : featuresUsed.subList(1, featuresUsed.size()))
 			{
-				varImpOutputWriter.write("\t" + s);
+				accVarImpOutputWriter.write("\t" + s);
+				gMeanVarImpOutputWriter.write("\t" + s);
 			}
-			varImpOutputWriter.newLine();
-			varImpOutputWriter.close();
+			accVarImpOutputWriter.newLine();
+			gMeanVarImpOutputWriter.newLine();
+
+			accVarImpOutputWriter.close();
+			gMeanVarImpOutputWriter.close();
 		}
 		catch (Exception e)
 		{
@@ -192,34 +201,50 @@ public class VariableImportance {
 			Forest forest = new Forest(inputLocation, ctrl, weights, seedToUse);
 			System.out.println("\tNow determining variable importances.");
 			ImmutableTwoValues<Map<String,Double>, Map<String,Double>> varImp = forest.variableImportance();
-			Map<String, Double> varImp = forest.variableImportance();
+			Map<String, Double> accuracyImportance = varImp.first;
+			Map<String, Double> gMeanImportance = varImp.second;
 
 			// Determine the importance ordering for the variables, largest importance first.
-			List<StringsSortedByDoubles> sortedVariables = new ArrayList<StringsSortedByDoubles>();
-			for (String s : varImp.keySet())
+			List<StringsSortedByDoubles> accSortedVariables = new ArrayList<StringsSortedByDoubles>();
+			List<StringsSortedByDoubles> gMeanSortedVariables = new ArrayList<StringsSortedByDoubles>();
+			for (String s : accuracyImportance.keySet())
 			{
-				sortedVariables.add(new StringsSortedByDoubles(varImp.get(s), s));
+				accSortedVariables.add(new StringsSortedByDoubles(accuracyImportance.get(s), s));
+				gMeanSortedVariables.add(new StringsSortedByDoubles(gMeanImportance.get(s), s));
 			}
-			Collections.sort(sortedVariables, Collections.reverseOrder());  // Larger importance first.
-			Map<String, Integer> varToImpRank = new HashMap<String, Integer>();
-			for (int j = 0; j < varImp.size(); j++)
+			Collections.sort(accSortedVariables, Collections.reverseOrder());  // Larger importance first.
+			Collections.sort(gMeanSortedVariables, Collections.reverseOrder());  // Larger importance first.
+
+			Map<String, Integer> varToAccImpRank = new HashMap<String, Integer>();
+			Map<String, Integer> varToGMeanImpRank = new HashMap<String, Integer>();
+			for (int j = 0; j < accSortedVariables.size(); j++)
 			{
-				varToImpRank.put(sortedVariables.get(j).getId(), j + 1);
+				varToAccImpRank.put(accSortedVariables.get(j).getId(), j + 1);
+				varToGMeanImpRank.put(gMeanSortedVariables.get(j).getId(), j + 1);
 			}
 
 			// Write out the results for this repetition.
 			try
 			{
-				FileWriter varImpOutputFile = new FileWriter(varImpLocation, true);
-				BufferedWriter varImpOutputWriter = new BufferedWriter(varImpOutputFile);
-				String outputString = "";
+				String accOutputString = "";
+				String gMeanOutputString = "";
 				for (String s : featuresUsed)
 				{
-					outputString += varToImpRank.get(s) + "\t";
+					accOutputString += varToAccImpRank.get(s) + "\t";
+					gMeanOutputString += varToGMeanImpRank.get(s) + "\t";
 				}
-				varImpOutputWriter.write(outputString.substring(0, outputString.length() - 1));
-				varImpOutputWriter.newLine();
-				varImpOutputWriter.close();
+
+				FileWriter accVarImpOutputFile = new FileWriter(accVarImpLocation, true);
+				BufferedWriter accVarImpOutputWriter = new BufferedWriter(accVarImpOutputFile);
+				accVarImpOutputWriter.write(accOutputString.substring(0, accOutputString.length() - 1));
+				accVarImpOutputWriter.newLine();
+				accVarImpOutputWriter.close();
+				
+				FileWriter gMeanVarImpOutputFile = new FileWriter(gMeanVarImpLocation, true);
+				BufferedWriter gMeanImpOutputWriter = new BufferedWriter(gMeanVarImpOutputFile);
+				gMeanImpOutputWriter.write(gMeanOutputString.substring(0, gMeanOutputString.length() - 1));
+				gMeanImpOutputWriter.newLine();
+				gMeanImpOutputWriter.close();
 
 				FileWriter seedsOutputFile = new FileWriter(seedsLocation, true);
 				BufferedWriter seedsOutputWriter = new BufferedWriter(seedsOutputFile);
