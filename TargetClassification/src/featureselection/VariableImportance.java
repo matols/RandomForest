@@ -193,17 +193,6 @@ public class VariableImportance {
 			System.out.println("\tNow determining variable importances.");
 			ImmutableTwoValues<Map<String,Double>, Map<String,Double>> varImp = forest.variableImportance();
 			Map<String, Double> varImp = forest.variableImportance();
-		    System.out.println("\tNow determining proximities.");
-//			Map<Integer, Map<Integer, Double>> prox = forest.calculatProximities();
-//			for (int j : prox.keySet())
-//			{
-//				Map<Integer, Double> currentProx = proximities.get(j);
-//				Map<Integer, Double> newProx = prox.get(j);
-//				for (int k : prox.get(j).keySet())
-//				{
-//					currentProx.put(k, currentProx.get(k) + newProx.get(k));
-//				}
-//			}
 
 			// Determine the importance ordering for the variables, largest importance first.
 			List<StringsSortedByDoubles> sortedVariables = new ArrayList<StringsSortedByDoubles>();
@@ -244,42 +233,5 @@ public class VariableImportance {
 				System.exit(0);
 			}
 		}
-
-//		// Normalise and write out the proximities.
-//		for (int j : proximities.keySet())
-//		{
-//			Map<Integer, Double> currentProx = proximities.get(j);
-//			for (int k : currentProx.keySet())
-//			{
-//				currentProx.put(k, currentProx.get(k) / repetitions);
-//			}
-//		}
-//		String proximitiesLocation = outputLocation + "/Proximities.txt";
-//		try
-//		{
-//			FileWriter proximitiesOutputFile = new FileWriter(proximitiesLocation);
-//			BufferedWriter proximitiesOutputWriter = new BufferedWriter(proximitiesOutputFile);
-//			for (int i = 0; i < inputData.numberObservations; i++)
-//			{
-//				proximitiesOutputWriter.write("\t" + Integer.toString(i));
-//			}
-//			proximitiesOutputWriter.newLine();
-//			for (int i = 0; i < inputData.numberObservations; i++)
-//			{
-//				proximitiesOutputWriter.write(Integer.toString(i));
-//				for (int j = 0; j < inputData.numberObservations; j++)
-//				{
-//					proximitiesOutputWriter.write("\t" + Double.toString(proximities.get(i).get(j)));
-//				}
-//				proximitiesOutputWriter.newLine();
-//			}
-//			proximitiesOutputWriter.close();
-//		}
-//		catch (Exception e)
-//		{
-//			e.printStackTrace();
-//			System.exit(0);
-//		}
 	}
-
 }
