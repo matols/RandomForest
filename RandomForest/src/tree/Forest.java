@@ -450,7 +450,7 @@ public class Forest
 			System.exit(0);
 		}
 		Map<String, List<Integer>> responseSplits = new HashMap<String, List<Integer>>();
-		if (isSampSizeUsed || ctrl.isStratifiedBootstrapUsed)
+		if (isSampSizeUsed)
 		{
 			for (String s : responseClasses)
 			{
@@ -920,24 +920,46 @@ public class Forest
 	}
 
 
-	public Map<String, Double> variableImportance()
+	public ImmutableTwoValues<Map<String, Double>, Map<String, Double>> variableImportance()
 	{
+		// Determine the counts for each class in the dataset.
+		Map<String, Integer> countsOfClass = new HashMap<String, Integer>();
+		for (String s : this.weights.keySet())
+		{
+			countsOfClass.put(s, Collections.frequency(this.processedData.responseData, s));
+		}
+
 		// Determine base accuracy for each tree.
 		List<Double> baseOOBAccuracy = new ArrayList<Double>();
+		List<Double> baseOOBGMeans = new ArrayList<Double>();
 		for (int i = 0; i < this.forest.size(); i++)
 		{
 			List<Integer> oobOnThisTree = this.oobObservations.get(i);
 			List<Integer> treesToUse = new ArrayList<Integer>();
 			treesToUse.add(i);
-			Double originalAccuracy = 1 - predict(this.processedData, oobOnThisTree, treesToUse).first;
+			ImmutableTwoValues<Double, Map<String, Map<String, Double>>> originalPredictions = predict(this.processedData, oobOnThisTree, treesToUse);
+			Double originalAccuracy = 1 - originalPredictions.first;
 			baseOOBAccuracy.add(originalAccuracy);
+			Map<String, Map<String, Double>> confusionMatrix = originalPredictions.second;
+			double macroGMean = 1.0;
+			for (String s : confusionMatrix.keySet())
+			{
+				double TP = confusionMatrix.get(s).get("TruePositive");
+	    		double FN = countsOfClass.get(s) - TP;  // The number of false positives is the number of observations from the class  - the number of true positives.
+	    		double recall = (TP / (TP + FN));
+	    		macroGMean *= recall;
+			}
+			double gMean = Math.pow(macroGMean, (1.0 / confusionMatrix.size()));
+			baseOOBGMeans.add(gMean);
 		}
 
 		// Determine permuted importance.
-		Map<String, Double> variableImportance = new HashMap<String, Double>();
+		Map<String, Double> accVariableImportance = new HashMap<String, Double>();
+		Map<String, Double> gMeanVariableImportance = new HashMap<String, Double>();
 		for (String s : this.processedData.covariableData.keySet())
 		{
 			double cumulativeAccChange = 0.0;
+			double cumulativeGMeanChange = 0.0;
 			for (int i = 0; i < this.forest.size(); i++)
 			{
 				List<Integer> oobOnThisTree = this.oobObservations.get(i);
@@ -956,14 +978,28 @@ public class Forest
 
 				List<Integer> treesToUse = new ArrayList<Integer>();
 				treesToUse.add(i);
-				Double permutedAccuracy = 1 - predict(permData, oobOnThisTree, treesToUse).first;  // Determine the predictive accuracy for the permuted observations.
+				ImmutableTwoValues<Double, Map<String, Map<String, Double>>> permutedPredictions = predict(permData, oobOnThisTree, treesToUse);
+				Double permutedAccuracy = 1 - permutedPredictions.first;  // Determine the predictive accuracy for the permuted observations.
 				cumulativeAccChange += (baseOOBAccuracy.get(i) - permutedAccuracy);
+				Map<String, Map<String, Double>> confusionMatrix = permutedPredictions.second;
+				double permutedMacroGMean = 1.0;
+				for (String p : confusionMatrix.keySet())
+				{
+					double TP = confusionMatrix.get(p).get("TruePositive");
+		    		double FN = countsOfClass.get(p) - TP;  // The number of false positives is the number of observations from the class  - the number of true positives.
+		    		double recall = (TP / (TP + FN));
+		    		permutedMacroGMean *= recall;
+				}
+				double permutedGMean = Math.pow(permutedMacroGMean, (1.0 / confusionMatrix.size()));
+				cumulativeGMeanChange += (baseOOBGMeans.get(i) - permutedGMean);
 			}
 			cumulativeAccChange /= this.forest.size();  // Get the mean change in the accuracy. This is the importance for the variable.
-			variableImportance.put(s, cumulativeAccChange);
+			cumulativeGMeanChange /= this.forest.size();  // Get the mean change in the accuracy. This is the importance for the variable.
+			accVariableImportance.put(s, cumulativeAccChange);
+			gMeanVariableImportance.put(s, cumulativeGMeanChange);
 		}
 
-		return variableImportance;
+		return new ImmutableTwoValues<Map<String,Double>, Map<String,Double>>(accVariableImportance, gMeanVariableImportance);
 	}
 
 }
