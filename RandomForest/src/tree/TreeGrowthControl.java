@@ -101,10 +101,10 @@ public class TreeGrowthControl
 	public boolean isCalculateOOB = true;
 
 	/**
-	 * The maximum height that a tree should be grown to. Assumes that a tree containing only a root node is of height 1.
+	 * The maximum depth that a tree should be grown to. Assumes that a tree containing only a root node has a depth of 1.
 	 * Increasing this will slow down the growth of the tree.
 	 */
-	public int maxTreeHeight = Integer.MAX_VALUE;
+	public int maxTreeDepth = Integer.MAX_VALUE;
 
 
 	//===================================================================
@@ -117,12 +117,19 @@ public class TreeGrowthControl
 	public TreeGrowthControl(TreeGrowthControl ctrl)
 	{
 		// Copy constructor.
+		this.isReplacementUsed = ctrl.isReplacementUsed;
+		this.selectionFraction = ctrl.selectionFraction;
+		this.sampSize = new HashMap<String, Integer>(ctrl.sampSize);
+		this.isStratifiedBootstrapUsed = ctrl.isStratifiedBootstrapUsed;
+		this.variablesToIgnore = new ArrayList<String>(ctrl.variablesToIgnore);
+		this.trainingObservations = new ArrayList<Integer>(ctrl.trainingObservations);
+		this.isScaled = ctrl.isScaled;
+		this.isStandardised = ctrl.isStandardised;
 		this.minNodeSize = ctrl.minNodeSize;
 		this.mtry = ctrl.mtry;
 		this.numberOfTreesToGrow = ctrl.numberOfTreesToGrow;
-		this.variablesToIgnore = new ArrayList<String>(this.variablesToIgnore);
-		this.isReplacementUsed = ctrl.isReplacementUsed;
-		this.selectionFraction = ctrl.selectionFraction;
+		this.isCalculateOOB = ctrl.isCalculateOOB;
+		this.maxTreeDepth = ctrl.maxTreeDepth;
 	}
 
 	public TreeGrowthControl(String location)
@@ -168,6 +175,7 @@ public class TreeGrowthControl
 					this.trainingObservations.add(Integer.parseInt(s));
 				}
 			}
+			this.maxTreeDepth = Integer.parseInt(ctrlVariables[10]);
 		}
 		catch (Exception e)
 		{
@@ -231,6 +239,7 @@ public class TreeGrowthControl
 			{
 				outputWriter.write("-");
 			}
+			outputWriter.write("\t" + Integer.toString(this.minNodeSize));
 			outputWriter.close();
 		}
 		catch (Exception e)

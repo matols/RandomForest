@@ -181,14 +181,14 @@ public class Forest
 
 	public Forest(String dataForGrowing, TreeGrowthControl ctrl)
 	{
-		this.ctrl = ctrl;
+		this.ctrl = new TreeGrowthControl(ctrl);
 		this.seed = System.currentTimeMillis();
 		growForest(dataForGrowing, new HashMap<String, Double>());
 	}
 
 	public Forest(ProcessDataForGrowing procData, TreeGrowthControl ctrl)
 	{
-		this.ctrl = ctrl;
+		this.ctrl = new TreeGrowthControl(ctrl);
 		this.processedData = procData;
 		this.dataFileGrownFrom = procData.dataFileGrownFrom;
 		growForest(this.dataFileGrownFrom, new HashMap<String, Double>(), false);
@@ -203,14 +203,14 @@ public class Forest
 
 	public Forest(String dataForGrowing, TreeGrowthControl ctrl, Map<String, Double> weights)
 	{
-		this.ctrl = ctrl;
+		this.ctrl = new TreeGrowthControl(ctrl);
 		this.seed = System.currentTimeMillis();
 		growForest(dataForGrowing, weights);
 	}
 
 	public Forest(ProcessDataForGrowing procData, TreeGrowthControl ctrl, Map<String, Double> weights)
 	{
-		this.ctrl = ctrl;
+		this.ctrl = new TreeGrowthControl(ctrl);
 		this.processedData = procData;
 		this.dataFileGrownFrom = procData.dataFileGrownFrom;
 		growForest(this.dataFileGrownFrom, weights, false);
@@ -218,7 +218,7 @@ public class Forest
 
 	public Forest(String dataForGrowing, TreeGrowthControl ctrl, Map<String, Double> weights, Long seed)
 	{
-		this.ctrl = ctrl;
+		this.ctrl = new TreeGrowthControl(ctrl);
 		this.seed = seed;
 		growForest(dataForGrowing, weights);
 	}
@@ -560,9 +560,12 @@ public class Forest
 
 			// Update the list of which observations are OOB on this tree.
 			List<Integer> oobOnThisTree = new ArrayList<Integer>(observations);
-			System.out.println(oobOnThisTree);
 			oobOnThisTree.removeAll(observationsForTheTree);
 			this.oobObservations.add(oobOnThisTree);
+			for (Integer j : oobOnThisTree)
+			{
+				this.oobOnTree.get(j).add(i);
+			}
 
 			// Grow this tree from the chosen observations.
 			long seedForTree = randGenerator.nextLong();

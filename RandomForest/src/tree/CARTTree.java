@@ -286,6 +286,12 @@ public class CARTTree
 			// A terminal node must therefore be created.
 			return new NodeTerminal(classCountsForNode, currentDepth, weights);
 		}
+		if (currentDepth >= ctrl.maxTreeDepth)
+		{
+			// The depth of the tree has reached the maximum permissible
+			// A terminal node must therefore be created.
+			return new NodeTerminal(classCountsForNode, currentDepth, weights);
+		}
 		
 
 		//**********************************************
