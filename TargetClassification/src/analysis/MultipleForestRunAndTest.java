@@ -150,6 +150,13 @@ public class MultipleForestRunAndTest
 				resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
 				resultsOutputWriter.write("\t");
 			}
+			else if (analysisBeingRun == 5)
+			{
+				resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
+				resultsOutputWriter.write("\t");
+				resultsOutputWriter.write(Integer.toString(ctrl.maxTreeDepth));
+				resultsOutputWriter.write("\t");
+			}
 			resultsOutputWriter.write(String.format("%.5f", gMean));
 			resultsOutputWriter.write("\t");
 			resultsOutputWriter.write(String.format("%.5f", fHalf));
@@ -219,6 +226,13 @@ public class MultipleForestRunAndTest
 				resultsOutputWriter.write(Integer.toString(ctrl.sampSize.get("Unlabelled")));
 				resultsOutputWriter.write("\t");
 				resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
+				resultsOutputWriter.write("\t");
+			}
+			else if (analysisBeingRun == 5)
+			{
+				resultsOutputWriter.write(String.format("%.5f", weights.get("Positive")));
+				resultsOutputWriter.write("\t");
+				resultsOutputWriter.write(Integer.toString(ctrl.maxTreeDepth));
 				resultsOutputWriter.write("\t");
 			}
 			for (Double d : gMeanValues)

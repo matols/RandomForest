@@ -111,7 +111,7 @@ public class TreeDepthTesting
 		{
 			FileWriter resultsOutputFile = new FileWriter(fullDatasetResultsLocation);
 			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("Weight\tMtry\tGMean\tF0.5\tF1\tF2\tAccuracy\tOOBError");
+			resultsOutputWriter.write("Weight\tMaxDepth\tGMean\tF0.5\tF1\tF2\tAccuracy\tOOBError");
 			for (String s : classesInDataset)
 			{
 				resultsOutputWriter.write("\t");
@@ -131,7 +131,7 @@ public class TreeDepthTesting
 
 			resultsOutputFile = new FileWriter(fullDatasetGMeanResultsLocation);
 			resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("Weight\tMtry");
+			resultsOutputWriter.write("Weight\tMaxDepth");
 			resultsOutputWriter.newLine();
 			resultsOutputWriter.close();
 		}
@@ -175,7 +175,7 @@ public class TreeDepthTesting
 			{
 				FileWriter resultsOutputFile = new FileWriter(subsetResultsLocation);
 				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-				resultsOutputWriter.write("Weight\tMtry\tGMean\tF0.5\tF1\tF2\tAccuracy\tOOBError");
+				resultsOutputWriter.write("Weight\tMaxDepth\tGMean\tF0.5\tF1\tF2\tAccuracy\tOOBError");
 				for (String s : classesInDataset)
 				{
 					resultsOutputWriter.write("\t");
@@ -202,7 +202,7 @@ public class TreeDepthTesting
 			{
 				FileWriter resultsOutputFile = new FileWriter(subsetGMeanResultsLocation);
 				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-				resultsOutputWriter.write("Weight\tMtry");
+				resultsOutputWriter.write("Weight\tMaxDepth");
 				resultsOutputWriter.newLine();
 				resultsOutputWriter.close();
 			}
@@ -252,7 +252,7 @@ public class TreeDepthTesting
 			lastIterationGMeans.add(new ArrayList<Double>());
 		}
 		boolean isStagnationReached = false;
-		int currentDepthToTest = 100;
+		int currentDepthToTest = 1;
 
 		while ((currentDepthToTest <= maxTreeDepth) && !isStagnationReached)
 		{
@@ -280,7 +280,7 @@ public class TreeDepthTesting
 					confusionMatrix.get(s).put("TruePositive", 0.0);
 					confusionMatrix.get(s).put("FalsePositive", 0.0);
 				}
-				currentIterationGMeans.add(MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, fullDatasetResultsLocation, fullDatasetGMeanResultsLocation, 1));
+				currentIterationGMeans.add(MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, fullDatasetResultsLocation, fullDatasetGMeanResultsLocation, 5));
 
 				if (isSubsetUsed)
 				{
@@ -292,7 +292,7 @@ public class TreeDepthTesting
 						confusionMatrix.get(s).put("TruePositive", 0.0);
 						confusionMatrix.get(s).put("FalsePositive", 0.0);
 					}
-					MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, subsetResultsLocation, subsetGMeanResultsLocation, 1);
+					MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, subsetResultsLocation, subsetGMeanResultsLocation, 5);
 				}
 			}
 

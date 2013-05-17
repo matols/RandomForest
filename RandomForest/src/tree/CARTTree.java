@@ -220,7 +220,7 @@ public class CARTTree
 		}
 
 		// Grow the tree.
-		this.cartTree = growTree(observationsUsed, potentialWeights, 0);
+		this.cartTree = growTree(observationsUsed, potentialWeights, 1);
 	}
 
 	public int countTerminalNodes()
@@ -288,7 +288,7 @@ public class CARTTree
 		}
 		if (currentDepth >= ctrl.maxTreeDepth)
 		{
-			// The depth of the tree has reached the maximum permissible
+			// The depth of the tree has reached the maximum permissible.
 			// A terminal node must therefore be created.
 			return new NodeTerminal(classCountsForNode, currentDepth, weights);
 		}
