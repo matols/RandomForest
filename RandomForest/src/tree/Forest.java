@@ -419,6 +419,7 @@ public class Forest
 		// Seed the random generator used to control all the randomness in the algorithm,
 		Random randGenerator = new Random(this.seed);
 
+		// Determine whether the input data file needs to be processed.
 		if (isProcessingNeeded)
 		{
 			this.dataFileGrownFrom = dataForGrowing;
@@ -426,39 +427,70 @@ public class Forest
 			this.processedData = procData;
 		}
 
-		// Set up the oob mapping.
+		// Determine the possible classes of the observations.
+		Set<String> responseClasses = new HashSet<String>(this.processedData.responseData);
+
+		// Set up the mapping of trees that each observation is OOB on.
 		for (int i = 0; i < this.processedData.numberObservations; i++)
 		{
 			oobOnTree.put(i, new ArrayList<Integer>());
 		}
 
-		// Determine if sub sampling is used, and if so record the response of each observation.
-		boolean isSampSizeUsed = this.ctrl.sampSize.size() > 0;
-		Set<String> responseClasses = new HashSet<String>(this.processedData.responseData);
-		if (ctrl.isStratifiedBootstrapUsed)
-		{
-			isSampSizeUsed = true;
-			for (String s : responseClasses)
-			{
-				ctrl.sampSize.put(s, Collections.frequency(this.processedData.responseData, s));
-			}
-		}
-		else if (isSampSizeUsed && !this.ctrl.sampSize.keySet().containsAll(responseClasses))
-		{
-			// Raise an error if sampSize is being used and does not contain all of the response classes.
-			System.out.println("ERROR : sampSize in the control object does not contain all of the response classes in the data.");
-			System.exit(0);
-		}
-		Map<String, List<Integer>> responseSplits = new HashMap<String, List<Integer>>();
+		// If sampling by class is being performed, then record the observations in each class.
+		boolean isSampSizeUsed = this.ctrl.sampSize.size() > 0 || ctrl.isStratifiedBootstrapUsed;
+		Map<String, List<Integer>> observationsInEachClass = new HashMap<String, List<Integer>>();
 		if (isSampSizeUsed)
 		{
 			for (String s : responseClasses)
 			{
-				responseSplits.put(s, new ArrayList<Integer>());
+				observationsInEachClass.put(s, new ArrayList<Integer>());
 			}
 			for (int i = 0; i < this.processedData.numberObservations; i++)
 			{
-				responseSplits.get(this.processedData.responseData.get(i)).add(i);
+				observationsInEachClass.get(this.processedData.responseData.get(i)).add(i);
+			}
+		}
+
+		// Perform some error checking to ensure that the choice of sampling strategy is consistent.
+		boolean samplingParameterError = false;
+		if (this.ctrl.sampSize.size() > 0 && ctrl.isStratifiedBootstrapUsed)
+		{
+			// Raise an error because the user has specified a specific sample size for each class, and to use stratified bootstrapping.
+			System.out.println("ERROR : sampSize and isStratifiedBootstrapUsed from TreeGrowthControl can not be used together.");
+			System.out.println("ERROR : Either set sampSize to an empty Map or set isStratifiedBootstrapUsed to false.");
+			samplingParameterError = true;
+		}
+		if (this.ctrl.sampSize.size() > 0 && !this.ctrl.sampSize.keySet().containsAll(responseClasses))
+		{
+			// Raise an error because the user has only specified a specific sample size for some classes.
+			System.out.println("ERROR : sampSize in the TreeGrowthControl object supplied must contain all the classes in the dataset supplied.");
+			samplingParameterError = true;
+		}
+		if (!this.ctrl.isReplacementUsed && this.ctrl.sampSize.size() > 0)
+		{
+			for (String s : observationsInEachClass.keySet())
+			{
+				if (this.ctrl.sampSize.containsKey(s) && ((observationsInEachClass.get(s).size() * this.ctrl.selectionFraction)) > this.ctrl.sampSize.get(s))
+				{
+					// Raise an error because the number of observations of class s that the user said to sample is less than the available
+					// observations when replacement is not used.
+					System.out.format("ERROR : There are not enough observations of class %s to sample %d observations", s, (int) (observationsInEachClass.get(s).size() * this.ctrl.selectionFraction));
+					System.out.println("ERROR : Please either revert to sampling with replacment, or change the number and fraction of observations to sample.");
+					samplingParameterError = true;
+				}
+			}
+		}
+		if (samplingParameterError)
+		{
+			System.exit(0);
+		}
+
+		// If stratified bootstrap is specified, then set the sample sizes to ensure that the correct number of observations are sampled from each class.
+		if (ctrl.isStratifiedBootstrapUsed)
+		{
+			for (String s : responseClasses)
+			{
+				ctrl.sampSize.put(s, observationsInEachClass.get(s).size());
 			}
 		}
 
@@ -480,6 +512,7 @@ public class Forest
 			observations.add(i);
 		}
 
+		// Grow the trees in the forest.
 		for (int i = 0; i < ctrl.numberOfTreesToGrow; i++)
 		{
 			// Randomly determine the observations used for growing this tree.
@@ -489,14 +522,11 @@ public class Forest
 				for (String s : responseClasses)
 				{
 					int observationsToSelect = this.ctrl.sampSize.get(s);
-					List<Integer> thisClassObservations = new ArrayList<Integer>(responseSplits.get(s));
+					List<Integer> thisClassObservations = new ArrayList<Integer>(observationsInEachClass.get(s));
 					if (!ctrl.isReplacementUsed)
 					{
 						Collections.shuffle(thisClassObservations, new Random(randGenerator.nextLong()));
-						for (int j = 0; j < observationsToSelect * this.ctrl.selectionFraction; j++)
-						{
-							observationsForTheTree.add(thisClassObservations.get(j));
-						}
+						observationsForTheTree = thisClassObservations.subList(0, (int) (observationsToSelect * this.ctrl.selectionFraction));
 					}
 					else
 					{
@@ -513,12 +543,8 @@ public class Forest
 			{
 				if (!ctrl.isReplacementUsed)
 				{
-					int numberObservationsToSelect = (int) Math.floor(this.ctrl.selectionFraction * observations.size());
 					Collections.shuffle(observations, new Random(randGenerator.nextLong()));
-					for (int j = 0; j < numberObservationsToSelect; j++)
-					{
-						observationsForTheTree.add(observations.get(j));
-					}
+					observationsForTheTree = observations.subList(0, (int) (Math.floor(this.ctrl.selectionFraction * observations.size())));
 				}
 				else
 				{
@@ -532,17 +558,10 @@ public class Forest
 				}
 			}
 
-			// Update the list of which observations are oob on this tree.
-			List<Integer> oobOnThisTree = new ArrayList<Integer>();
-			for (Integer j : observations)
-			{
-				if (!observationsForTheTree.contains(j))
-				{
-					// If the observation is not in the observations to use when growing the tree, then it is oob for the tree.
-					oobOnThisTree.add(j);
-					oobOnTree.get(j).add(i);
-				}
-			}
+			// Update the list of which observations are OOB on this tree.
+			List<Integer> oobOnThisTree = new ArrayList<Integer>(observations);
+			System.out.println(oobOnThisTree);
+			oobOnThisTree.removeAll(observationsForTheTree);
 			this.oobObservations.add(oobOnThisTree);
 
 			// Grow this tree from the chosen observations.
@@ -552,7 +571,7 @@ public class Forest
 
 		if (this.ctrl.isCalculateOOB)
 		{
-			// Calculate the oob error. This is done by putting each observation down the trees where it is oob.
+			// Calculate the OOB error and confusion matrix. This is done by putting each observation down the trees where it is OOB.
 			double cumulativeErrorRate = 0.0;
 			Map<String, Map<String, Double>> confusionMatrix = new HashMap<String, Map<String, Double>>();
 			Set<String> responsePossibilities = new HashSet<String>(this.processedData.responseData);
@@ -566,21 +585,9 @@ public class Forest
 			int numberOobObservations = 0;
 			for (int i = 0; i < this.processedData.numberObservations; i++)
 			{
-//				boolean isIOob = false;
 				boolean isIOob = !oobOnTree.get(i).isEmpty();
 				List<Integer> obsToPredict = new ArrayList<Integer>();
 				obsToPredict.add(i);
-//				// Gather the trees or which observation i is oob.
-//				List<Integer> treesToPredictFrom = new ArrayList<Integer>();
-//				for (int j = 0; j < this.ctrl.numberOfTreesToGrow; j++)
-//				{
-//					if (this.oobObservations.get(j).contains(i))
-//					{
-//						// If the jth tree contains the ith observation as an oob observation.
-//						treesToPredictFrom.add(j);
-//						isIOob = true;
-//					}
-//				}
 				if (isIOob)
 				{
 					numberOobObservations += 1;

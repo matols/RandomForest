@@ -13,62 +13,103 @@ import java.util.Map;
 
 public class TreeGrowthControl
 {
-
+	//===================================================================
+	//=================== Sampling Control Attributes ===================
+	//===================================================================
 	/**
-	 * The number of observations that must be present in the node in order for it to be considered for splitting.
-	 * Equivalent to the ndsize argument from Breiman's Fortran 77 code.
+	 * Whether replacement is used when sampling the observations to grow a tree on.
 	 */
-	public int minNodeSize = 1;
+	public boolean isReplacementUsed = true;
 
 	/**
-	 * The number of input variables randomly sampled as candidates at each node.
-	 */
-	public int mtry = Integer.MAX_VALUE;
-
-	/**
-	 * The number of trees to grow (only use for growing a forest).
-	 */
-	public int numberOfTreesToGrow = 500;
-
-	/**
-	 * The variables to exclude from the growing of the tree.
-	 */
-	public List<String> variablesToIgnore = new ArrayList<String>();
-
-	/**
-	 * Whether or not to use replacement when selecting the examples to grow the tree (only use for growing a forest).
-	 */
-	public boolean isReplacementUsed = false;
-
-	/**
-	 * The fraction of observations to select if replacement is not used (only use for growing a forest).
+	 * The fraction of the observations to select if replacement is not used when sampling.
 	 */
 	public double selectionFraction = 0.632;
 
 	/**
-	 * Controls for the size of and fraction of each class in the bootstrap sample.
+	 * Controls the number of observations of each class to sample from the input dataset. An empty map means that
+	 * this.isReplacementUsed and this.selectionFraction will be used to determine the number of observations sampled.
+	 * If this variable is non-empty, then there must be a value supplied for every class in the dataset.
+	 * If this.isReplacementUsed == false, then the number of observations of a class s in the dataset must be
+	 * >= the value (sampSize.get(s) / this.selectionFraction).
+	 * Cannot be used when this.isStratifiedBootstrapUsed == true.
 	 */
 	public Map<String, Integer> sampSize = new HashMap<String, Integer>();
 
 	/**
-	 * Controls whether the bootstrap sample should be stratified. This takes precedence over any values in sampSize.
+	 * Controls whether the sampling of the observations should be stratified.
+	 * Can only be used when this.sampSize is an empty Map.
 	 */
-	public boolean isStratifiedBootstrapUsed = false;
+	public boolean isStratifiedBootstrapUsed = true;
+
+	//===================================================================
+	//============== Input Data Parsing Control Attributes ==============
+	//===================================================================
+	/**
+	 * The input variables to exclude from being considered as a candidate for splitting a node. The variables in this list
+	 * are simply not be read in from the input file.
+	 */
+	public List<String> variablesToIgnore = new ArrayList<String>();
+
+	/**
+	 * The observations to include when growing a tree. Any observations not in this list will simply not be read in
+	 * from the input file. This will cause the indices of the remaining observations to be altered. For example, if the smallest
+	 * integer in this list is 5, then the observation that would have been at index 5 will now be moved to index 0.
+	 * All observations therefore have their index reduced until the indices form a contiguous block starting from 0.
+	 * If this list is empty, then it is assumed that all observations should be used when growing a tree.
+	 */
+	public List<Integer> trainingObservations = new ArrayList<Integer>();
+
+	/**
+	 * If this is true the variables have their values scaled using ((Xi - Min) / (Max - Min)), where Xi is the value of the
+	 * variable for observation i, Min is the minimum value of the variable and Max is the maximum value of the variable. 
+	 */
+	public boolean isScaled = false;
+
+	/**
+	 * If this is true then the values of a variables are standardised so that they have 0 mean and a standard deviation of 1.
+	 */
+	public boolean isStandardised = false;
+
+	//===================================================================
+	//============== Forest/Tree Growth Control Attributes ==============
+	//===================================================================
+	/**
+	 * The minimum number of observations that must be present in a node in order for it to be considered for splitting.
+	 * If a split would cause less than this number of observations to be in any of the child nodes, then the split is
+	 * not permitted to go ahead.
+	 * Increasing this will speed up the growth of the tree.
+	 */
+	public int minNodeSize = 1;
+
+	/**
+	 * The number of input variables that are randomly selected as candidates for splitting in a node.
+	 * Increasing this will slow down the growth of the tree.
+	 */
+	public int mtry = Integer.MAX_VALUE;
+
+	/**
+	 * The number of trees to grow in the forest.
+	 * Increasing this will make the forest take longer to grow.
+	 */
+	public int numberOfTreesToGrow = 500;
 
 	/**
 	 * Whether or not the OOB error rate and confusion matrix should be calculated.
+	 * Setting this to true will increase the training time of the forest.
 	 */
 	public boolean isCalculateOOB = true;
 
 	/**
-	 * The variables to exclude from the growing of the tree.
+	 * The maximum height that a tree should be grown to. Assumes that a tree containing only a root node is of height 1.
+	 * Increasing this will slow down the growth of the tree.
 	 */
-	public List<Integer> trainingObservations = new ArrayList<Integer>();
+	public int maxTreeHeight = Integer.MAX_VALUE;
 
-	public boolean isScaled = false;
 
-	public boolean isStandardised = false;
-
+	//===================================================================
+	//======================== Class Constructor ========================
+	//===================================================================
 	public TreeGrowthControl()
 	{
 	}
@@ -135,6 +176,10 @@ public class TreeGrowthControl
 		}
 	}
 
+
+	//===================================================================
+	//========================== Class Methods ==========================
+	//===================================================================
 	/**
 	 * Method to save the control object to a file.
 	 * 

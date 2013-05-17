@@ -58,13 +58,13 @@ public class VariableImportance {
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int repetitions = 2;
+		int repetitions = 200;
 		Integer[] trainingObsToUse = {};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();;
 		ctrl.isReplacementUsed = true;
 		ctrl.isStratifiedBootstrapUsed = true;
-		ctrl.numberOfTreesToGrow = 100;
+		ctrl.numberOfTreesToGrow = 5000;
 		ctrl.mtry = 10;
 		ctrl.minNodeSize = 1;
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
