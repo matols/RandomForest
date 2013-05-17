@@ -28,14 +28,14 @@ public class MultipleForestRunAndTest
 	 * @param mccResultsLocation
 	 * @param analysisBeingRun - 1 for weight and mtry, 2 for sample size and 3 for node size.
 	 */
-	static void forestTraining(Map<String, Map<String, Double>> confusionMatrix,
+	static List<Double> forestTraining(Map<String, Map<String, Double>> confusionMatrix,
 			Map<String, Double> weights, TreeGrowthControl ctrl, String inputFile, List<Long> seeds, int repetitions,
 			String resultsLocation, String mccResultsLocation, int analysisBeingRun)
 	{
-		forestTraining(confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, resultsLocation, mccResultsLocation, analysisBeingRun, 0.0);
+		return forestTraining(confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, resultsLocation, mccResultsLocation, analysisBeingRun, 0.0);
 	}
 
-	static void forestTraining(Map<String, Map<String, Double>> confusionMatrix,
+	static List<Double> forestTraining(Map<String, Map<String, Double>> confusionMatrix,
 			Map<String, Double> weights, TreeGrowthControl ctrl, String inputFile, List<Long> seeds, int repetitions,
 			String resultsLocation, String mccResultsLocation, int analysisBeingRun, double callSpecificValue)
 	{
@@ -234,5 +234,7 @@ public class MultipleForestRunAndTest
 			e.printStackTrace();
 			System.exit(0);
 		}
+
+		return gMeanValues;
 	}
 }
