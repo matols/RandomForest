@@ -92,6 +92,7 @@ public class Downsampling
 		ctrl.numberOfTreesToGrow = 1000;
 		ctrl.mtry = 10;
 		ctrl.minNodeSize = 1;
+		ctrl.isStratifiedBootstrapUsed = false;
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		Map<String, Double> weights = new HashMap<String, Double>();
@@ -265,7 +266,7 @@ public class Downsampling
 		// Generate the subsets.
 		for (Double downFraction : downsampleFractions)
 		{
-			System.out.format("Now working on upscaling fraction - %f.\n", downFraction);
+			System.out.format("Now working on downscaling fraction - %f.\n", downFraction);
 
 			int majorityObsToRemove = (int) Math.round(differenceInNumber * downFraction);
 			int majorityObsToUse = numberMajorityObs - majorityObsToRemove;

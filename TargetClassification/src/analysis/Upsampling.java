@@ -92,6 +92,7 @@ public class Upsampling
 		ctrl.numberOfTreesToGrow = 1000;
 		ctrl.mtry = 10;
 		ctrl.minNodeSize = 1;
+		ctrl.isStratifiedBootstrapUsed = false;
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		Map<String, Double> weights = new HashMap<String, Double>();
