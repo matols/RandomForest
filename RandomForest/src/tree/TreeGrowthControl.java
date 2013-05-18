@@ -68,6 +68,8 @@ public class TreeGrowthControl
 
 	/**
 	 * If this is true then the values of a variables are standardised so that they have 0 mean and a standard deviation of 1.
+	 * If any variables have 0 standard deviations, then the values for the variable will all become NaN. It is necessary to either
+	 * add these variables to this.variablesToIgnore, or to compensate for the NaNs.
 	 */
 	public boolean isStandardised = false;
 
