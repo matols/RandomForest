@@ -52,13 +52,12 @@ public class GeneticAlgorithm {
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int gaRepetitions = 20;
 		Integer[] trainingObsToUse = {};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();;
 		ctrl.isReplacementUsed = true;
 		ctrl.isStratifiedBootstrapUsed = true;
-		ctrl.numberOfTreesToGrow = 1000;
+		ctrl.numberOfTreesToGrow = 10;
 		ctrl.mtry = 10;
 		ctrl.minNodeSize = 1;
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
@@ -70,22 +69,14 @@ public class GeneticAlgorithm {
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
 
-		// Run the GA multiple times.
-		for (int i = 0; i < gaRepetitions; i++)
-		{
-			System.out.format("GA round : %d.\n", i);
-			String thisGAArgs[] = args.clone();
-			thisGAArgs[1] += "/" + Integer.toString(i);
-			TreeGrowthControl thisGAControl = new TreeGrowthControl(ctrl);
-			new chc.FeatureSelection(thisGAArgs, thisGAControl, weights);
-		}
+		new chc.FeatureSelection(args, new TreeGrowthControl(ctrl), weights);
 
 		gaAnalysis(args[0], args[1], ctrl);
 	}
 
 	/**
 	 * @param inputLocation
-	 * @param resultDirLoc - directory containing results of the multiple GA runs for one dataset - must only contain the directories to use, no extra files or directories
+	 * @param resultDirLoc - directory containing results of the GA run
 	 * @param ctrl - the TreeGrowthCotrol object used to run the GA (or an equivalent one)
 	 */
 	static void gaAnalysis(String inputLocation, String resultsDirLoc, TreeGrowthControl ctrl)
@@ -106,40 +97,36 @@ public class GeneticAlgorithm {
 		}
 
 		// Get the best individuals from the GA runs.
-		List<Integer[]> bestIndividuals = new ArrayList<Integer[]>();
-		for (String s : outputDirectory.list())
+		List<List<String>> bestIndividuals = new ArrayList<List<String>>();
+		try (BufferedReader reader = Files.newBufferedReader(Paths.get(resultsDirLoc + "/BestConvergenceIndividuals.txt"), StandardCharsets.UTF_8))
 		{
-			String bestIndivLocation = resultsDirLoc + "/" + s + "/BestIndividuals.txt";
-			try (BufferedReader reader = Files.newBufferedReader(Paths.get(bestIndivLocation), StandardCharsets.UTF_8))
+			String line;
+			line = reader.readLine();  // Strip the header.
+			while ((line = reader.readLine()) != null)
 			{
-				String line;
-				while ((line = reader.readLine()) != null)
+				line = line.trim();
+				line = line.replace("[", "");
+				line = line.replace("]", "");
+				line = line.replace(" ", "");
+				if (line.trim().length() == 0)
 				{
-					line = line.replaceAll("\n", "");
-					if (line.trim().length() == 0)
-					{
-						// If the line is made up of all whitespace, then ignore the line.
-						continue;
-					}
-					else if (line.contains("Fitness"))
-					{
-						// The line indicates the fitness of the individual, so skip it.
-						continue;
-					}
-					List<Integer> individual = new ArrayList<Integer>();
-					String[] splitLine = line.split("\t");
-					for (String p : splitLine[0].split(","))
-					{
-						individual.add(Integer.parseInt(p));
-					}
-					bestIndividuals.add(individual.toArray(new Integer[individual.size()]));
+					// If the line is made up of all whitespace, then ignore the line.
+					continue;
 				}
+
+				List<String> individual = new ArrayList<String>();
+				String[] splitLine = line.split("\t");
+				for (String p : splitLine[2].split(","))
+				{
+					individual.add(p);
+				}
+				bestIndividuals.add(individual);
 			}
-			catch (Exception e)
-			{
-				e.printStackTrace();
-				System.exit(0);
-			}
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
 		}
 
 		// Get the names and types of the features (the types are so that you know which features are the response and which aren't used).
@@ -175,31 +162,35 @@ public class GeneticAlgorithm {
 		}
 
 		// Generate the output matrix.
-		List<Integer> featureSums = new ArrayList<Integer>();
+		Map<String, Integer> featureSums = new HashMap<String, Integer>();
 		try
 		{
 			String matrixOutputLocation = resultsDirLoc + "/MatrixOutput.txt";
 			FileWriter matrixOutputFile = new FileWriter(matrixOutputLocation);
 			BufferedWriter matrixOutputWriter = new BufferedWriter(matrixOutputFile);
-			for (int i = 0; i < featuresUsed.size(); i++)
+			for (String s : featuresUsed)
 			{
 				// Write out the feature name.
-				matrixOutputWriter.write(featuresUsed.get(i));
+				matrixOutputWriter.write(s);
 				matrixOutputWriter.write("\t");
 				// Write out the presence (1)/absence (0) of the feature for the given run, and sum up the occurrences
 				// of the feature in the runs.
 				int featureOccurreces = 0;
-				for (int j = 0; j < bestIndividuals.size(); j++)
+				for (List<String> l : bestIndividuals)
 				{
-					int individualsValue = bestIndividuals.get(j)[i];
-					featureOccurreces += individualsValue;
-					matrixOutputWriter.write(Integer.toString(individualsValue));
+					int featurePresence = 0;
+					if (l.contains(s))
+					{
+						featurePresence = 1;
+					}
+					featureOccurreces += featurePresence;
+					matrixOutputWriter.write(Integer.toString(featurePresence));
 					matrixOutputWriter.write("\t");
 				}
 				double featureFractions = ((double) featureOccurreces) / bestIndividuals.size();
 				matrixOutputWriter.write(Double.toString(featureFractions));
 				matrixOutputWriter.newLine();
-				featureSums.add(featureOccurreces);
+				featureSums.put(s, featureOccurreces);
 			}
 			matrixOutputWriter.close();
 		}
@@ -215,12 +206,12 @@ public class GeneticAlgorithm {
 			double featureFraction = d / 10.0;
 			int numberOfOccurences = (int) Math.floor(featureFraction * bestIndividuals.size());  // Determine the number of times a feature must occur for it to be included in the feature set.
 			List<String> featureSet = new ArrayList<String>();
-			for (int i = 0; i < featuresUsed.size(); i++)
+			for (String s : featuresUsed)
 			{
-				if (featureSums.get(i) >= numberOfOccurences)
+				if (featureSums.get(s) >= numberOfOccurences)
 				{
 					// If the ith feature occurred enough times.
-					featureSet.add(featuresUsed.get(i));
+					featureSet.add(s);
 				}
 			}
 			// Write out the feature set.

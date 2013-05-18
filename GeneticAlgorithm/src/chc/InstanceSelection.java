@@ -77,6 +77,7 @@ public class InstanceSelection
 		int maxEvaluations = 0;  // The maximum number of fitness evaluations to perform.
 		boolean verbose = false;  // Whether status updates should be displayed.
 		long maxTimeAllowed = 0;  // What the maximum time allowed (in ms) for the run is. 0 indicates that timing is not used.
+		int maxConvergences = 0;  // The number of times the population is allowed to converge.
 
 		// Read in the user input.
 		int argIndex = 2;
@@ -109,15 +110,20 @@ public class InstanceSelection
 				verbose = true;
 				argIndex += 1;
 				break;
+			case "-c":
+				argIndex += 1;
+				maxConvergences = Integer.parseInt(args[argIndex]);
+				argIndex += 1;
+				break;
 			default:
 				System.out.format("Unexpeted argument : %s.\n", currentArg);
 				System.exit(0);
 			}
 		}
-		if (maxGenerations <= 0 && maxEvaluations <= 0 && maxTimeAllowed <= 0)
+		if (maxGenerations <= 0 && maxEvaluations <= 0 && maxTimeAllowed <= 0 && maxConvergences <= 0)
 		{
 	        // No stopping criteria given.
-	        System.out.println("At least one of -g, -e or -t must be given, otherwise there are no stopping criteria.");
+	        System.out.println("At least one of -g, -e, -t or -c must be given, otherwise there are no stopping criteria.");
 	        System.exit(0);
 		}
 
@@ -169,6 +175,7 @@ public class InstanceSelection
 
 		// Setup the generation stats files and write out the class weights being used.
 		String genStatsOutputLocation = outputLocation + "/GenerationStatistics.txt";
+		String convergenOutputLocation = outputLocation + "/BestConvergenceIndividuals.txt";
 		String weightOutputLocation = outputLocation + "/Weights.txt";
 		Map<String, String> classFMeasureOutputLocations = new HashMap<String, String>();
 		try
@@ -178,6 +185,12 @@ public class InstanceSelection
 			genStatsOutputWriter.write("Generation\tBestGMean\tMeanGMean\tMedianGMean\tStdDevGMean\tBestIndivSize\tMeanIndivSize\tThreshold\tEvaluationsPerformed");
 			genStatsOutputWriter.newLine();
 			genStatsOutputWriter.close();
+
+			FileWriter convergenceOutputFile = new FileWriter(convergenOutputLocation);
+			BufferedWriter convergenceOutputWriter = new BufferedWriter(convergenceOutputFile);
+			convergenceOutputWriter.write("Generation\tFitness\tIndividual");
+			convergenceOutputWriter.newLine();
+			convergenceOutputWriter.close();
 
 			FileWriter weightOutputFile = new FileWriter(weightOutputLocation);
 			BufferedWriter weightOutputWriter = new BufferedWriter(weightOutputFile);
@@ -277,6 +290,7 @@ public class InstanceSelection
 		// Initialise the stopping criteria for the GA.
 	    int currentGeneration = 1;
 	    int numberEvaluations = 0;
+	    int convergencesOccurred = 0;
 		
 		// Generate the initial population.
 	    if (verbose)
@@ -352,7 +366,7 @@ public class InstanceSelection
 	    	fitness.add(macroGMean);
 	    }
 
-	    while (loopTermination(currentGeneration, maxGenerations, numberEvaluations, maxEvaluations, gaStartTime, maxTimeAllowed))
+	    while (loopTermination(currentGeneration, maxGenerations, numberEvaluations, maxEvaluations, gaStartTime, maxTimeAllowed, convergencesOccurred, maxConvergences))
 	    {
 
 	    	if (verbose)
@@ -449,6 +463,28 @@ public class InstanceSelection
 	    		threshold -= 1;
 	    		if (threshold < 1)
 	    		{
+	    			// Write out best individual at convergence.
+	    			try
+	    			{
+		    			FileWriter convergenceOutputFile = new FileWriter(convergenOutputLocation, true);
+		    			BufferedWriter convergenceOutputWriter = new BufferedWriter(convergenceOutputFile);
+		    			convergenceOutputWriter.write(Integer.toString(currentGeneration));
+		    			convergenceOutputWriter.write("\t");
+		    			convergenceOutputWriter.write(Double.toString(fitness.get(0)));
+		    			convergenceOutputWriter.write("\t");
+		    			convergenceOutputWriter.write(population.get(0).toString());
+		    			convergenceOutputWriter.newLine();
+		    			convergenceOutputWriter.close();
+	    			}
+		    		catch (Exception e)
+		    		{
+		    			e.printStackTrace();
+		    			System.exit(0);
+		    		}
+
+	    			// Record the fact that a convergence has occurred.
+	    			convergencesOccurred++;
+
 	    			threshold = initialSetSize / 4;
 	    			// Generate the new population by copying over the best individuals found so far, and then randomly instantiating the rest of the population.
 	    			population = new ArrayList<List<Integer>>(new HashSet<List<Integer>>(this.bestMembersFound));
@@ -654,11 +690,14 @@ public class InstanceSelection
 		return nonMatchingObs;
 	}
 
-	boolean loopTermination(int currentGen, int maxGens, int currentEvals, int maxEvals, Date startTime, long maxTimeAllowed)
+	boolean loopTermination(int currentGen, int maxGens, int currentEvals, int maxEvals, Date startTime, long maxTimeAllowed,
+			int convergencesOccurred, int maxConvergences)
 	{
 		boolean isGenNotStopping = false;
 		boolean isEvalNotStopping = false;
 		boolean isTimeNotStopping = false;
+		boolean isConvergenceNotStopping = false;
+
 		if (maxGens != 0)
 	    {
 	        // Using the number of generations as a stopping criterion.
@@ -688,8 +727,17 @@ public class InstanceSelection
 	    {
 	    	isTimeNotStopping = true;
 	    }
+	    if (maxConvergences != 0)
+	    {
+	    	// Using a limit to the number of convergences.
+	    	isConvergenceNotStopping = convergencesOccurred < maxConvergences;
+	    }
+	    else
+	    {
+	    	isConvergenceNotStopping = true;
+	    }
 
-	    return isGenNotStopping && isEvalNotStopping && isTimeNotStopping;
+	    return isGenNotStopping && isEvalNotStopping && isTimeNotStopping && isConvergenceNotStopping;
 	}
 
 	void writeOutStatus(String fitnessDirectoryLocation, List<Double> fitness, String populationDirectoryLocation,
