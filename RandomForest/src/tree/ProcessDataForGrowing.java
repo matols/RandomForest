@@ -291,6 +291,10 @@ public class ProcessDataForGrowing
 					squaredDiffWithMean += Math.pow(d - meanValue, 2);
 				}
 				double stdDev = Math.pow(squaredDiffWithMean / covariableValues.size(), 0.5);
+				if (stdDev == 0.0)
+				{
+					System.out.format("WARNING : Standard deviation for standardising variable %s is 0. Values for %s will be NaN.", s, s);
+				}
 				for (Double d : covariableValues)
 				{
 					standardisedValues.add((d - meanValue) / stdDev);
