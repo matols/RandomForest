@@ -78,6 +78,7 @@ public class InstanceSelection
 		boolean verbose = false;  // Whether status updates should be displayed.
 		long maxTimeAllowed = 0;  // What the maximum time allowed (in ms) for the run is. 0 indicates that timing is not used.
 		int maxConvergences = 0;  // The number of times the population is allowed to converge.
+		int maxStagnant = 5;  // The number of consecutive generations that can occur without any offspring being added to the population.
 
 		// Read in the user input.
 		int argIndex = 2;
@@ -113,6 +114,11 @@ public class InstanceSelection
 			case "-c":
 				argIndex += 1;
 				maxConvergences = Integer.parseInt(args[argIndex]);
+				argIndex += 1;
+				break;
+			case "-s":
+				argIndex += 1;
+				maxStagnant = Integer.parseInt(args[argIndex]);
 				argIndex += 1;
 				break;
 			default:
@@ -291,6 +297,9 @@ public class InstanceSelection
 	    int currentGeneration = 1;
 	    int numberEvaluations = 0;
 	    int convergencesOccurred = 0;
+
+	    // Initialise stable population criteria.
+	    int populationLastChanged = 0;
 		
 		// Generate the initial population.
 	    if (verbose)
@@ -458,9 +467,46 @@ public class InstanceSelection
 		 	    	numberEvaluations += 1;
 			    }
 	    	}
-	    	else
+
+	    	// Update the population.
+		    List<IndexedDoubleData> sortedPopulation = new ArrayList<IndexedDoubleData>();
+		    for (int j = 0; j < population.size(); j++)
+		    {
+		    	sortedPopulation.add(new IndexedDoubleData(fitness.get(j), j));
+		    }
+		    Collections.sort(sortedPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by F score.
+		    List<List<Integer>> newPopulation = new ArrayList<List<Integer>>();
+		    List<Double> newFitness = new ArrayList<Double>();
+		    Map<String, List<Double>> newClassFMeasures = new HashMap<String, List<Double>>();
+		    for (String s : observations.keySet())
+		    {
+		    	newClassFMeasures.put(s, new ArrayList<Double>());
+		    }
+		    for (int j = 0; j < populationSize; j ++)
+		    {
+		    	// Add the first populationSize population members with the lowest error rates.
+		    	int indexToAddFrom = sortedPopulation.get(j).getIndex();
+		    	newPopulation.add(population.get(indexToAddFrom));
+		    	newFitness.add(fitness.get(indexToAddFrom));
+		    	for (String s : observations.keySet())
+		    	{
+		    		newClassFMeasures.get(s).add(classGMeanResults.get(s).get(indexToAddFrom));
+		    	}
+		    	if (indexToAddFrom > populationSize)
+		    	{
+		    		// If this is true, the an offspring has been added to the updated population.
+		    		populationLastChanged++;
+		    	}
+		    }
+		    population = newPopulation;
+		    fitness = newFitness;
+		    classGMeanResults = newClassFMeasures;
+
+		    if (populationLastChanged == maxStagnant)
 	    	{
+	    		populationLastChanged = 0;
 	    		threshold -= 1;
+
 	    		if (threshold < 1)
 	    		{
 	    			// Write out best individual at convergence.
@@ -487,7 +533,7 @@ public class InstanceSelection
 
 	    			threshold = initialSetSize / 4;
 	    			// Generate the new population by copying over the best individuals found so far, and then randomly instantiating the rest of the population.
-	    			population = new ArrayList<List<Integer>>(new HashSet<List<Integer>>(this.bestMembersFound));
+	    			population = new ArrayList<List<Integer>>(this.bestMembersFound);
 	    			for (int i = 0; i < populationSize; i++)
 	    			{
 	    				List<Integer> newPopMember = new ArrayList<Integer>();
@@ -553,35 +599,6 @@ public class InstanceSelection
 	    		    }
 	    		}
 	    	}
-
-	    	// Update the population.
-		    List<IndexedDoubleData> sortedPopulation = new ArrayList<IndexedDoubleData>();
-		    for (int j = 0; j < population.size(); j++)
-		    {
-		    	sortedPopulation.add(new IndexedDoubleData(fitness.get(j), j));
-		    }
-		    Collections.sort(sortedPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by F score.
-		    List<List<Integer>> newPopulation = new ArrayList<List<Integer>>();
-		    List<Double> newFitness = new ArrayList<Double>();
-		    Map<String, List<Double>> newClassFMeasures = new HashMap<String, List<Double>>();
-		    for (String s : observations.keySet())
-		    {
-		    	newClassFMeasures.put(s, new ArrayList<Double>());
-		    }
-		    for (int j = 0; j < populationSize; j ++)
-		    {
-		    	// Add the first populationSize population members with the lowest error rates.
-		    	int indexToAddFrom = sortedPopulation.get(j).getIndex();
-		    	newPopulation.add(population.get(indexToAddFrom));
-		    	newFitness.add(fitness.get(indexToAddFrom));
-		    	for (String s : observations.keySet())
-		    	{
-		    		newClassFMeasures.get(s).add(classGMeanResults.get(s).get(indexToAddFrom));
-		    	}
-		    }
-		    population = newPopulation;
-		    fitness = newFitness;
-		    classGMeanResults = newClassFMeasures;
 
 		    // Write out the statistics of the population.
 	    	writeOutStatus(fitnessDirectoryLocation, fitness, populationDirectoryLocation, population, currentGeneration,
