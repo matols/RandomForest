@@ -28,10 +28,13 @@ public class PerformLearning
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
 
+		// Parse inputs.
+		String dataForLearning = args[0];
+		int numberTopConnectionsToKeep = Integer.parseInt(args[1]);  // Same as Q in the paper.
+
 		// Process the input data.
 		ctrl.isStandardised = true;
 		ctrl.variablesToIgnore = Arrays.asList(variablesToIgnore);
-		String dataForLearning = args[0];
 		ProcessDataForGrowing processedDataForLearning = new ProcessDataForGrowing(dataForLearning, ctrl);
 
 		// Determine the indices for the positive, unlabelled and all observations.
@@ -96,17 +99,97 @@ public class PerformLearning
 		System.out.println(meanDistanceToPositive);
 		System.out.println(reliableNegativeSet);
 		System.out.println(reliableNegativeSet.size());
+
+		determineWeights(processedDataForLearning, numberTopConnectionsToKeep);
 	}
 
-	static List<Double> distanceFromMean(List<Integer> observationIndices, Map<String, Double> meanPositiveVector, ProcessDataForGrowing processedDataForLearning)
+	static void determineWeights(ProcessDataForGrowing dataset, int numberTopConnectionsToKeep)
+	{
+		// Get abase list of all observation indices.
+		List<Integer> observationIndices = new ArrayList<Integer>();
+		for (int i = 0; i < dataset.numberObservations; i++)
+		{
+			observationIndices.add(i);
+		}
+
+		Map<Integer, Map<Integer, Double>> closestDistances = new HashMap<Integer, Map<Integer, Double>>();
+		double maximumDistance = 0.0;
+		double minimumDistance = Integer.MAX_VALUE;
+		for (int i = 0; i < dataset.numberObservations; i++)
+		{
+			// Get the distance between observation i and all other observations (excluding itself).
+			List<Integer> otherObservations = new ArrayList<Integer>(observationIndices);
+			otherObservations.remove(i);
+			Map<Integer, Double> distances = distanceBetweenObservations(dataset, i, otherObservations);
+
+			// Select the shortest numberTopConnectionsToKeep distances to keep.
+			List<IndexedDoubleData> sortedDistances = new ArrayList<IndexedDoubleData>();
+			for (Integer j : distances.keySet())
+			{
+				sortedDistances.add(new IndexedDoubleData(distances.get(j), j));
+			}
+			Collections.sort(sortedDistances);
+			Map<Integer, Double> closestToI = new HashMap<Integer, Double>();
+			for (int j = 0; j < numberTopConnectionsToKeep; j++)
+			{
+				double distanceToJ = sortedDistances.get(j).getData();
+				closestToI.put(sortedDistances.get(j).getIndex(), distanceToJ);
+				if (distanceToJ > maximumDistance)
+				{
+					maximumDistance = distanceToJ;
+				}
+				if (distanceToJ < minimumDistance)
+				{
+					minimumDistance = distanceToJ;
+				}
+			}
+			closestDistances.put(i, closestToI);
+		}
+
+		System.out.println(closestDistances);
+		System.out.println(maximumDistance);
+		System.out.println(minimumDistance);
+
+		// Determine weights from the distances.
+		Map<Integer, Map<Integer, Double>> weights = new HashMap<Integer, Map<Integer, Double>>();
+		for (Integer i : closestDistances.keySet())
+		{
+			Map<Integer, Double> weightingsForI = new HashMap<Integer, Double>();
+			for (Integer j : closestDistances.get(i).keySet())
+			{
+				weightingsForI.put(j, 1 - (closestDistances.get(i).get(j) / (maximumDistance - minimumDistance)));
+			}
+			weights.put(i, weightingsForI);
+		}
+
+		System.out.println(weights);
+	}
+
+	static Map<Integer, Double> distanceBetweenObservations(ProcessDataForGrowing dataset, int observation, List<Integer> obsToCompareTo)
+	{
+		Map<Integer, Double> distances = new HashMap<Integer, Double>();
+		for (Integer i : obsToCompareTo)
+		{
+			double obsDistance = 0.0;
+			for (String s : dataset.covariableData.keySet())
+			{
+				obsDistance += Math.pow(dataset.covariableData.get(s).get(observation) - dataset.covariableData.get(s).get(i), 2);
+			}
+			obsDistance = Math.pow(obsDistance, 0.5);
+			distances.put(i, obsDistance);
+		}
+		return distances;
+	}
+
+	static List<Double> distanceFromMean(List<Integer> observationIndices, Map<String, Double> meanPositiveVector, ProcessDataForGrowing dataset)
 	{
 		List<Double> distances = new ArrayList<Double>();
 		for (Integer i : observationIndices)
 		{
 			double obsDistance = 0.0;
-			for (String s : processedDataForLearning.covariableData.keySet())
+			for (String s : dataset.covariableData.keySet())
 			{
-				obsDistance += Math.pow(meanPositiveVector.get(s) - processedDataForLearning.covariableData.get(s).get(i), 2);
+				obsDistance += Math.pow(meanPositiveVector.get(s) - dataset.covariableData.get(s).get(i), 2);
 			}
 			obsDistance = Math.pow(obsDistance, 0.5);
 			distances.add(obsDistance);
