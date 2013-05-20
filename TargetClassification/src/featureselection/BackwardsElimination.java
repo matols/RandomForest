@@ -425,7 +425,7 @@ public class BackwardsElimination
 		// Determine the order of the features by feature importance ranking. //
 		//--------------------------------------------------------------------//
 		Forest forest = new Forest(internalSubsampleTrainingSet, variableImportanceControl, weights, internalSubsampleSeed);
-		Map<String, Double> varImp = forest.variableImportance();
+		Map<String, Double> varImp = forest.variableImportance().second;
 
 		// Rank the variables by importance.
 		List<StringsSortedByDoubles> sortedVariables = new ArrayList<StringsSortedByDoubles>();
@@ -570,7 +570,7 @@ public class BackwardsElimination
 		for (int i = 0; i < validationIterations; i++)
 		{
 			Forest forest = new Forest(externalSubsampleTrainingSet, variableImportanceControl, weights, seedsToUse.get(i));
-			Map<String, Double> varImp = forest.variableImportance();
+			Map<String, Double> varImp = forest.variableImportance().second;
 			List<StringsSortedByDoubles> sortedVariables = new ArrayList<StringsSortedByDoubles>();
 			for (String s : varImp.keySet())
 			{
