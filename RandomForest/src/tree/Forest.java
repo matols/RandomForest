@@ -197,55 +197,46 @@ public class Forest
 		this.dataFileGrownFrom = procData.dataFileGrownFrom;
 	}
 
-	public Forest(String dataForGrowing, Map<String, Double> weights)
-	{
-		this.ctrl = new TreeGrowthControl();
-		this.seed = System.currentTimeMillis();
-		this.dataFileGrownFrom = dataForGrowing;
-		this.processedData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
-		for (int i = 0; i < this.processedData.numberObservations; i++)
-		{
-			String response = this.processedData.responseData.get(i);
-			this.weights.put(i, weights.get(response));
-		}
-	}
 
-	public Forest(String dataForGrowing, TreeGrowthControl ctrl, Map<String, Double> weights)
-	{
-		this.ctrl = new TreeGrowthControl(ctrl);
-		this.seed = System.currentTimeMillis();
-		this.dataFileGrownFrom = dataForGrowing;
-		this.processedData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
-		for (int i = 0; i < this.processedData.numberObservations; i++)
-		{
-			String response = this.processedData.responseData.get(i);
-			this.weights.put(i, weights.get(response));
-		}
-	}
-
-	public Forest(ProcessDataForGrowing procData, TreeGrowthControl ctrl, Map<String, Double> weights)
-	{
-		this.ctrl = new TreeGrowthControl(ctrl);
-		this.seed = System.currentTimeMillis();
-		this.processedData = procData;
-		this.dataFileGrownFrom = procData.dataFileGrownFrom;
-		for (int i = 0; i < this.processedData.numberObservations; i++)
-		{
-			String response = this.processedData.responseData.get(i);
-			this.weights.put(i, weights.get(response));
-		}
-	}
-
-	public Forest(String dataForGrowing, TreeGrowthControl ctrl, Map<String, Double> weights, Long seed)
+	public Forest(String dataForGrowing, TreeGrowthControl ctrl, Long seed)
 	{
 		this.ctrl = new TreeGrowthControl(ctrl);
 		this.seed = seed;
 		this.dataFileGrownFrom = dataForGrowing;
 		this.processedData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
+	}
+
+
+	public void setWeightsByClass(Map<String, Double> inputWeights)
+	{
 		for (int i = 0; i < this.processedData.numberObservations; i++)
 		{
 			String response = this.processedData.responseData.get(i);
-			this.weights.put(i, weights.get(response));
+			if (!inputWeights.containsKey(response))
+			{
+				// If there is no weight for the observation, then set it to 1.0.
+				this.weights.put(i, 1.0);
+			}
+			else
+			{
+				this.weights.put(i, inputWeights.get(response));
+			}
+		}
+	}
+
+	public void setWeightsByObservations(Map<Integer, Double> inputWeights)
+	{
+		for (int i = 0; i < this.processedData.numberObservations; i++)
+		{
+			if (!inputWeights.containsKey(i))
+			{
+				// If there is no weight for the observation, then set it to 1.0.
+				this.weights.put(i, 1.0);
+			}
+			else
+			{
+				this.weights.put(i, inputWeights.get(i));
+			}
 		}
 	}
 
