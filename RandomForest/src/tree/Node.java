@@ -3,7 +3,6 @@
  */
 package tree;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -15,10 +14,7 @@ public abstract class Node
 {
 
 	int nodeDepth;
-	int numberOfObservationsInNode;
 	Node[] children = new Node[2];
-	Map<String, Integer> classCountsInNode = new HashMap<String, Integer>();
-	Map<String, Double> weights = new HashMap<String, Double>();
 
 	int countTerminalNodes()
 	{

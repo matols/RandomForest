@@ -17,25 +17,13 @@ public class DetermineSplit
 {
 
 	ImmutableThreeValues<Boolean, Double, String> findBestSplit(Map<String, List<Double>> covariableData, List<String> responseData,
-			List<Integer> observationsInNode, List<String> variablesToSplitOn, Map<String, Double> weights, TreeGrowthControl ctrl)
+			List<Integer> observationsInNode, List<String> variablesToSplitOn, Map<Integer, Double> weights, TreeGrowthControl ctrl,
+			Map<String, Double> classWeightsInParentNode)
 	{
 		double maxSumDaughterNodeGini = 1.0;
 		double splitValue = 0.0;
 		String covariableToSplitOn = null;
 		boolean isSplitFound = false;
-
-		// Calculate the weighted number of observations of each class that are present in the parent node.
-		// Also calculate the weighted number of occurrences of each observation in the parent node.
-		Map<String, Double> parentClassCount = new HashMap<String, Double>();
-		for (String s : weights.keySet())
-		{
-			parentClassCount.put(s, 0.0);
-		}
-		for (Integer i : observationsInNode)
-		{
-			String response = responseData.get(i);
-			parentClassCount.put(response, parentClassCount.get(response) + weights.get(response));
-		}
 
 		for (String s : variablesToSplitOn)
 		{
@@ -45,9 +33,9 @@ public class DetermineSplit
 			double totalParentWeight = 0.0;
 			double totalLeftChildWeight = 0.0;
 			double totalRightChildWeight = 0.0;
-			for (String i : parentClassCount.keySet())
+			for (String i : classWeightsInParentNode.keySet())
 			{
-				double classWeight = parentClassCount.get(i);
+				double classWeight = classWeightsInParentNode.get(i);
 				totalParentWeight += classWeight;
 				totalRightChildWeight += classWeight;
 				rightChildWeghtedCounts.put(i, classWeight);
@@ -70,15 +58,15 @@ public class DetermineSplit
 				int observationIndex = currentCovariableInstance.getIndex();
 //				double covariableWeightedOccurences = parentObservationCounts.get(observationIndex);
 				String covariableClass = responseData.get(observationIndex);
-				double covariableWeightedOccurences = weights.get(covariableClass);
+				double observationWeight = weights.get(observationIndex);
 
 				// Update the child node weighted observations counts.
 				double oldRightChildCount = rightChildWeghtedCounts.get(covariableClass);
-				rightChildWeghtedCounts.put(covariableClass, oldRightChildCount - covariableWeightedOccurences);
-				totalRightChildWeight -= covariableWeightedOccurences;
+				rightChildWeghtedCounts.put(covariableClass, oldRightChildCount - observationWeight);
+				totalRightChildWeight -= observationWeight;
 				double oldLeftChildCount = leftChildWeghtedCounts.get(covariableClass);
-				leftChildWeghtedCounts.put(covariableClass, oldLeftChildCount + covariableWeightedOccurences);
-				totalLeftChildWeight += covariableWeightedOccurences;
+				leftChildWeghtedCounts.put(covariableClass, oldLeftChildCount + observationWeight);
+				totalLeftChildWeight += observationWeight;
 
 				double leftGini = 1.0;
 				for (String p : leftChildWeghtedCounts.keySet())

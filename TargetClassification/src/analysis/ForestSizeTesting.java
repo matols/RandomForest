@@ -125,6 +125,7 @@ public class ForestSizeTesting
 			for (int j = 0; j < repetitions; j++)
 			{
 				Forest forest = new Forest(inputFile, ctrl, weights, seedsToUse.get(j));
+				forest.growForest();
 				errorRates.add(forest.oobErrorEstimate);
 				Map<String, Map<String, Double>> oobConfMatrix = forest.oobConfusionMatrix;
 				double macroGMean = 1.0;

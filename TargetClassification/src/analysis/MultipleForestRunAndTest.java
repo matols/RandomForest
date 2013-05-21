@@ -57,8 +57,8 @@ public class MultipleForestRunAndTest
 			long seed = seeds.get(j);
 
 			startTime = new Date();
-			Forest forest;
-			forest = new Forest(inputFile, ctrl, weights, seed);
+			Forest forest = new Forest(inputFile, ctrl, weights, seed);
+			forest.growForest();
 			cumulativeOOBError += forest.oobErrorEstimate;
 			Map<String, Map<String, Double>> oobConfMatrix = forest.oobConfusionMatrix;
     		for (String s : oobConfMatrix.keySet())

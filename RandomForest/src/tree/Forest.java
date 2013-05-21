@@ -70,7 +70,7 @@ public class Forest
 	 */
 	public ProcessDataForGrowing processedData;
 
-	public Map<String, Double> weights = new HashMap<String, Double>();
+	public Map<Integer, Double> weights = new HashMap<Integer, Double>();
 
 	public long seed;
 
@@ -79,7 +79,8 @@ public class Forest
 	{
 		this.ctrl = new TreeGrowthControl();
 		this.seed = System.currentTimeMillis();
-		growForest(dataForGrowing, new HashMap<String, Double>());
+		this.dataFileGrownFrom = dataForGrowing;
+		this.processedData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
 	}
 
 	public Forest(String dataForGrowing, Boolean isLoadingSavedPerformed)
@@ -88,7 +89,8 @@ public class Forest
 		{
 			this.ctrl = new TreeGrowthControl();
 			this.seed = System.currentTimeMillis();
-			growForest(dataForGrowing, new HashMap<String, Double>());
+			this.dataFileGrownFrom = dataForGrowing;
+			this.processedData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
 		}
 		else
 		{
@@ -137,7 +139,7 @@ public class Forest
 				for (String s : weightSplits)
 				{
 					String[] indivWeights = s.split(",");
-					this.weights.put(indivWeights[0], Double.parseDouble(indivWeights[1]));
+					this.weights.put(Integer.parseInt(indivWeights[0]), Double.parseDouble(indivWeights[1]));
 				}
 				this.seed = Long.parseLong(splitLine[5]);
 
@@ -183,44 +185,68 @@ public class Forest
 	{
 		this.ctrl = new TreeGrowthControl(ctrl);
 		this.seed = System.currentTimeMillis();
-		growForest(dataForGrowing, new HashMap<String, Double>());
+		this.dataFileGrownFrom = dataForGrowing;
+		this.processedData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
 	}
 
 	public Forest(ProcessDataForGrowing procData, TreeGrowthControl ctrl)
 	{
 		this.ctrl = new TreeGrowthControl(ctrl);
+		this.seed = System.currentTimeMillis();
 		this.processedData = procData;
 		this.dataFileGrownFrom = procData.dataFileGrownFrom;
-		growForest(this.dataFileGrownFrom, new HashMap<String, Double>(), false);
 	}
 
 	public Forest(String dataForGrowing, Map<String, Double> weights)
 	{
 		this.ctrl = new TreeGrowthControl();
 		this.seed = System.currentTimeMillis();
-		growForest(dataForGrowing, weights);
+		this.dataFileGrownFrom = dataForGrowing;
+		this.processedData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
+		for (int i = 0; i < this.processedData.numberObservations; i++)
+		{
+			String response = this.processedData.responseData.get(i);
+			this.weights.put(i, weights.get(response));
+		}
 	}
 
 	public Forest(String dataForGrowing, TreeGrowthControl ctrl, Map<String, Double> weights)
 	{
 		this.ctrl = new TreeGrowthControl(ctrl);
 		this.seed = System.currentTimeMillis();
-		growForest(dataForGrowing, weights);
+		this.dataFileGrownFrom = dataForGrowing;
+		this.processedData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
+		for (int i = 0; i < this.processedData.numberObservations; i++)
+		{
+			String response = this.processedData.responseData.get(i);
+			this.weights.put(i, weights.get(response));
+		}
 	}
 
 	public Forest(ProcessDataForGrowing procData, TreeGrowthControl ctrl, Map<String, Double> weights)
 	{
 		this.ctrl = new TreeGrowthControl(ctrl);
+		this.seed = System.currentTimeMillis();
 		this.processedData = procData;
 		this.dataFileGrownFrom = procData.dataFileGrownFrom;
-		growForest(this.dataFileGrownFrom, weights, false);
+		for (int i = 0; i < this.processedData.numberObservations; i++)
+		{
+			String response = this.processedData.responseData.get(i);
+			this.weights.put(i, weights.get(response));
+		}
 	}
 
 	public Forest(String dataForGrowing, TreeGrowthControl ctrl, Map<String, Double> weights, Long seed)
 	{
 		this.ctrl = new TreeGrowthControl(ctrl);
 		this.seed = seed;
-		growForest(dataForGrowing, weights);
+		this.dataFileGrownFrom = dataForGrowing;
+		this.processedData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
+		for (int i = 0; i < this.processedData.numberObservations; i++)
+		{
+			String response = this.processedData.responseData.get(i);
+			this.weights.put(i, weights.get(response));
+		}
 	}
 
 
@@ -408,24 +434,10 @@ public class Forest
 	}
 
 
-
-	void growForest(String dataForGrowing, Map<String, Double> potentialWeights)
-	{
-		growForest(dataForGrowing, potentialWeights, true);
-	}
-
-	void growForest(String dataForGrowing, Map<String, Double> potentialWeights, boolean isProcessingNeeded)
+	public void growForest()
 	{
 		// Seed the random generator used to control all the randomness in the algorithm,
 		Random randGenerator = new Random(this.seed);
-
-		// Determine whether the input data file needs to be processed.
-		if (isProcessingNeeded)
-		{
-			this.dataFileGrownFrom = dataForGrowing;
-			ProcessDataForGrowing procData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
-			this.processedData = procData;
-		}
 
 		// Determine the possible classes of the observations.
 		Set<String> responseClasses = new HashSet<String>(this.processedData.responseData);
@@ -494,16 +506,15 @@ public class Forest
 			}
 		}
 
-		// Generate the default weightings.
-		for (String s : this.processedData.responseData)
+		// Determine the default weightings.
+		for (int i = 0; i < this.processedData.numberObservations; i++)
 		{
-			if (!potentialWeights.containsKey(s))
+			if (!this.weights.containsKey(i))
 			{
-				// Any classes without a weight are assigned a weight of 1.
-				potentialWeights.put(s, 1.0);
+				// If there is no weight for the observation, then set it to 1.0.
+				this.weights.put(i, 1.0);
 			}
 		}
-		this.weights = potentialWeights;
 
 		// Setup the observation selection variables.
 		List<Integer> observations = new ArrayList<Integer>();
@@ -569,7 +580,9 @@ public class Forest
 
 			// Grow this tree from the chosen observations.
 			long seedForTree = randGenerator.nextLong();
-			this.forest.add(new CARTTree(this.processedData, this.ctrl, weights, observationsForTheTree, seedForTree));
+			CARTTree newTree = new CARTTree(this.processedData, this.ctrl, seedForTree);
+			newTree.growTree(this.weights, observationsForTheTree);
+			this.forest.add(newTree);
 		}
 
 		if (this.ctrl.isCalculateOOB)
@@ -800,7 +813,7 @@ public class Forest
 		this.forest = new ArrayList<CARTTree>();
 		this.oobObservations = new ArrayList<List<Integer>>();
 		this.oobErrorEstimate = 0.0;
-		this.growForest(this.dataFileGrownFrom, this.weights);
+		this.growForest();
 	}
 
 	public void regrowForest(long newSeed)
@@ -899,9 +912,9 @@ public class Forest
 			outputWriter.write(oobConfMatOutput + "\t");
 			outputWriter.write(this.dataFileGrownFrom + "\t");
 			String weightsOutput = "";
-			for (String s : this.weights.keySet())
+			for (Integer i : this.weights.keySet())
 			{
-				weightsOutput += s + "," + Double.toString(this.weights.get(s)) + ";";
+				weightsOutput += Integer.toString(i) + "," + Double.toString(this.weights.get(i)) + ";";
 			}
 			weightsOutput = weightsOutput.substring(0, weightsOutput.length() - 1);  // Chop off the last ';'.
 			outputWriter.write(weightsOutput + "\t");
@@ -934,9 +947,9 @@ public class Forest
 	{
 		// Determine the counts for each class in the dataset.
 		Map<String, Integer> countsOfClass = new HashMap<String, Integer>();
-		for (String s : this.weights.keySet())
+		for (String s : this.processedData.responseData)
 		{
-			countsOfClass.put(s, Collections.frequency(this.processedData.responseData, s));
+			countsOfClass.put(s, countsOfClass.get(s) + 1);
 		}
 
 		// Determine base accuracy for each tree.

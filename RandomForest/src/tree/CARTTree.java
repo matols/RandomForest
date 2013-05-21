@@ -133,7 +133,6 @@ public class CARTTree
 		this.ctrl = ctrl;
 		this.processedData = processedData;
 		this.seed = System.currentTimeMillis();
-		controlTreeGrowth();
 	}
 
 	public CARTTree(ProcessDataForGrowing processedData, TreeGrowthControl ctrl)
@@ -141,54 +140,24 @@ public class CARTTree
 		this.ctrl = ctrl;
 		this.processedData = processedData;
 		this.seed = System.currentTimeMillis();
-		controlTreeGrowth();
 	}
 
-	public CARTTree(ProcessDataForGrowing processedData, Map<String, Double> weights)
-	{
-		TreeGrowthControl ctrl = new TreeGrowthControl();
-		this.ctrl = ctrl;
-		this.processedData = processedData;
-		this.seed = System.currentTimeMillis();
-		controlTreeGrowth(weights);
-	}
-
-	public CARTTree(ProcessDataForGrowing processedData, List<Integer> observationsToUse)
-	{
-		TreeGrowthControl ctrl = new TreeGrowthControl();
-		this.ctrl = ctrl;
-		this.processedData = processedData;
-		this.seed = System.currentTimeMillis();
-		controlTreeGrowth(observationsToUse);
-	}
-
-	public CARTTree(ProcessDataForGrowing processedData, TreeGrowthControl ctrl, Map<String, Double> weights,
-			List<Integer> observationsToUse)
-	{
-		this.ctrl = ctrl;
-		this.processedData = processedData;
-		this.seed = System.currentTimeMillis();
-		controlTreeGrowth(weights, observationsToUse);
-	}
-
-	public CARTTree(ProcessDataForGrowing processedData, TreeGrowthControl ctrl, Map<String, Double> weights,
-			List<Integer> observationsToUse, long seed)
+	public CARTTree(ProcessDataForGrowing processedData, TreeGrowthControl ctrl, long seed)
 	{
 		this.ctrl = ctrl;
 		this.processedData = processedData;
 		this.seed = seed;
-		controlTreeGrowth(weights, observationsToUse);
 	}
 
 	/**
 	 * Controls the growth of the tree.
 	 */
-	void controlTreeGrowth()
+	public void growTree()
 	{
-		controlTreeGrowth(new HashMap<String, Double>());
+		growTree(new HashMap<Integer, Double>());
 	}
 
-	void controlTreeGrowth(Map<String, Double> potentialWeights)
+	public void growTree(Map<Integer, Double> potentialWeights)
 	{
 		// Setup the list of observations.
 		List<Integer> observationsUsed = new ArrayList<Integer>();
@@ -198,29 +167,29 @@ public class CARTTree
 		}
 
 		// Grow the tree.
-		controlTreeGrowth(potentialWeights, observationsUsed);
+		growTree(potentialWeights, observationsUsed);
 	}
 
-	void controlTreeGrowth(List<Integer> observationsUsed)
+	public void growTree(List<Integer> observationsUsed)
 	{
 		// Grow the tree.
-		controlTreeGrowth(new HashMap<String, Double>(), observationsUsed);
+		growTree(new HashMap<Integer, Double>(), observationsUsed);
 	}
 
-	void controlTreeGrowth(Map<String, Double> potentialWeights, List<Integer> observationsUsed)
+	public void growTree(Map<Integer, Double> potentialWeights, List<Integer> observationsUsed)
 	{
-		// Setup the class weights.
-		for (String s : this.processedData.responseData)
+		// Determine the default weightings.
+		for (int i = 0; i < this.processedData.numberObservations; i++)
 		{
-			if (!potentialWeights.containsKey(s))
+			if (!potentialWeights.containsKey(i))
 			{
-				// Any classes without a weight are assigned a weight of 1.
-				potentialWeights.put(s, 1.0);
+				// If there is no weight for the observation, then set it to 1.0.
+				potentialWeights.put(i, 1.0);
 			}
 		}
 
 		// Grow the tree.
-		this.cartTree = growTree(observationsUsed, potentialWeights, 1);
+		this.cartTree = controlTreeGrowth(observationsUsed, potentialWeights, 1);
 	}
 
 	public int countTerminalNodes()
@@ -254,24 +223,24 @@ public class CARTTree
 		return this.cartTree.getConditionalGrid(procData, currentGrid, covToConditionOn);
 	}
 
-	Node growTree(List<Integer> observationsInNode, Map<String, Double> weights, int currentDepth)
+	Node controlTreeGrowth(List<Integer> observationsInNode, Map<Integer, Double> weights, int currentDepth)
 	{
 		// Determine the counts of each class in the current node.
 		int numberOfObservationsInNode = observationsInNode.size();
-		Map<String, Integer> classCountsForNode = new HashMap<String, Integer>();
+		Map<String, Double> classWeightsInNode = new HashMap<String, Double>();
 		for (String s : this.processedData.responseData)
 		{
-			classCountsForNode.put(s, 0);
+			classWeightsInNode.put(s, 0.0);
 		}
 		for (Integer i : observationsInNode)
 		{
 			String responseValue = this.processedData.responseData.get(i);
-			classCountsForNode.put(responseValue, classCountsForNode.get(responseValue) + 1);
+			classWeightsInNode.put(responseValue, classWeightsInNode.get(responseValue) + weights.get(i));
 		}
 		Set<String> classesPresentInNode = new HashSet<String>();
-		for (String s : classCountsForNode.keySet())
+		for (String s : classWeightsInNode.keySet())
 		{
-			if (classCountsForNode.get(s) > 0)
+			if (classWeightsInNode.get(s) > 0)
 			{
 				classesPresentInNode.add(s);
 			}
@@ -284,13 +253,13 @@ public class CARTTree
 		{
 			// There are too few classes present in the observations in the node to warrant a split.
 			// A terminal node must therefore be created.
-			return new NodeTerminal(classCountsForNode, currentDepth, weights);
+			return new NodeTerminal(classWeightsInNode, currentDepth);
 		}
 		if (currentDepth >= ctrl.maxTreeDepth)
 		{
 			// The depth of the tree has reached the maximum permissible.
 			// A terminal node must therefore be created.
-			return new NodeTerminal(classCountsForNode, currentDepth, weights);
+			return new NodeTerminal(classWeightsInNode, currentDepth);
 		}
 		
 
@@ -312,7 +281,7 @@ public class CARTTree
 
 		DetermineSplit splitCalculator = new DetermineSplit();
 		ImmutableThreeValues<Boolean, Double, String> splitResult = splitCalculator.findBestSplit(this.processedData.covariableData,
-				this.processedData.responseData, observationsInNode, variablesToSplitOn, weights, this.ctrl);
+				this.processedData.responseData, observationsInNode, variablesToSplitOn, weights, this.ctrl, classWeightsInNode);
 		isSplitFound = splitResult.first;
 		splitValue = splitResult.second;
 		covarToSplitOn = splitResult.third;
@@ -335,15 +304,14 @@ public class CARTTree
 					leftObserations.add(i);
 				}
 			}
-			Node leftChild = growTree(leftObserations, weights, currentDepth + 1);
-			Node rightChild = growTree(rightObservations, weights, currentDepth + 1);
-			return new NodeNonTerminal(currentDepth, covarToSplitOn, splitValue, leftChild,
-					rightChild, classCountsForNode, weights);
+			Node leftChild = controlTreeGrowth(leftObserations, weights, currentDepth + 1);
+			Node rightChild = controlTreeGrowth(rightObservations, weights, currentDepth + 1);
+			return new NodeNonTerminal(currentDepth, covarToSplitOn, splitValue, leftChild, rightChild);
 		}
 		else
 		{
 			// If there was no valid split found, then return a terminal node.
-			return new NodeTerminal(classCountsForNode, currentDepth, weights);
+			return new NodeTerminal(classWeightsInNode, currentDepth);
 		}
 
 	}

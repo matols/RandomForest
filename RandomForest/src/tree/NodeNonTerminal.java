@@ -4,7 +4,6 @@
 package tree;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -54,39 +53,19 @@ public class NodeNonTerminal extends Node
 		String loadString = treeSkeleton.get(nodeID).get("Data");
 		String split[] = loadString.split("\t");
 		this.nodeDepth = Integer.parseInt(split[0]);
-		this.numberOfObservationsInNode = Integer.parseInt(split[1]);
-		this.splitValue = Double.parseDouble(split[2]);
-		this.covariable = split[3];
-		for (String s : split[4].split(","))
-		{
-			String sSplit[] = s.split(";");
-			this.classCountsInNode.put(sSplit[0], Integer.parseInt(sSplit[1]));
-		}
-		this.weights = new HashMap<String, Double>();
-		for (String s : split[5].split(","))
-		{
-			String sSplit[] = s.split(";");
-			this.weights.put(sSplit[0], Double.parseDouble(sSplit[1]));
-		}
+		this.splitValue = Double.parseDouble(split[1]);
+		this.covariable = split[2];
 		this.children[0] = leftChild;
 		this.children[1] = rightChild;
 	}
 
-	public NodeNonTerminal(int nodeDepth, String covariable, double splitValue, Node leftChild, Node rightChild,
-			Map<String, Integer> classCountsInNode, Map<String, Double> weights)
+	public NodeNonTerminal(int nodeDepth, String covariable, double splitValue, Node leftChild, Node rightChild)
 	{
 		this.nodeDepth = nodeDepth;
 		this.splitValue = splitValue;
 		this.children[0] = leftChild;
 		this.children[1] = rightChild;
-		this.classCountsInNode = classCountsInNode;
 		this.covariable = covariable;
-		for (String s : this.classCountsInNode.keySet())
-		{
-			this.numberOfObservationsInNode += this.classCountsInNode.get(s);
-		}
-		this.weights = weights;
-
 	}
 
 	int countTerminalNodes()
@@ -198,19 +177,7 @@ public class NodeNonTerminal extends Node
 	ImmutableTwoValues<String, Integer> save(Integer nodeID, Integer parentID)
 	{
 		String returnString = Integer.toString(nodeID) + "\t" + Integer.toString(parentID) + "\tNonTerminal\t";
-		returnString += Integer.toString(this.nodeDepth) + "\t" + Integer.toString(this.numberOfObservationsInNode) + "\t";
-		returnString +=  Double.toString(this.splitValue) + "\t" + this.covariable + "\t";
-		for (String s : this.classCountsInNode.keySet())
-		{
-			returnString += s + ";" + Integer.toString(this.classCountsInNode.get(s)) + ",";
-		}
-		returnString = returnString.substring(0, returnString.length() - 1);  // Chop off the last ','.
-		returnString += "\t";
-		for (String s : this.weights.keySet())
-		{
-			returnString += s + ";" + Double.toString(this.weights.get(s)) + ",";
-		}
-		returnString = returnString.substring(0, returnString.length() - 1);  // Chop off the last ','.
+		returnString += Integer.toString(this.nodeDepth) + "\t" + Double.toString(this.splitValue) + "\t" + this.covariable + "\t";
 
 		ImmutableTwoValues<String, Integer> leftChild = this.children[0].save(nodeID + 1, nodeID);
 		Integer rightChildID = leftChild.second;

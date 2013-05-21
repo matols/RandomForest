@@ -14,33 +14,28 @@ import java.util.Map;
  */
 public class NodeTerminal extends Node
 {
+	int numberOfObservationsInNode;
+	Map<String, Double> classWeightsInNode = new HashMap<String, Double>();
 
 	NodeTerminal(Map<String, Map<String, String>> treeSkeleton, String nodeID)
 	{
 		String loadString = treeSkeleton.get(nodeID).get("Data");
 		String split[] = loadString.split("\t");
 		this.nodeDepth = Integer.parseInt(split[0]);
-		this.classCountsInNode = new HashMap<String, Integer>();
+		this.classWeightsInNode = new HashMap<String, Double>();
 		for (String s : split[1].split(","))
 		{
 			String sSplit[] = s.split(";");
-			this.classCountsInNode.put(sSplit[0], Integer.parseInt(sSplit[1]));
-		}
-		this.weights = new HashMap<String, Double>();
-		for (String s : split[2].split(","))
-		{
-			String sSplit[] = s.split(";");
-			this.weights.put(sSplit[0], Double.parseDouble(sSplit[1]));
+			this.classWeightsInNode.put(sSplit[0], Double.parseDouble(sSplit[1]));
 		}
 		this.children[0] = null;
 		this.children[1] = null;
 	}
 
-	NodeTerminal(Map<String, Integer> classCounts, int currentDepth, Map<String, Double> weights)
+	NodeTerminal(Map<String, Double> classWeightsInNode, int currentDepth)
 	{
-		this.classCountsInNode = classCounts;
+		this.classWeightsInNode = classWeightsInNode;
 		this.nodeDepth = currentDepth;
-		this.weights = weights;
 		this.children[0] = null;
 		this.children[1] = null;
 	}
@@ -57,7 +52,7 @@ public class NodeTerminal extends Node
 		{
 			outputString += "|  ";
 		}
-		outputString += this.classCountsInNode.entrySet().toString();
+		outputString += this.classWeightsInNode.entrySet().toString();
 		outputString += "\n";
 		return outputString;
 	}
@@ -77,10 +72,9 @@ public class NodeTerminal extends Node
 	Map<String, Double> predict(Map<String, Double> currentObservation)
 	{
 		Map<String, Double> weightedVotes = new HashMap<String, Double>();
-		for (String className : this.classCountsInNode.keySet())
+		for (String className : this.classWeightsInNode.keySet())
 		{
-			double thisClassVote = this.classCountsInNode.get(className) * this.weights.get(className);  // Weighted class vote.
-			weightedVotes.put(className, thisClassVote);
+			weightedVotes.put(className, this.classWeightsInNode.get(className));
 		}
 
 		return weightedVotes;
@@ -91,15 +85,9 @@ public class NodeTerminal extends Node
 		String returnString = Integer.toString(nodeID) + "\t" + Integer.toString(parentID) + "\tTerminal\t";
 		returnString += Integer.toString(this.nodeDepth);
 		returnString += "\t";
-		for (String s : this.classCountsInNode.keySet())
+		for (String s : this.classWeightsInNode.keySet())
 		{
-			returnString += s + ";" + Integer.toString(this.classCountsInNode.get(s)) + ",";
-		}
-		returnString = returnString.substring(0, returnString.length() - 1);  // Chop off the last ','.
-		returnString += "\t";
-		for (String s : this.weights.keySet())
-		{
-			returnString += s + ";" + Double.toString(this.weights.get(s)) + ",";
+			returnString += s + ";" + Double.toString(this.classWeightsInNode.get(s)) + ",";
 		}
 		returnString = returnString.substring(0, returnString.length() - 1);  // Chop off the last ','.
 		return new ImmutableTwoValues<String, Integer>(returnString, nodeID + 1);
