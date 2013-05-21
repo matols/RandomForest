@@ -341,7 +341,8 @@ public class InstanceSelection
 	    {
 	    	// Train and test the subsasmples.
     		ctrl.trainingObservations = geneSet;
-	    	Forest forest = new Forest(datasetLocation, ctrl, weights);
+	    	Forest forest = new Forest(datasetLocation, ctrl);
+	    	forest.setWeightsByClass(weights);
 	    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
 	    	testObs.removeAll(geneSet);
 	    	Map<String, Map<String, Double>> predictedConfusionMatrix = forest.predict(processedInputFile, testObs).second;
@@ -433,7 +434,8 @@ public class InstanceSelection
 		    		population.add(geneSet);
 		    		// Train and test the subsamples.
 		    		ctrl.trainingObservations = geneSet;
-			    	Forest forest = new Forest(datasetLocation, ctrl, weights);
+			    	Forest forest = new Forest(datasetLocation, ctrl);
+			    	forest.setWeightsByClass(weights);
 			    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
 			    	testObs.removeAll(geneSet);
 			    	Map<String, Map<String, Double>> predictedConfusionMatrix = forest.predict(processedInputFile, testObs).second;
@@ -564,7 +566,8 @@ public class InstanceSelection
 	    		    {
 	    		    	// Train and test the subsamples.
 	    	    		ctrl.trainingObservations = geneSet;
-	    		    	Forest forest = new Forest(datasetLocation, ctrl, weights);
+	    		    	Forest forest = new Forest(datasetLocation, ctrl);
+	    		    	forest.setWeightsByClass(weights);
 	    		    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
 	    		    	testObs.removeAll(geneSet);
 	    		    	Map<String, Map<String, Double>> predictedConfusionMatrix = forest.predict(processedInputFile, testObs).second;

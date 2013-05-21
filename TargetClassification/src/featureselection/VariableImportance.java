@@ -198,7 +198,8 @@ public class VariableImportance {
 			}
 			seedsUsed.add(seedToUse);
 
-			Forest forest = new Forest(inputLocation, ctrl, weights, seedToUse);
+			Forest forest = new Forest(inputLocation, ctrl, seedToUse);
+			forest.setWeightsByClass(weights);
 			System.out.println("\tNow determining variable importances.");
 			ImmutableTwoValues<Map<String,Double>, Map<String,Double>> varImp = forest.variableImportance();
 			Map<String, Double> accuracyImportance = varImp.first;

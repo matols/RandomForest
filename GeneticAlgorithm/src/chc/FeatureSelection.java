@@ -308,7 +308,8 @@ public class FeatureSelection
 	    	List<String> variablesToIgnore = new ArrayList<String>(Arrays.asList(featureNames));
 	    	variablesToIgnore.removeAll(geneSet);
 	    	ctrl.variablesToIgnore = variablesToIgnore;
-	    	Forest forest = new Forest(inputLocation, ctrl, weights);
+	    	Forest forest = new Forest(inputLocation, ctrl);
+	    	forest.setWeightsByClass(weights);
 	    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
 
 	    	// Determine the macro G mean.
@@ -387,7 +388,8 @@ public class FeatureSelection
 	    	    	List<String> variablesToIgnore = new ArrayList<String>(Arrays.asList(featureNames));
 	    	    	variablesToIgnore.removeAll(geneSet);
 	    	    	ctrl.variablesToIgnore = variablesToIgnore;
-	    	    	Forest forest = new Forest(inputLocation, ctrl, weights);
+	    	    	Forest forest = new Forest(inputLocation, ctrl);
+	    	    	forest.setWeightsByClass(weights);
 	    	    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
 			    	
 			    	// Determine the g mean.
@@ -503,7 +505,8 @@ public class FeatureSelection
 	    		    	List<String> variablesToIgnore = new ArrayList<String>(Arrays.asList(featureNames));
 	    		    	variablesToIgnore.removeAll(geneSet);
 	    		    	ctrl.variablesToIgnore = variablesToIgnore;
-	    		    	Forest forest = new Forest(inputLocation, ctrl, weights);
+	    		    	Forest forest = new Forest(inputLocation, ctrl);
+	    		    	forest.setWeightsByClass(weights);
 	    		    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
 
 	    		    	// Determine the macro G mean.

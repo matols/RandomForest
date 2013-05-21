@@ -124,7 +124,8 @@ public class ForestSizeTesting
 			List<Double> gMeans = new ArrayList<Double>();
 			for (int j = 0; j < repetitions; j++)
 			{
-				Forest forest = new Forest(inputFile, ctrl, weights, seedsToUse.get(j));
+				Forest forest = new Forest(inputFile, ctrl, seedsToUse.get(j));
+				forest.setWeightsByClass(weights);
 				forest.growForest();
 				errorRates.add(forest.oobErrorEstimate);
 				Map<String, Map<String, Double>> oobConfMatrix = forest.oobConfusionMatrix;

@@ -105,7 +105,8 @@ public class TestDriver
 		double cumulativeError = 0.0;
     	for (List<Object> l : subsetFeaturCrossValFiles)
     	{
-    		forest = new Forest((String) l.get(0), ctrl, weights, seed);
+    		forest = new Forest((String) l.get(0), ctrl, seed);
+    		forest.setWeightsByClass(weights);
     		cumulativeError += forest.predict((ProcessDataForGrowing) l.get(1)).first;
     		Map<String, Map<String, Double>> confMatrix = forest.predict((ProcessDataForGrowing) l.get(1)).second;
     		for (String s : confMatrix.keySet())
@@ -122,7 +123,8 @@ public class TestDriver
     	}
     	cumulativeError /= subsetFeaturCrossValFiles.size();
     	System.out.println(cumulativeError);
-		forest = new Forest(args[0], ctrl, weights, seed);
+		forest = new Forest(args[0], ctrl, seed);
+		forest.setWeightsByClass(weights);
 		System.out.format("The OOB error estimate is : %f\n", forest.oobErrorEstimate);
 		System.out.println(confusionMatrix.entrySet());
 		Double TP = confusionMatrix.get(posClass).get("TruePositive");
