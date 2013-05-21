@@ -189,6 +189,22 @@ public class Forest
 		this.processedData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
 	}
 
+	public Forest(String dataForGrowing, TreeGrowthControl ctrl, Long seed)
+	{
+		this.ctrl = new TreeGrowthControl(ctrl);
+		this.seed = seed;
+		this.dataFileGrownFrom = dataForGrowing;
+		this.processedData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
+	}
+
+	public Forest(ProcessDataForGrowing procData)
+	{
+		this.ctrl = new TreeGrowthControl();
+		this.seed = System.currentTimeMillis();
+		this.processedData = procData;
+		this.dataFileGrownFrom = procData.dataFileGrownFrom;
+	}
+
 	public Forest(ProcessDataForGrowing procData, TreeGrowthControl ctrl)
 	{
 		this.ctrl = new TreeGrowthControl(ctrl);
@@ -197,13 +213,12 @@ public class Forest
 		this.dataFileGrownFrom = procData.dataFileGrownFrom;
 	}
 
-
-	public Forest(String dataForGrowing, TreeGrowthControl ctrl, Long seed)
+	public Forest(ProcessDataForGrowing procData, TreeGrowthControl ctrl, Long seed)
 	{
 		this.ctrl = new TreeGrowthControl(ctrl);
 		this.seed = seed;
-		this.dataFileGrownFrom = dataForGrowing;
-		this.processedData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
+		this.processedData = procData;
+		this.dataFileGrownFrom = procData.dataFileGrownFrom;
 	}
 
 
