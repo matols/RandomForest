@@ -226,7 +226,6 @@ public class CARTTree
 	Node controlTreeGrowth(List<Integer> observationsInNode, Map<Integer, Double> weights, int currentDepth)
 	{
 		// Determine the counts of each class in the current node.
-		int numberOfObservationsInNode = observationsInNode.size();
 		Map<String, Double> classWeightsInNode = new HashMap<String, Double>();
 		for (String s : this.processedData.responseData)
 		{
