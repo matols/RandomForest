@@ -191,7 +191,7 @@ public class FeatureSelection
 		String genStatsOutputLocation = outputLocation + "/GenerationStatistics.txt";
 		String convergenOutputLocation = outputLocation + "/BestConvergenceIndividuals.txt";
 		String weightOutputLocation = outputLocation + "/Weights.txt";
-		Map<String, String> classFMeasureOutputLocations = new HashMap<String, String>();
+		Map<String, String> classGMeanOutputLocations = new HashMap<String, String>();
 		try
 		{
 			FileWriter genStatsOutputFile = new FileWriter(genStatsOutputLocation);
@@ -219,8 +219,8 @@ public class FeatureSelection
 
 			for (String s : classCounts.keySet())
 			{
-				String classOutputLoc = outputLocation + "/" + s + "GMeans.txt";
-				classFMeasureOutputLocations.put(s, classOutputLoc);
+				String classOutputLoc = outputLocation + "/" + s + "Recall.txt";
+				classGMeanOutputLocations.put(s, classOutputLoc);
 				FileWriter classStatsOutputFile = new FileWriter(classOutputLoc);
 				BufferedWriter classStatsOutputWriter = new BufferedWriter(classStatsOutputFile);
 				classStatsOutputWriter.write("Generation\tBestMemberGMean\tMeanGMean\tMedianGMean\tStdDevGMean");
@@ -310,6 +310,7 @@ public class FeatureSelection
 	    	ctrl.variablesToIgnore = variablesToIgnore;
 	    	Forest forest = new Forest(inputLocation, ctrl);
 	    	forest.setWeightsByClass(weights);
+	    	forest.growForest();
 	    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
 
 	    	// Determine the macro G mean.
@@ -390,6 +391,7 @@ public class FeatureSelection
 	    	    	ctrl.variablesToIgnore = variablesToIgnore;
 	    	    	Forest forest = new Forest(inputLocation, ctrl);
 	    	    	forest.setWeightsByClass(weights);
+	    	    	forest.growForest();
 	    	    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
 			    	
 			    	// Determine the g mean.
@@ -422,6 +424,7 @@ public class FeatureSelection
 		    {
 		    	newClassFMeasures.put(s, new ArrayList<Double>());
 		    }
+		    boolean isPopulationStagnant = true;
 		    for (int j = 0; j < populationSize; j ++)
 		    {
 		    	// Add the first populationSize population members with the lowest error rates.
@@ -435,12 +438,43 @@ public class FeatureSelection
 		    	if (indexToAddFrom > populationSize)
 		    	{
 		    		// If this is true, the an offspring has been added to the updated population.
-		    		populationLastChanged++;
+		    		isPopulationStagnant = false;
 		    	}
+		    }
+		    if (isPopulationStagnant)
+		    {
+		    	populationLastChanged++;
+		    }
+		    else
+		    {
+		    	populationLastChanged = 0;
 		    }
 		    population = newPopulation;
 		    fitness = newFitness;
 		    classGMeanResults = newClassFMeasures;
+
+		    // Write out the statistics of the population.
+	    	writeOutStatus(fitnessDirectoryLocation, fitness, populationDirectoryLocation, population, currentGeneration,
+	    			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classGMeanResults, classGMeanOutputLocations);
+
+	    	if (fitness.get(0) > this.currentBestFitness)
+	    	{
+	    		// If the fitness has improved during this generation. The fitness of the most fit individual can not get worse, so if it
+	    		// is not the same then it must have improved.
+	    		this.currentBestFitness = fitness.get(0);
+	    		this.bestMembersFound = new ArrayList<List<String>>();  // Clear out the list of the best individuals found as there is a new top fitness.
+	    	}
+	    	// Add all the members with the best fitness to the set of best individuals found.
+	    	for (int i = 0; i < populationSize; i++)
+	    	{
+	    		if ((fitness.get(i) == this.currentBestFitness) && (!this.bestMembersFound.contains(population.get(i))))
+	    		{
+	    			// If the individual in position i has the best fitness of any individual found, and
+	    			// the individual is not already recorded as having the best fitness found (i.e. a new individual has been found
+	    			// that has the same fitness as the most fit individual already found).
+	    			this.bestMembersFound.add(population.get(i));
+	    		}
+	    	}
 
 	    	if (populationLastChanged == maxStagnant)
 	    	{
@@ -507,6 +541,7 @@ public class FeatureSelection
 	    		    	ctrl.variablesToIgnore = variablesToIgnore;
 	    		    	Forest forest = new Forest(inputLocation, ctrl);
 	    		    	forest.setWeightsByClass(weights);
+	    		    	forest.growForest();
 	    		    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
 
 	    		    	// Determine the macro G mean.
@@ -526,28 +561,6 @@ public class FeatureSelection
 	    		}
 	    	}
 
-		    // Write out the statistics of the population.
-	    	writeOutStatus(fitnessDirectoryLocation, fitness, populationDirectoryLocation, population, currentGeneration,
-	    			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classGMeanResults, classFMeasureOutputLocations);
-
-	    	if (fitness.get(0) > this.currentBestFitness)
-	    	{
-	    		// If the fitness has improved during this generation. The fitness of the most fit individual can not get worse, so if it
-	    		// is not the same then it must have improved.
-	    		this.currentBestFitness = fitness.get(0);
-	    		this.bestMembersFound = new ArrayList<List<String>>();  // Clear out the list of the best individuals found as there is a new top fitness.
-	    	}
-	    	// Add all the members with the best fitness to the set of best individuals found.
-	    	for (int i = 0; i < populationSize; i++)
-	    	{
-	    		if ((fitness.get(i) == this.currentBestFitness) && (!this.bestMembersFound.contains(population.get(i))))
-	    		{
-	    			// If the individual in position i has the best fitness of any individual found, and
-	    			// the individual is not already recorded as having the best fitness found (i.e. a new individual has been found
-	    			// that has the same fitness as the most fit individual already found).
-	    			this.bestMembersFound.add(population.get(i));
-	    		}
-	    	}
 	    	currentGeneration += 1;
 	    }
 
@@ -575,7 +588,7 @@ public class FeatureSelection
 
 	    // Write out the statistics of the final population.
     	writeOutStatus(fitnessDirectoryLocation, fitness, populationDirectoryLocation, population, currentGeneration,
-    			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classGMeanResults, classFMeasureOutputLocations);
+    			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classGMeanResults, classGMeanOutputLocations);
 
 	    // Write out the best member(s) of the population.
 	    Set<List<String>> recordedIndividuals = new HashSet<List<String>>();
@@ -685,7 +698,7 @@ public class FeatureSelection
 
 	void writeOutStatus(String fitnessDirectoryLocation, List<Double> fitness, String populationDirectoryLocation,
 			List<List<String>> population, int currentGeneration, String genStatsOutputLocation, int populationSize,
-			int threshold, int numberEvaluations, Map<String, List<Double>> classGMeanResults, Map<String, String> classFMeasureOutputLocations)
+			int threshold, int numberEvaluations, Map<String, List<Double>> classGMeanResults, Map<String, String> classGMeanOutputLocations)
 	{
 		// Write out the fitness info for the current generation.
 		String fitnessOutputLocation = fitnessDirectoryLocation + "/" + Integer.toString(currentGeneration) + ".txt";
@@ -820,7 +833,7 @@ public class FeatureSelection
 
 			for (String s : classGMeanResults.keySet())
 			{
-				FileWriter classStatsOutputFile = new FileWriter(classFMeasureOutputLocations.get(s), true);
+				FileWriter classStatsOutputFile = new FileWriter(classGMeanOutputLocations.get(s), true);
 				BufferedWriter classStatsOutputWriter = new BufferedWriter(classStatsOutputFile);
 				classStatsOutputWriter.write(Integer.toString(currentGeneration));
 				classStatsOutputWriter.write("\t");
