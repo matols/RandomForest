@@ -52,11 +52,16 @@ public class TreeGrowthControl
 	public List<String> variablesToIgnore = new ArrayList<String>();
 
 	/**
-	 * The observations to include when growing a tree. Any observations not in this list will simply not be read in
-	 * from the input file. This will cause the indices of the remaining observations to be altered. For example, if the smallest
-	 * integer in this list is 5, then the observation that would have been at index 5 will now be moved to index 0.
-	 * All observations therefore have their index reduced until the indices form a contiguous block starting from 0.
-	 * If this list is empty, then it is assumed that all observations should be used when growing a tree.
+	 * The observations to include when growing a tree. The list contains the integer index of the observations to keep (with 0 being the first
+	 * observation in the file containing the dataset). Any observation in the file which does not have its index in this list will not be read
+	 * in from the file. If the list is empty, then it is assumed that all observations in the file should be used. Any indices that are in the
+	 * list but not in the dataset will be ignored. For example, if 10 is in the list but there are only 5 observations in the dataset, then 10
+	 * will be ignored.
+	 * The indices of the observations used will be shifted if this list is non-empty. The smallest observation index in the list will be set to
+	 * be index 0 in the ProcessDataForGrowing object. For example, if trainingObservations = {3, 6, 1, 8, 5} (i.e. use only
+	 * observations with index 1, 3, 5, 6 and 8), then the old indices will be mapped to their new indices so that 3->1, 6->3, 1->0, 8->4 and 5->2.
+	 * Therefore, feature F from observation 3 in the original file, will now be found as feature F from observation 1 in the ProcessDataForGrowing
+	 * object.
 	 */
 	public List<Integer> trainingObservations = new ArrayList<Integer>();
 
