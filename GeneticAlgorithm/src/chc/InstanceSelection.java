@@ -43,7 +43,7 @@ public class InstanceSelection
 	public List<List<Integer>> bestMembersFound = new ArrayList<List<Integer>>();
 
 
-	public InstanceSelection(String[] args, TreeGrowthControl ctrl, Map<String, Double> weights, Map<String, Integer> fractionsToSelect)
+	public InstanceSelection(String[] args, TreeGrowthControl inputCtrl, Map<String, Double> weights, Map<String, Integer> fractionsToSelect)
 	{
 		// Required inputs.
 		String datasetLocation = args[0];  // The location of the file containing the entire dataset.
@@ -133,6 +133,10 @@ public class InstanceSelection
 	        System.exit(0);
 		}
 
+		// Ensure that the control object specifies that the OOB error should be calcualted.
+	    TreeGrowthControl ctrl = new TreeGrowthControl(inputCtrl);
+	    ctrl.isCalculateOOB = true;
+
 		// Write out the parameters used for the GA.
 		String parameterOutputLocation = outputLocation + "/Parameters.txt";
 		try
@@ -183,7 +187,8 @@ public class InstanceSelection
 		String genStatsOutputLocation = outputLocation + "/GenerationStatistics.txt";
 		String convergenOutputLocation = outputLocation + "/BestConvergenceIndividuals.txt";
 		String weightOutputLocation = outputLocation + "/Weights.txt";
-		Map<String, String> classFMeasureOutputLocations = new HashMap<String, String>();
+		Map<String, String> classGMeanOutputLocations = new HashMap<String, String>();
+		Map<String, String> classOOBGMeanOutputLocations = new HashMap<String, String>();
 		try
 		{
 			FileWriter genStatsOutputFile = new FileWriter(genStatsOutputLocation);
@@ -219,13 +224,21 @@ public class InstanceSelection
 
 			for (String s : weights.keySet())
 			{
-				String classOutputLoc = outputLocation + "/" + s + "GMeans.txt";
-				classFMeasureOutputLocations.put(s, classOutputLoc);
+				String classOutputLoc = outputLocation + "/" + s + "Recall.txt";
+				classGMeanOutputLocations.put(s, classOutputLoc);
 				FileWriter classStatsOutputFile = new FileWriter(classOutputLoc);
 				BufferedWriter classStatsOutputWriter = new BufferedWriter(classStatsOutputFile);
 				classStatsOutputWriter.write("Generation\tBestMemberGMean\tMeanGMean\tMedianGMean\tStdDevGMean");
 				classStatsOutputWriter.newLine();
 				classStatsOutputWriter.close();
+
+				String classOOBOutputLoc = outputLocation + "/" + s + "RecallOOB.txt";
+				classOOBGMeanOutputLocations.put(s, classOOBOutputLoc);
+				FileWriter classOOBStatsOutputFile = new FileWriter(classOOBOutputLoc);
+				BufferedWriter classOOBStatsOutputWriter = new BufferedWriter(classOOBStatsOutputFile);
+				classOOBStatsOutputWriter.write("Generation\tBestMemberGMean\tMeanGMean\tMedianGMean\tStdDevGMean");
+				classOOBStatsOutputWriter.newLine();
+				classOOBStatsOutputWriter.close();
 			}
 		}
 		catch (Exception e)
@@ -333,9 +346,11 @@ public class InstanceSelection
 	    // Calculate the fitness of the initial population.
 	    List<Double> fitness = new ArrayList<Double>();
 	    Map<String, List<Double>> classGMeanResults = new HashMap<String, List<Double>>();
+	    Map<String, List<Double>> classOOBGMeanResults = new HashMap<String, List<Double>>();
 	    for (String s : observations.keySet())
 	    {
 	    	classGMeanResults.put(s, new ArrayList<Double>());
+	    	classOOBGMeanResults.put(s, new ArrayList<Double>());
 	    }
 	    for (List<Integer> geneSet : population)
 	    {
@@ -343,6 +358,8 @@ public class InstanceSelection
     		ctrl.trainingObservations = geneSet;
 	    	Forest forest = new Forest(datasetLocation, ctrl);
 	    	forest.setWeightsByClass(weights);
+	    	forest.growForest();
+	    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
 	    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
 	    	testObs.removeAll(geneSet);
 	    	Map<String, Map<String, Double>> predictedConfusionMatrix = forest.predict(processedInputFile, testObs).second;
@@ -366,12 +383,20 @@ public class InstanceSelection
 	    	for (String s : predictedConfusionMatrix.keySet())
 	    	{
 	    		double TP = predictedConfusionMatrix.get(s).get("TruePositive");
-	    		double FN = observations.get(s).size() - trainingSetClasses.get(s) - TP;  // The number of false positives is the number of observaitons from the class in the testing set - the number of true positives.
+	    		double FN = (observations.get(s).size() - trainingSetClasses.get(s)) - TP;  // The number of false positives is the number of observaitons from the class in the testing set - the number of true positives.
 	    		double recall = TP / (TP + FN);
 	    		macroGMean *= recall;
 		    	classGMeanResults.get(s).add(recall);
 	    	}
-	    	macroGMean = Math.pow(macroGMean, (1.0 / observations.size()));
+	    	for (String s : oobConfusionMatrix.keySet())
+	    	{
+	    		double TP = oobConfusionMatrix.get(s).get("TruePositive");
+	    		double FN = trainingSetClasses.get(s) - TP;  // The number of false positives is the number of observaitons from the class in the training set - the number of true positives.
+	    		double recall = TP / (TP + FN);
+	    		macroGMean *= recall;
+		    	classOOBGMeanResults.get(s).add(recall);
+	    	}
+	    	macroGMean = Math.pow(macroGMean, (1.0 / (observations.size() * 2)));
 	    	numberEvaluations += 1;
 	    	fitness.add(macroGMean);
 	    }
@@ -436,6 +461,8 @@ public class InstanceSelection
 		    		ctrl.trainingObservations = geneSet;
 			    	Forest forest = new Forest(datasetLocation, ctrl);
 			    	forest.setWeightsByClass(weights);
+    		    	forest.growForest();
+    		    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
 			    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
 			    	testObs.removeAll(geneSet);
 			    	Map<String, Map<String, Double>> predictedConfusionMatrix = forest.predict(processedInputFile, testObs).second;
@@ -459,12 +486,20 @@ public class InstanceSelection
 			    	for (String s : predictedConfusionMatrix.keySet())
 			    	{
 			    		double TP = predictedConfusionMatrix.get(s).get("TruePositive");
-			    		double FN = observations.get(s).size() - trainingSetClasses.get(s) - TP;  // The number of false positives is the number of observaitons from the class in the testing set - the number of true positives.
+			    		double FN = (observations.get(s).size() - trainingSetClasses.get(s)) - TP;  // The number of false positives is the number of observaitons from the class in the testing set - the number of true positives.
 			    		double recall = TP / (TP + FN);
 			    		macroGMean *= recall;
 				    	classGMeanResults.get(s).add(recall);
 			    	}
-			    	macroGMean = Math.pow(macroGMean, (1.0 / observations.size()));
+			    	for (String s : oobConfusionMatrix.keySet())
+			    	{
+			    		double TP = oobConfusionMatrix.get(s).get("TruePositive");
+			    		double FN = trainingSetClasses.get(s) - TP;  // The number of false positives is the number of observaitons from the class in the training set - the number of true positives.
+			    		double recall = TP / (TP + FN);
+			    		macroGMean *= recall;
+				    	classOOBGMeanResults.get(s).add(recall);
+			    	}
+			    	macroGMean = Math.pow(macroGMean, (1.0 / (observations.size() * 2)));
 			    	fitness.add(macroGMean);
 		 	    	numberEvaluations += 1;
 			    }
@@ -479,11 +514,14 @@ public class InstanceSelection
 		    Collections.sort(sortedPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by F score.
 		    List<List<Integer>> newPopulation = new ArrayList<List<Integer>>();
 		    List<Double> newFitness = new ArrayList<Double>();
-		    Map<String, List<Double>> newClassFMeasures = new HashMap<String, List<Double>>();
+		    Map<String, List<Double>> newClassGMeans = new HashMap<String, List<Double>>();
+		    Map<String, List<Double>> newOOBClassGMeans = new HashMap<String, List<Double>>();
 		    for (String s : observations.keySet())
 		    {
-		    	newClassFMeasures.put(s, new ArrayList<Double>());
+		    	newClassGMeans.put(s, new ArrayList<Double>());
+		    	newOOBClassGMeans.put(s, new ArrayList<Double>());
 		    }
+		    boolean isPopulationStagnant = true;
 		    for (int j = 0; j < populationSize; j ++)
 		    {
 		    	// Add the first populationSize population members with the lowest error rates.
@@ -492,17 +530,51 @@ public class InstanceSelection
 		    	newFitness.add(fitness.get(indexToAddFrom));
 		    	for (String s : observations.keySet())
 		    	{
-		    		newClassFMeasures.get(s).add(classGMeanResults.get(s).get(indexToAddFrom));
+		    		newClassGMeans.get(s).add(classGMeanResults.get(s).get(indexToAddFrom));
+		    		newOOBClassGMeans.get(s).add(classOOBGMeanResults.get(s).get(indexToAddFrom));
 		    	}
 		    	if (indexToAddFrom > populationSize)
 		    	{
 		    		// If this is true, the an offspring has been added to the updated population.
-		    		populationLastChanged++;
+		    		isPopulationStagnant = false;
 		    	}
+		    }
+		    if (isPopulationStagnant)
+		    {
+		    	populationLastChanged++;
+		    }
+		    else
+		    {
+		    	populationLastChanged = 0;
 		    }
 		    population = newPopulation;
 		    fitness = newFitness;
-		    classGMeanResults = newClassFMeasures;
+		    classGMeanResults = newClassGMeans;
+		    classOOBGMeanResults = newOOBClassGMeans;
+
+		    // Write out the statistics of the population.
+	    	writeOutStatus(fitnessDirectoryLocation, fitness, populationDirectoryLocation, population, currentGeneration,
+	    			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classGMeanResults, classGMeanOutputLocations,
+	    			classOOBGMeanResults, classOOBGMeanOutputLocations);
+
+	    	if (fitness.get(0) > this.currentBestFitness)
+	    	{
+	    		// If the fitness has improved during this generation. The fitness of the most fit individual can not get worse, so if it
+	    		// is not the same then it must have improved.
+	    		this.currentBestFitness = fitness.get(0);
+	    		this.bestMembersFound = new ArrayList<List<Integer>>();  // Clear out the list of the best individuals found as there is a new top fitness.
+	    	}
+	    	// Add all the members with the best fitness to the set of best individuals found.
+	    	for (int i = 0; i < populationSize; i++)
+	    	{
+	    		if ((fitness.get(i) == this.currentBestFitness) && (!this.bestMembersFound.contains(population.get(i))))
+	    		{
+	    			// If the individual in position i has the best fitness of any individual found, and
+	    			// the individual is not already recorded as having the best fitness found (i.e. a new individual has been found
+	    			// that has the same fitness as the most fit individual already found).
+	    			this.bestMembersFound.add(population.get(i));
+	    		}
+	    	}
 
 		    if (populationLastChanged == maxStagnant)
 	    	{
@@ -561,6 +633,7 @@ public class InstanceSelection
 	    		    for (String s : observations.keySet())
 	    		    {
 	    		    	classGMeanResults.put(s, new ArrayList<Double>());
+	    		    	classOOBGMeanResults.put(s, new ArrayList<Double>());
 	    		    }
 	    		    for (List<Integer> geneSet : population)
 	    		    {
@@ -568,6 +641,8 @@ public class InstanceSelection
 	    	    		ctrl.trainingObservations = geneSet;
 	    		    	Forest forest = new Forest(datasetLocation, ctrl);
 	    		    	forest.setWeightsByClass(weights);
+	    		    	forest.growForest();
+	    		    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
 	    		    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
 	    		    	testObs.removeAll(geneSet);
 	    		    	Map<String, Map<String, Double>> predictedConfusionMatrix = forest.predict(processedInputFile, testObs).second;
@@ -591,40 +666,26 @@ public class InstanceSelection
 	    		    	for (String s : predictedConfusionMatrix.keySet())
 	    		    	{
 	    		    		double TP = predictedConfusionMatrix.get(s).get("TruePositive");
-	    		    		double FN = observations.get(s).size() - trainingSetClasses.get(s) - TP;  // The number of false positives is the number of observaitons from the class in the testing set - the number of true positives.
+	    		    		double FN = (observations.get(s).size() - trainingSetClasses.get(s)) - TP;  // The number of false positives is the number of observaitons from the class in the testing set - the number of true positives.
 	    		    		double recall = TP / (TP + FN);
 	    		    		macroGMean *= recall;
 	    			    	classGMeanResults.get(s).add(recall);
 	    		    	}
-	    		    	macroGMean = Math.pow(macroGMean, (1.0 / observations.size()));
+	    		    	for (String s : oobConfusionMatrix.keySet())
+	    		    	{
+	    		    		double TP = oobConfusionMatrix.get(s).get("TruePositive");
+	    		    		double FN = trainingSetClasses.get(s) - TP;  // The number of false positives is the number of observaitons from the class in the training set - the number of true positives.
+	    		    		double recall = TP / (TP + FN);
+	    		    		macroGMean *= recall;
+	    			    	classOOBGMeanResults.get(s).add(recall);
+	    		    	}
+	    		    	macroGMean = Math.pow(macroGMean, (1.0 / (observations.size() * 2)));
 				    	fitness.add(macroGMean);
 	    		    	numberEvaluations += 1;
 	    		    }
 	    		}
 	    	}
 
-		    // Write out the statistics of the population.
-	    	writeOutStatus(fitnessDirectoryLocation, fitness, populationDirectoryLocation, population, currentGeneration,
-	    			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classGMeanResults, classFMeasureOutputLocations);
-
-	    	if (fitness.get(0) > this.currentBestFitness)
-	    	{
-	    		// If the fitness has improved during this generation. The fitness of the most fit individual can not get worse, so if it
-	    		// is not the same then it must have improved.
-	    		this.currentBestFitness = fitness.get(0);
-	    		this.bestMembersFound = new ArrayList<List<Integer>>();  // Clear out the list of the best individuals found as there is a new top fitness.
-	    	}
-	    	// Add all the members with the best fitness to the set of best individuals found.
-	    	for (int i = 0; i < populationSize; i++)
-	    	{
-	    		if ((fitness.get(i) == this.currentBestFitness) && (!this.bestMembersFound.contains(population.get(i))))
-	    		{
-	    			// If the individual in position i has the best fitness of any individual found, and
-	    			// the individual is not already recorded as having the best fitness found (i.e. a new individual has been found
-	    			// that has the same fitness as the most fit individual already found).
-	    			this.bestMembersFound.add(population.get(i));
-	    		}
-	    	}
 	    	currentGeneration += 1;
 	    }
 
@@ -652,7 +713,8 @@ public class InstanceSelection
 
 	    // Write out the statistics of the final population.
     	writeOutStatus(fitnessDirectoryLocation, fitness, populationDirectoryLocation, population, currentGeneration,
-    			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classGMeanResults, classFMeasureOutputLocations);
+    			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classGMeanResults, classGMeanOutputLocations,
+    			classOOBGMeanResults, classOOBGMeanOutputLocations);
 
 	    // Write out the best member(s) of the population.
 	    Set<List<Integer>> recordedIndividuals = new HashSet<List<Integer>>();
@@ -762,7 +824,8 @@ public class InstanceSelection
 
 	void writeOutStatus(String fitnessDirectoryLocation, List<Double> fitness, String populationDirectoryLocation,
 			List<List<Integer>> population, int currentGeneration, String genStatsOutputLocation, int populationSize,
-			int threshold, int numberEvaluations, Map<String, List<Double>> classGMeanResults, Map<String, String> classFMeasureOutputLocations)
+			int threshold, int numberEvaluations, Map<String, List<Double>> classGMeanResults, Map<String, String> classGMeanOutputLocations,
+			Map<String, List<Double>> classOOBGMeanResults, Map<String, String> classOOBGMeanOutputLocations)
 	{
 		// Write out the fitness info for the current generation.
 		String fitnessOutputLocation = fitnessDirectoryLocation + "/" + Integer.toString(currentGeneration) + ".txt";
@@ -836,38 +899,76 @@ public class InstanceSelection
 		for (String s : classGMeanResults.keySet())
 		{
 			// Calculate the mean and median fitness for the current generation.
-			double meanClassFMeasure = 0.0;
-			double medianClassFMeasure = 0.0;
-			double stdDevClassFMeasure = 0.0;
+			double meanClassGMean = 0.0;
+			double medianClassGMean = 0.0;
+			double stdDevClassGMean = 0.0;
 			for (Double d : classGMeanResults.get(s))
 			{
-				meanClassFMeasure += d;
+				meanClassGMean += d;
 			}
-			meanClassFMeasure /= populationSize;
+			meanClassGMean /= populationSize;
 			if (populationSize % 2 == 0)
 			{
 				// If the size of the population is even.
 				int midPointOne = populationSize / 2;
 				int midPointTwo = midPointOne - 1;
-				medianClassFMeasure = (classGMeanResults.get(s).get(midPointOne) + classGMeanResults.get(s).get(midPointTwo)) / 2.0;
+				medianClassGMean = (classGMeanResults.get(s).get(midPointOne) + classGMeanResults.get(s).get(midPointTwo)) / 2.0;
 			}
 			else
 			{
-				medianClassFMeasure = classGMeanResults.get(s).get(populationSize / 2);  // Works as integer division causes this to be rounded down.
+				medianClassGMean = classGMeanResults.get(s).get(populationSize / 2);  // Works as integer division causes this to be rounded down.
 			}
 			squaredDiffWithMean = 0.0;
 			for (Double d : classGMeanResults.get(s))
 			{
-				squaredDiffWithMean += Math.pow(d - meanClassFMeasure, 2);
+				squaredDiffWithMean += Math.pow(d - meanClassGMean, 2);
 			}
-			stdDevClassFMeasure = Math.pow(squaredDiffWithMean / populationSize, 0.5);
+			stdDevClassGMean = Math.pow(squaredDiffWithMean / populationSize, 0.5);
 
 			List<Double> resultsList = new ArrayList<Double>();
 			resultsList.add(classGMeanResults.get(s).get(0));
-			resultsList.add(meanClassFMeasure);
-			resultsList.add(medianClassFMeasure);
-			resultsList.add(stdDevClassFMeasure);
+			resultsList.add(meanClassGMean);
+			resultsList.add(medianClassGMean);
+			resultsList.add(stdDevClassGMean);
 			classResults.put(s, resultsList);
+		}
+
+		Map<String, List<Double>> classOOBResults = new HashMap<String, List<Double>>();
+		for (String s : classOOBGMeanResults.keySet())
+		{
+			// Calculate the mean and median fitness for the current generation.
+			double meanClassGMean = 0.0;
+			double medianClassGMean = 0.0;
+			double stdDevClassGMean = 0.0;
+			for (Double d : classOOBGMeanResults.get(s))
+			{
+				meanClassGMean += d;
+			}
+			meanClassGMean /= populationSize;
+			if (populationSize % 2 == 0)
+			{
+				// If the size of the population is even.
+				int midPointOne = populationSize / 2;
+				int midPointTwo = midPointOne - 1;
+				medianClassGMean = (classOOBGMeanResults.get(s).get(midPointOne) + classOOBGMeanResults.get(s).get(midPointTwo)) / 2.0;
+			}
+			else
+			{
+				medianClassGMean = classOOBGMeanResults.get(s).get(populationSize / 2);  // Works as integer division causes this to be rounded down.
+			}
+			squaredDiffWithMean = 0.0;
+			for (Double d : classOOBGMeanResults.get(s))
+			{
+				squaredDiffWithMean += Math.pow(d - meanClassGMean, 2);
+			}
+			stdDevClassGMean = Math.pow(squaredDiffWithMean / populationSize, 0.5);
+
+			List<Double> resultsList = new ArrayList<Double>();
+			resultsList.add(classOOBGMeanResults.get(s).get(0));
+			resultsList.add(meanClassGMean);
+			resultsList.add(medianClassGMean);
+			resultsList.add(stdDevClassGMean);
+			classOOBResults.put(s, resultsList);
 		}
 
 		// Write out the fitness statistics for the current generation.
@@ -897,7 +998,7 @@ public class InstanceSelection
 
 			for (String s : classGMeanResults.keySet())
 			{
-				FileWriter classStatsOutputFile = new FileWriter(classFMeasureOutputLocations.get(s), true);
+				FileWriter classStatsOutputFile = new FileWriter(classGMeanOutputLocations.get(s), true);
 				BufferedWriter classStatsOutputWriter = new BufferedWriter(classStatsOutputFile);
 				classStatsOutputWriter.write(Integer.toString(currentGeneration));
 				classStatsOutputWriter.write("\t");
@@ -908,6 +1009,23 @@ public class InstanceSelection
 				classStatsOutputWriter.write(Double.toString(classResults.get(s).get(2)));
 				classStatsOutputWriter.write("\t");
 				classStatsOutputWriter.write(Double.toString(classResults.get(s).get(3)));
+				classStatsOutputWriter.newLine();
+				classStatsOutputWriter.close();
+			}
+
+			for (String s : classOOBGMeanResults.keySet())
+			{
+				FileWriter classStatsOutputFile = new FileWriter(classOOBGMeanOutputLocations.get(s), true);
+				BufferedWriter classStatsOutputWriter = new BufferedWriter(classStatsOutputFile);
+				classStatsOutputWriter.write(Integer.toString(currentGeneration));
+				classStatsOutputWriter.write("\t");
+				classStatsOutputWriter.write(Double.toString(classOOBGMeanResults.get(s).get(0)));
+				classStatsOutputWriter.write("\t");
+				classStatsOutputWriter.write(Double.toString(classOOBGMeanResults.get(s).get(1)));
+				classStatsOutputWriter.write("\t");
+				classStatsOutputWriter.write(Double.toString(classOOBGMeanResults.get(s).get(2)));
+				classStatsOutputWriter.write("\t");
+				classStatsOutputWriter.write(Double.toString(classOOBGMeanResults.get(s).get(3)));
 				classStatsOutputWriter.newLine();
 				classStatsOutputWriter.close();
 			}
