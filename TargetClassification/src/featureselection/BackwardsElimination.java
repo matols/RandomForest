@@ -426,6 +426,7 @@ public class BackwardsElimination
 		//--------------------------------------------------------------------//
 		Forest forest = new Forest(internalSubsampleTrainingSet, variableImportanceControl, internalSubsampleSeed);
 		forest.setWeightsByClass(weights);
+		forest.growForest();
 		Map<String, Double> varImp = forest.variableImportance().second;
 
 		// Rank the variables by importance.
@@ -454,6 +455,7 @@ public class BackwardsElimination
 			eliminationControl.variablesToIgnore = variablesToIgnore;
 			forest = new Forest(internalSubsampleTrainingSet, eliminationControl, internalSubsampleSeed);
 			forest.setWeightsByClass(weights);
+			forest.growForest();
 			ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predictionResults = forest.predict(new ProcessDataForGrowing(internalSubsampleTestingSet, eliminationControl));
 			errorRates.put(orderedFeaturesByImportance.size(), predictionResults.first);
 			Map<String, Map<String, Double>> confusionMatrix = predictionResults.second;
@@ -573,6 +575,7 @@ public class BackwardsElimination
 		{
 			Forest forest = new Forest(externalSubsampleTrainingSet, variableImportanceControl, seedsToUse.get(i));
 			forest.setWeightsByClass(weights);
+			forest.growForest();
 			Map<String, Double> varImp = forest.variableImportance().second;
 			List<StringsSortedByDoubles> sortedVariables = new ArrayList<StringsSortedByDoubles>();
 			for (String s : varImp.keySet())
@@ -623,6 +626,7 @@ public class BackwardsElimination
 		{
 			Forest forest = new Forest(externalSubsampleTrainingSet, variableImportanceControl, seedsToUse.get(i));
 			forest.setWeightsByClass(weights);
+			forest.growForest();
 			ImmutableTwoValues<Double, Map<String, Map<String, Double>>> validationResults = forest.predict(new ProcessDataForGrowing(externalSubsampleTestingSet, variableImportanceControl));
 			validatedErrorRate += validationResults.first;
 			// Determine the macro G mean.

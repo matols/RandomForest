@@ -532,6 +532,7 @@ public class Boruta
 		}
 		Forest forest = new Forest(copyData, copyCtrl);
 		forest.setWeightsByClass(weights);
+		forest.growForest();
 
 		// Determine importance of variables, and the importance of the nth most important random permutation variable.
 		Map<String, Double> varImp = forest.variableImportance().second;

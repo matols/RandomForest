@@ -200,6 +200,7 @@ public class VariableImportance {
 
 			Forest forest = new Forest(inputLocation, ctrl, seedToUse);
 			forest.setWeightsByClass(weights);
+			forest.growForest();
 			System.out.println("\tNow determining variable importances.");
 			ImmutableTwoValues<Map<String,Double>, Map<String,Double>> varImp = forest.variableImportance();
 			Map<String, Double> accuracyImportance = varImp.first;
