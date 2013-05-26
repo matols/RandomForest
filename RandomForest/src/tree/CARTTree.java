@@ -327,27 +327,28 @@ public class CARTTree
 
 	Map<Integer, Map<String, Double>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
 	{
-		Map<Integer, Map<String, Double>> returnValue = new HashMap<Integer, Map<String, Double>>();
+//		Map<Integer, Map<String, Double>> returnValue = new HashMap<Integer, Map<String, Double>>();
 		if (this.cartTree == null)
 		{
 			System.out.println("The tree can not be used for prediction before it has been trained.");
 			System.exit(0);
 		}
-		else
-		{
-			for (Integer i : observationsToPredict)
-			{
-				// The current observation is a mapping from the covariable names to their values.
-				Map<String, Double> currentObservation = new HashMap<String, Double>();
-				for (String s : predData.covariableData.keySet())
-				{
-					currentObservation.put(s, predData.covariableData.get(s).get(i));
-				}
-				returnValue.put(i, this.cartTree.predict(currentObservation));
-			}
-		}
-
-		return returnValue;
+		return this.cartTree.predict(predData, observationsToPredict);
+//		else
+//		{
+//			for (Integer i : observationsToPredict)
+//			{
+//				// The current observation is a mapping from the covariable names to their values.
+//				Map<String, Double> currentObservation = new HashMap<String, Double>();
+//				for (String s : predData.covariableData.keySet())
+//				{
+//					currentObservation.put(s, predData.covariableData.get(s).get(i));
+//				}
+//				returnValue.put(i, this.cartTree.predict(currentObservation));
+//			}
+//		}
+//
+//		return returnValue;
 	}
 
 	void save(String outputLocation)

@@ -36,7 +36,7 @@ public abstract class Node
 		return null;
 	}
 
-	Map<String, Double> predict(Map<String, Double> currentObservation)
+	Map<Integer, Map<String, Double>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
 	{
 		return null;
 	}

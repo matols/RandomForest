@@ -69,15 +69,20 @@ public class NodeTerminal extends Node
 		return currentGrid;
 	}
 
-	Map<String, Double> predict(Map<String, Double> currentObservation)
+	Map<Integer, Map<String, Double>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
 	{
-		Map<String, Double> weightedVotes = new HashMap<String, Double>();
-		for (String className : this.classWeightsInNode.keySet())
+		Map<Integer, Map<String, Double>> predictedValues = new HashMap<Integer, Map<String, Double>>();
+		for (Integer i : observationsToPredict)
 		{
-			weightedVotes.put(className, this.classWeightsInNode.get(className));
+			Map<String, Double> weightedVotes = new HashMap<String, Double>();
+			for (String className : this.classWeightsInNode.keySet())
+			{
+				weightedVotes.put(className, this.classWeightsInNode.get(className));
+			}
+			predictedValues.put(i, weightedVotes);
 		}
 
-		return weightedVotes;
+		return predictedValues;
 	}
 
 	ImmutableTwoValues<String, Integer> save(Integer nodeID, Integer parentID)

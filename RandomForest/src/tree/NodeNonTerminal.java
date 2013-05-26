@@ -4,6 +4,7 @@
 package tree;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -161,17 +162,29 @@ public class NodeNonTerminal extends Node
 		return rightChildGrid;
 	}
 
-	Map<String, Double> predict(Map<String, Double> currentObservation)
+	Map<Integer, Map<String, Double>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
 	{
-		double valueOfObservedCovar = currentObservation.get(this.covariable);
-		if (valueOfObservedCovar <= this.splitValue)
+		Map<Integer, Map<String, Double>> predictedValues = new HashMap<Integer, Map<String, Double>>();
+		if (!observationsToPredict.isEmpty())
 		{
-			return this.children[0].predict(currentObservation);
+			List<Integer> leftChildObservations = new ArrayList<Integer>();
+			List<Integer> rightChildObservations = new ArrayList<Integer>();
+			for (Integer i : observationsToPredict)
+			{
+				double valueOfObservedCovar = predData.covariableData.get(this.covariable).get(i);
+				if (valueOfObservedCovar <= this.splitValue)
+				{
+					leftChildObservations.add(i);
+				}
+				else
+				{
+					rightChildObservations.add(i);
+				}
+			}
+			predictedValues.putAll(this.children[0].predict(predData, leftChildObservations));
+			predictedValues.putAll(this.children[1].predict(predData, rightChildObservations));
 		}
-		else
-		{
-			return this.children[1].predict(currentObservation);
-		}
+		return predictedValues;
 	}
 
 	ImmutableTwoValues<String, Integer> save(Integer nodeID, Integer parentID)
