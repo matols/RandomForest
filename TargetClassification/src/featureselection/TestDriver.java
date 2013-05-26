@@ -45,11 +45,10 @@ public class TestDriver
 		ctrl.mtry = 10;
 		ctrl.isStratifiedBootstrapUsed = true;
 		ctrl.minNodeSize = 1;
-		int gaRepetitions = 20;
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
 		weights.put("Positive", 1.0);
-		
+
 
 
 //		ctrl.isCalculateOOB = false;
