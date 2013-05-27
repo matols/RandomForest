@@ -19,9 +19,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-import org.apache.commons.math3.linear.RealMatrix;
-import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
-
 /**
  * @author Simon Bull
  *
@@ -309,47 +306,6 @@ public class Forest
 		}
 
 		return proximities;
-	}
-
-	public Map<Integer, Map<Integer, Double>> calculatProximities(String outputLocation)
-	{
-		return calculatProximities(this.processedData, outputLocation);
-	}
-
-	public Map<Integer, Map<Integer, Double>> calculatProximities(ProcessDataForGrowing procData, String outputLocation)
-	{
-		try
-		{
-			FileWriter proxOutputFile = new FileWriter(outputLocation, true);
-			BufferedWriter proxOutputWriter = new BufferedWriter(proxOutputFile);
-			
-			for (CARTTree t : this.forest)
-			{
-				String treeProxString = "";
-				List<List<Integer>> treeProximities = t.getProximities(procData);  // Get the proximities for the tree.
-				for (List<Integer> l : treeProximities)
-				{
-					for (Integer i : l)
-					{
-						treeProxString += Integer.toString(i) + ",";
-					}
-					treeProxString = treeProxString.substring(0, treeProxString.length() - 1);
-					treeProxString += "\t";
-				}
-				treeProxString = treeProxString.substring(0, treeProxString.length() - 1);
-				proxOutputWriter.write(treeProxString);
-				proxOutputWriter.newLine();
-			}
-
-			proxOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
-
-		return null;
 	}
 
 
