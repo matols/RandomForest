@@ -528,7 +528,6 @@ public class Forest
 	public ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict, List<Integer> treesToUseForPrediction)
 	{
 		Double errorRate = 0.0;
-		Map<Integer, String> observationToClassification = new HashMap<Integer, String>();
 
 		Set<String> classNames = new HashSet<String>(this.processedData.responseData);  // A set containing the names of all the classes in the dataset.
 
@@ -560,29 +559,6 @@ public class Forest
 			}
 		}
 
-		// Make sense of the prediction for each observation.
-		for (int i : predictions.keySet())
-		{
-			// Get the list of predictions for observation i. The predictions are ordered so that the jth value in the list
-			// is the prediction for the jth value in the list of treesToUseForPrediction.
-			Map<String, Double> predictedValues = predictions.get(i);
-
-			// Determine the majority classification for the observation.
-			String majorityClass = "";
-			double largestNumberClassifications = -Double.MAX_VALUE;
-			for (String s : predictedValues.keySet())
-			{
-				if (predictedValues.get(s) > largestNumberClassifications)
-				{
-					majorityClass = s;
-					largestNumberClassifications = predictedValues.get(s);
-				}
-			}
-
-			// Record the majority classification for the observation.
-			observationToClassification.put(i, majorityClass);
-		}
-
 		// Set up the confusion matrix.
 		Map<String, Map<String, Double>> confusionMatrix = new HashMap<String, Map<String, Double>>();
 		Set<String> responsePossibilities = new HashSet<String>(this.processedData.responseData);
@@ -594,11 +570,22 @@ public class Forest
 			confusionMatrix.put(s, classEntry);
 		}
 
-		// Record the error rate for all observations.
-		for (int i : observationToClassification.keySet())
+		// Make sense of the prediction for each observation.
+		for (Integer i : predictions.keySet())
 		{
-			String predictedClass = observationToClassification.get(i);
-			if (!predData.responseData.get(i).equals(predictedClass))
+			// Determine the majority classification for the observation.
+			Map.Entry<String, Double> maxEntry = null;
+
+			for (Map.Entry<String, Double> entry : predictions.get(i).entrySet())
+			{
+			    if (maxEntry == null || entry.getValue().compareTo(maxEntry.getValue()) > 0)
+			    {
+			        maxEntry = entry;
+			    }
+			}
+			String predictedClass = maxEntry.getKey();
+
+			if (!predictedClass.equals(this.processedData.responseData.get(i)))
 			{
 				// If the classification is not correct.
 				errorRate += 1.0; // Indicate that an incorrect prediction has been encountered.
@@ -613,9 +600,10 @@ public class Forest
 				confusionMatrix.get(predictedClass).put("TruePositive", currentTruePos + 1);
 			}
 		}
-		// Divide the number of observations predicted incorrectly by the total number of observations in order to get the
+
+		// Divide the number of observations predicted incorrectly by the total number of observations predicted in order to get the
 		// overall error rate of the set of observations provided on the set of trees provided.
-		errorRate = errorRate / observationToClassification.size();
+		errorRate = errorRate / predictions.size();
 
 		return new ImmutableTwoValues<Double, Map<String,Map<String,Double>>>(errorRate, confusionMatrix);
 	}
