@@ -64,11 +64,6 @@ public class NodeTerminal extends Node
 		return proximities;
 	}
 
-	List<List<Integer>> getConditionalGrid(ProcessDataForGrowing processedData, List<List<Integer>> currentGrid, List<String> covToConditionOn)
-	{
-		return currentGrid;
-	}
-
 	Map<Integer, Map<String, Double>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
 	{
 		Map<Integer, Map<String, Double>> predictedValues = new HashMap<Integer, Map<String, Double>>();

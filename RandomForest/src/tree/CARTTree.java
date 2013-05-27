@@ -216,13 +216,6 @@ public class CARTTree
 		return this.cartTree.getProximities(procData, observationIndices);
 	}
 
-	public List<List<Integer>> getConditionalGrid(ProcessDataForGrowing procData, List<Integer> oobOnThisTree, List<String> covToConditionOn)
-	{
-		List<List<Integer>> currentGrid = new ArrayList<List<Integer>>();
-		currentGrid.add(oobOnThisTree);
-		return this.cartTree.getConditionalGrid(procData, currentGrid, covToConditionOn);
-	}
-
 	Node controlTreeGrowth(List<Integer> observationsInNode, Map<Integer, Double> weights, int currentDepth)
 	{
 		// Determine the counts of each class in the current node.

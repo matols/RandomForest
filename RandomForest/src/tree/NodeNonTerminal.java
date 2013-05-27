@@ -111,57 +111,6 @@ public class NodeNonTerminal extends Node
 		return proximities;
 	}
 
-	List<List<Integer>> getConditionalGrid(ProcessDataForGrowing processedData, List<List<Integer>> currentGrid, List<String> covToConditionOn)
-	{
-		List<List<Integer>> newGrid = new ArrayList<List<Integer>>();
-
-		if (covToConditionOn.contains(this.covariable))
-		{
-			// If the covariable splitting this node is to be conditioned on.
-			for (List<Integer> l : currentGrid)
-			{
-				// Bisect each grid element along the lines specified by this node's covariable and split point.
-				List<Integer> leftSplitList = new ArrayList<Integer>();
-				boolean isLeftListEmpty = true;
-				List<Integer> rightSplitList = new ArrayList<Integer>();
-				boolean isRightListEmpty = true;
-				for (Integer i : l)
-				{
-					if (processedData.covariableData.get(this.covariable).get(i) <= this.splitValue)
-					{
-						leftSplitList.add(i);
-						isLeftListEmpty = false;
-					}
-					else
-					{
-						rightSplitList.add(i);
-						isRightListEmpty = false;
-					}
-				}
-	
-				if (!isLeftListEmpty)
-				{
-					// Only add the grid element for the left portion of the bisecting if it is not empty.
-					newGrid.add(leftSplitList);
-				}
-				if (!isRightListEmpty)
-				{
-					// Only add the grid element for the right portion of the bisecting if it is not empty.
-					newGrid.add(rightSplitList);
-				}
-			}
-		}
-		else
-		{
-			// If the covariable splitting this node is not to be conditioned on, then don't perform any bisecting for this node's split point.
-			newGrid.addAll(currentGrid);
-		}
-
-		List<List<Integer>> leftChildGrid = this.children[0].getConditionalGrid(processedData, newGrid, covToConditionOn);
-		List<List<Integer>> rightChildGrid = this.children[1].getConditionalGrid(processedData, leftChildGrid, covToConditionOn);
-		return rightChildGrid;
-	}
-
 	Map<Integer, Map<String, Double>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
 	{
 		Map<Integer, Map<String, Double>> predictedValues = new HashMap<Integer, Map<String, Double>>();
