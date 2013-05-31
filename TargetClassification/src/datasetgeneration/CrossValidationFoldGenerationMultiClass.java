@@ -27,6 +27,13 @@ public class CrossValidationFoldGenerationMultiClass
 		main(inputFileLocation, outputLocation, numberOfFolds);
 	}
 
+	/**
+	 * You need at least enough observations so that there is one of each type in each fold (as this is stratified).
+	 * 
+	 * @param inputFileLocation
+	 * @param outputLocation
+	 * @param numberOfFolds
+	 */
 	public static void main(String inputFileLocation, String outputLocation, int numberOfFolds)
 	{
 		Map<String, Map<Integer, String>> observationIndexToLine = new HashMap<String, Map<Integer, String>>();

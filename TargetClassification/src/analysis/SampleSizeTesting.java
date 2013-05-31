@@ -121,12 +121,12 @@ public class SampleSizeTesting
 
 		// Setup the results output files.
 		String fullDatasetResultsLocation = resultsDir + "/FullDatasetResults.txt";
-		String fullDatasetGMeanResultsLocation = resultsDir + "/FullDatasetGMeanResults.txt";
+		String fullDatasetGMeanResultsLocation = resultsDir + "/FullDatasetAllValues.txt";
 		try
 		{
 			FileWriter resultsOutputFile = new FileWriter(fullDatasetResultsLocation);
 			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("SampleSize\tPositiveFraction\tWeight\tGMean\tF0.5\tF1\tF2\tAccuracy\tOOBError");
+			resultsOutputWriter.write("SampleSize\tPositiveFraction\tWeight\tGMean\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError");
 			for (String s : responseClasses)
 			{
 				resultsOutputWriter.write("\t");
@@ -172,7 +172,7 @@ public class SampleSizeTesting
 		// Determine the subset of feature to remove.
 		boolean isSubsetUsed = false;
 		String subsetResultsLocation = resultsDir + "/SubsetResults.txt";
-		String subsetGMeanResultsLocation = resultsDir + "/SubsetGMeanResults.txt";
+		String subsetGMeanResultsLocation = resultsDir + "/SubsetAllValues.txt";
 		List<String> covarsToRemove = new ArrayList<String>();
 		if (!covarsToKeep.isEmpty())
 		{
@@ -190,7 +190,7 @@ public class SampleSizeTesting
 			{
 				FileWriter resultsOutputFile = new FileWriter(subsetResultsLocation);
 				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-				resultsOutputWriter.write("SampleSize\tPositiveFraction\tWeight\tGMean\tF0.5\tF1\tF2\tAccuracy\tOOBError");
+				resultsOutputWriter.write("SampleSize\tPositiveFraction\tWeight\tGMean\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError");
 				for (String s : responseClasses)
 				{
 					resultsOutputWriter.write("\t");

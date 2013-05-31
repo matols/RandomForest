@@ -83,8 +83,8 @@ public class WeightTesting
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
 		int repetitions = 100;
-		Double[] weightsToUse = {10.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 24.0, 26.0, 28.0, 30.0, 32.0, 34.0, 36.0, 38.0, 40.0};
-		Integer[] mtryToUse = {5, 10, 15, 20};
+		Double[] weightsToUse = {1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0};
+		Integer[] mtryToUse = {5, 10, 15, 20, 25, 30};
 		Integer[] trainingObsToUse = {};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
@@ -105,12 +105,12 @@ public class WeightTesting
 
 		// Setup the results output files.
 		String fullDatasetResultsLocation = resultsDir + "/FullDatasetResults.txt";
-		String fullDatasetGMeanResultsLocation = resultsDir + "/FullDatasetGMeanResults.txt";
+		String fullDatasetGMeanResultsLocation = resultsDir + "/FullDatasetAllValues.txt";
 		try
 		{
 			FileWriter resultsOutputFile = new FileWriter(fullDatasetResultsLocation);
 			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("Weight\tMtry\tGMean\tF0.5\tF1\tF2\tAccuracy\tOOBError");
+			resultsOutputWriter.write("Weight\tMtry\tGMean\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError");
 			for (String s : classesInDataset)
 			{
 				resultsOutputWriter.write("\t");
@@ -156,7 +156,7 @@ public class WeightTesting
 		// Determine the subset of feature to remove.
 		boolean isSubsetUsed = false;
 		String subsetResultsLocation = resultsDir + "/SubsetResults.txt";
-		String subsetGMeanResultsLocation = resultsDir + "/SubsetMCCResults.txt";
+		String subsetGMeanResultsLocation = resultsDir + "/SubsetAllValues.txt";
 		List<String> covarsToRemove = new ArrayList<String>();
 		if (!covarsToKeep.isEmpty())
 		{
@@ -174,7 +174,7 @@ public class WeightTesting
 			{
 				FileWriter resultsOutputFile = new FileWriter(subsetResultsLocation);
 				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-				resultsOutputWriter.write("Weight\tMtry\tGMean\tF0.5\tF1\tF2\tAccuracy\tOOBError");
+				resultsOutputWriter.write("Weight\tMtry\tGMean\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError");
 				for (String s : classesInDataset)
 				{
 					resultsOutputWriter.write("\t");

@@ -62,12 +62,12 @@ public class ForestSizeTesting
 		ctrl.isReplacementUsed = true;
 		ctrl.isStratifiedBootstrapUsed = true;
 		ctrl.minNodeSize = 1;
-		ctrl.mtry = 10;
+		ctrl.mtry = 25;
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
-		weights.put("Positive", 1.1);
+		weights.put("Positive", 5.9);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -111,7 +111,7 @@ public class ForestSizeTesting
 		}
 
 		String errorRateResultsLocation = resultsDir + "/ErrorResults.txt";
-		String gMeanResultsLocation = resultsDir + "/GMeanResults.txt";
+		String gMeanResultsLocation = resultsDir + "/QualityMeasureResults.txt";
 		for (Integer i : forestSizesToUse)
 		{
 			DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -121,7 +121,7 @@ public class ForestSizeTesting
 
 			ctrl.numberOfTreesToGrow = i;
 			List<Double> errorRates = new ArrayList<Double>();
-			List<Double> gMeans = new ArrayList<Double>();
+			List<Double> allRepetitionResults = new ArrayList<Double>();
 			for (int j = 0; j < repetitions; j++)
 			{
 				Forest forest = new Forest(inputFile, ctrl, seedsToUse.get(j));
@@ -129,15 +129,35 @@ public class ForestSizeTesting
 				forest.growForest();
 				errorRates.add(forest.oobErrorEstimate);
 				Map<String, Map<String, Double>> oobConfMatrix = forest.oobConfusionMatrix;
-				double macroGMean = 1.0;
-	    		for (String s : oobConfMatrix.keySet())
-		    	{
-		    		double TP = oobConfMatrix.get(s).get("TruePositive");
-		    		double FN = countsOfClass.get(s) - TP;  // The number of false positives is the number of observations from the class  - the number of true positives.
-		    		double recall = TP / (TP + FN);
-		    		macroGMean *= recall;
-		    	}
-	    		gMeans.add(Math.pow(macroGMean, (1.0 / oobConfMatrix.size())));
+				if (oobConfMatrix.size() == 2)
+	    		{
+	    			// If there are only two classes, then calculate the MCC.
+	    			List<Double> correctPredictions = new ArrayList<Double>();
+	    			List<Double> incorrectPredictions = new ArrayList<Double>();
+	    			for (String s : oobConfMatrix.keySet())
+	    			{
+	    				correctPredictions.add(oobConfMatrix.get(s).get("TruePositive"));
+	    				incorrectPredictions.add(oobConfMatrix.get(s).get("FalsePositive"));
+	    			}
+	    			double TP = correctPredictions.get(0);
+	    			double FP = incorrectPredictions.get(0);
+	    			double TN = correctPredictions.get(1);
+	    			double FN = incorrectPredictions.get(1);
+	    			double MCC = ((TP * TN) - (FP * FN)) / (Math.sqrt((TP + TN) * (TP + FN) * (TN + FP) * (TN + FN)));
+	    			allRepetitionResults.add(MCC);
+	    		}
+				else
+				{
+					double macroGMean = 1.0;
+		    		for (String s : oobConfMatrix.keySet())
+			    	{
+			    		double TP = oobConfMatrix.get(s).get("TruePositive");
+			    		double FN = countsOfClass.get(s) - TP;  // The number of false positives is the number of observations from the class  - the number of true positives.
+			    		double recall = TP / (TP + FN);
+			    		macroGMean *= recall;
+			    	}
+		    		allRepetitionResults.add(Math.pow(macroGMean, (1.0 / oobConfMatrix.size())));
+				}
 			}
 
 			try
@@ -155,7 +175,7 @@ public class ForestSizeTesting
 				resultsOutputFile = new FileWriter(gMeanResultsLocation, true);
 				resultsOutputWriter = new BufferedWriter(resultsOutputFile);
 				resultsOutputWriter.write(Integer.toString(i));
-				for (Double d : gMeans)
+				for (Double d : allRepetitionResults)
 				{
 					resultsOutputWriter.write("\t" + Double.toString(d));
 				}

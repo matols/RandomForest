@@ -40,7 +40,7 @@ public class MultipleForestRunAndTest
 			String resultsLocation, String mccResultsLocation, int analysisBeingRun, double callSpecificValue)
 	{
 		double cumulativeOOBError = 0.0;
-		List<Double> gMeanValues = new ArrayList<Double>();
+		List<Double> allRepetitionResults = new ArrayList<Double>();
 		long oobTime = 0l;
 		ProcessDataForGrowing processedInputFile = new ProcessDataForGrowing(inputFile, ctrl);
 		Map<String, Integer> countsOfClass = new HashMap<String, Integer>();
@@ -73,16 +73,36 @@ public class MultipleForestRunAndTest
     		}
     		endTime = new Date();
     		oobTime += endTime.getTime() - startTime.getTime();
-    		double macroGMean = 1.0;
-    		for (String s : oobConfMatrix.keySet())
-	    	{
-	    		double TP = oobConfMatrix.get(s).get("TruePositive");
-	    		double FN = countsOfClass.get(s) - TP;  // The number of false positives is the number of observations from the class  - the number of true positives.
-	    		double recall = TP / (TP + FN);
-	    		macroGMean *= recall;
-	    	}
-	    	macroGMean = Math.pow(macroGMean, (1.0 / oobConfMatrix.size()));
-			gMeanValues.add(macroGMean);
+    		if (confusionMatrix.size() == 2)
+    		{
+    			// If there are only two classes, then calculate the MCC.
+    			List<Double> correctPredictions = new ArrayList<Double>();
+    			List<Double> incorrectPredictions = new ArrayList<Double>();
+    			for (String s : confusionMatrix.keySet())
+    			{
+    				correctPredictions.add(confusionMatrix.get(s).get("TruePositive"));
+    				incorrectPredictions.add(confusionMatrix.get(s).get("FalsePositive"));
+    			}
+    			double TP = correctPredictions.get(0);
+    			double FP = incorrectPredictions.get(0);
+    			double TN = correctPredictions.get(1);
+    			double FN = incorrectPredictions.get(1);
+    			double MCC = ((TP * TN) - (FP * FN)) / (Math.sqrt((TP + TN) * (TP + FN) * (TN + FP) * (TN + FN)));
+    			allRepetitionResults.add(MCC);
+    		}
+    		else
+    		{
+	    		double macroGMean = 1.0;
+	    		for (String s : oobConfMatrix.keySet())
+		    	{
+		    		double TP = oobConfMatrix.get(s).get("TruePositive");
+		    		double FN = countsOfClass.get(s) - TP;  // The number of false positives is the number of observations from the class  - the number of true positives.
+		    		double recall = TP / (TP + FN);
+		    		macroGMean *= recall;
+		    	}
+		    	macroGMean = Math.pow(macroGMean, (1.0 / oobConfMatrix.size()));
+				allRepetitionResults.add(macroGMean);
+    		}
 		}
 		oobTime /= (double) repetitions;
 
@@ -91,6 +111,7 @@ public class MultipleForestRunAndTest
 		double macroRecall = 0.0;
 		double macroPrecision = 0.0;
 		double macroGMean = 1.0;
+		double MCC = 0.0;
 		for (String s : confusionMatrix.keySet())
 		{
 			double TP = confusionMatrix.get(s).get("TruePositive");
@@ -101,6 +122,22 @@ public class MultipleForestRunAndTest
     		double precision = (TP / (TP + FP));
     		macroPrecision += precision;
     		macroGMean *= recall;
+		}
+		if (confusionMatrix.size() == 2)
+		{
+			// If there are only two classes, then calculate the MCC.
+			List<Double> correctPredictions = new ArrayList<Double>();
+			List<Double> incorrectPredictions = new ArrayList<Double>();
+			for (String s : confusionMatrix.keySet())
+			{
+				correctPredictions.add(confusionMatrix.get(s).get("TruePositive"));
+				incorrectPredictions.add(confusionMatrix.get(s).get("FalsePositive"));
+			}
+			double TP = correctPredictions.get(0);
+			double FP = incorrectPredictions.get(0);
+			double TN = correctPredictions.get(1);
+			double FN = incorrectPredictions.get(1);
+			MCC = ((TP * TN) - (FP * FN)) / (Math.sqrt((TP + TN) * (TP + FN) * (TN + FP) * (TN + FN)));
 		}
 		macroRecall /= confusionMatrix.size();
 		macroPrecision /= confusionMatrix.size();
@@ -159,6 +196,8 @@ public class MultipleForestRunAndTest
 				resultsOutputWriter.write("\t");
 			}
 			resultsOutputWriter.write(String.format("%.5f", gMean));
+			resultsOutputWriter.write("\t");
+			resultsOutputWriter.write(String.format("%.5f", MCC));
 			resultsOutputWriter.write("\t");
 			resultsOutputWriter.write(String.format("%.5f", fHalf));
 			resultsOutputWriter.write("\t");
@@ -236,7 +275,7 @@ public class MultipleForestRunAndTest
 				resultsOutputWriter.write(Integer.toString(ctrl.maxTreeDepth));
 				resultsOutputWriter.write("\t");
 			}
-			for (Double d : gMeanValues)
+			for (Double d : allRepetitionResults)
 			{
 				resultsOutputWriter.write(String.format("%.5f", d));
 				resultsOutputWriter.write("\t");
@@ -250,6 +289,6 @@ public class MultipleForestRunAndTest
 			System.exit(0);
 		}
 
-		return gMeanValues;
+		return allRepetitionResults;
 	}
 }
