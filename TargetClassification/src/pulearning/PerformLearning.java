@@ -31,6 +31,7 @@ public class PerformLearning
 		// Parse inputs.
 		String dataForLearning = args[0];
 		int numberTopConnectionsToKeep = Integer.parseInt(args[1]);  // Same as Q in the paper.
+		double alpha = Double.parseDouble(args[2]);
 
 		// Process the input data.
 		ctrl.isStandardised = true;
@@ -72,8 +73,6 @@ public class PerformLearning
 			meanPositiveVector.put(s, expectedValue);
 		}
 
-		System.out.println(meanPositiveVector);
-
 		List<Double> distsanceToPositiveCluster = distanceFromMean(unlabelledObservations, meanPositiveVector, processedDataForLearning);
 		List<IndexedDoubleData> sortedDistances = new ArrayList<IndexedDoubleData>();
 		double meanDistanceToPositive = 0.0;
@@ -94,16 +93,78 @@ public class PerformLearning
 				reliableNegativeSet.add(sortedDistances.get(i).getIndex());
 			}
 		}
+		int numberNegativeObservations = reliableNegativeSet.size();
 
-		System.out.println(distsanceToPositiveCluster);
-		System.out.println(meanDistanceToPositive);
-		System.out.println(reliableNegativeSet);
-		System.out.println(reliableNegativeSet.size());
+		Map<Integer, Map<Integer, Double>> weights = determineWeights(processedDataForLearning, numberTopConnectionsToKeep);
+		Map<Integer, Map<Integer, Double>> diagonalScalingWeights = new HashMap<Integer, Map<Integer, Double>>();
+		for (Integer i : weights.keySet())
+		{
+			double summedWeight = 0.0;
+			for (Integer j : weights.get(i).keySet())
+			{
+				summedWeight += weights.get(i).get(j);
+			}
+			Map<Integer, Double> totalWeight = new HashMap<Integer, Double>();
+			totalWeight.put(i, 1 / summedWeight);
+			diagonalScalingWeights.put(i, totalWeight);
+		}
+		AdjacencyList weightMatrix = new AdjacencyList(numberAllObservations, numberAllObservations, weights);
+		AdjacencyList diagonalScalingMatrix = new AdjacencyList(numberAllObservations, numberAllObservations, diagonalScalingWeights);
+		AdjacencyList scaledWeightMatrix = weightMatrix.multiply(diagonalScalingMatrix);
 
-		determineWeights(processedDataForLearning, numberTopConnectionsToKeep);
+		// Initialise probabilities.
+		Map<Integer, Map<Integer, Double>> initialProbabilityWeights = new HashMap<Integer, Map<Integer, Double>>();
+		for (Integer i : allObservations)
+		{
+			initialProbabilityWeights.put(i, new HashMap<Integer, Double>());
+			if (positiveObservations.contains(i))
+			{
+				initialProbabilityWeights.get(i).put(0, 1.0);
+			}
+			else if (reliableNegativeSet.contains(i))
+			{
+				initialProbabilityWeights.get(i).put(0, -((double) numberPositiveObservations) / numberNegativeObservations);
+			}
+			else
+			{
+				initialProbabilityWeights.get(i).put(0, 0.0);
+			}
+		}
+		AdjacencyList initialProbabilities = new AdjacencyList(numberAllObservations, 1, initialProbabilityWeights);
+		AdjacencyList scaledInitialProbabilities = initialProbabilities.scale(alpha);
+
+		// Propagate the probabilities.
+		AdjacencyList lastIterationProbabilities = new AdjacencyList(initialProbabilities);
+		double stoppingValue = 0.0;//Math.pow(10, -6);
+		double dif = 1.0;
+		while (dif > stoppingValue)
+		{
+			AdjacencyList thisIterationProbabilities = ((scaledWeightMatrix.multiply(lastIterationProbabilities)).scale(1 - alpha)).add(scaledInitialProbabilities);
+			dif = L1Norm(thisIterationProbabilities, lastIterationProbabilities);
+			lastIterationProbabilities = new AdjacencyList(thisIterationProbabilities);
+		}
+
+		AdjacencyList posteriorProbabilities = new AdjacencyList(lastIterationProbabilities);
+		System.out.println(posteriorProbabilities.getWeights());
+
+		for (Integer i : allObservations)
+		{
+			if (positiveObservations.contains(i))
+			{
+				;//System.out.println("Positive - " + Integer.toString(i) + "\t" + Double.toString(lastIterationProbabilities.getWeights().get(i).get(0)));
+			}
+			else if (reliableNegativeSet.contains(i))
+			{
+				;//System.out.println("Negative - " + Integer.toString(i) + "\t" + Double.toString(lastIterationProbabilities.getWeights().get(i).get(0)));
+			}
+			else
+			{
+				System.out.println("Unknown - " + Integer.toString(i) + "\t" + Double.toString(lastIterationProbabilities.getWeights().get(i).get(0)));
+			}
+		}
 	}
 
-	static void determineWeights(ProcessDataForGrowing dataset, int numberTopConnectionsToKeep)
+	static Map<Integer, Map<Integer, Double>> determineWeights(ProcessDataForGrowing dataset, int numberTopConnectionsToKeep)
 	{
 		// Get abase list of all observation indices.
 		List<Integer> observationIndices = new ArrayList<Integer>();
@@ -146,10 +207,6 @@ public class PerformLearning
 			closestDistances.put(i, closestToI);
 		}
 
-		System.out.println(closestDistances);
-		System.out.println(maximumDistance);
-		System.out.println(minimumDistance);
-
 		// Determine weights from the distances.
 		Map<Integer, Map<Integer, Double>> weights = new HashMap<Integer, Map<Integer, Double>>();
 		for (Integer i : closestDistances.keySet())
@@ -157,12 +214,12 @@ public class PerformLearning
 			Map<Integer, Double> weightingsForI = new HashMap<Integer, Double>();
 			for (Integer j : closestDistances.get(i).keySet())
 			{
-				weightingsForI.put(j, 1 - (closestDistances.get(i).get(j) / (maximumDistance - minimumDistance)));
+				weightingsForI.put(j, 1 - ((closestDistances.get(i).get(j) - minimumDistance) / (maximumDistance - minimumDistance)));
 			}
 			weights.put(i, weightingsForI);
 		}
 
-		System.out.println(weights);
+		return weights;
 	}
 
 	static Map<Integer, Double> distanceBetweenObservations(ProcessDataForGrowing dataset, int observation, List<Integer> obsToCompareTo)
@@ -195,6 +252,22 @@ public class PerformLearning
 			distances.add(obsDistance);
 		}
 		return distances;
+	}
+
+	static double L1Norm(AdjacencyList matA, AdjacencyList matB)
+	{
+		AdjacencyList difference = matA.subtract(matB);
+		Map<Integer, Map<Integer, Double>> weights = difference.getWeights();
+		double norm = 0.0;
+		for (Integer i : weights.keySet())
+		{
+			for (Integer j : weights.get(i).keySet())
+			{
+				norm += Math.abs(weights.get(i).get(j));
+			}
+		}
+
+		return norm;
 	}
 
 }
