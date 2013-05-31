@@ -129,7 +129,7 @@ public class VariableImportance {
 
 		// Write out the importance header
 		String accVarImpLocation = outputLocation + "/AccuracyVariableImportances.txt";
-		String gMeanVarImpLocation = outputLocation + "/GMeanVariableImportances.txt";
+		String gMeanVarImpLocation = outputLocation + "/QualityVariableImportances.txt";
 		try
 		{
 			FileWriter accVarImpOutputFile = new FileWriter(accVarImpLocation, true);

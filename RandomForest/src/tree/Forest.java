@@ -806,6 +806,16 @@ public class Forest
 	}
 
 
+	/**
+	 * Calculate the importance for each variable in the dataset.
+	 * 
+	 * The first Map returned is the variable importance calculated based on the change in accuracy of the forest.
+	 * The second Map returned is the variable importance calculated based on the change in a quality metric of the forest.
+	 * The quality metric used is the Matthews correlation coefficient if there are two classes, and the macro G mean if there
+	 * are more than two classes.
+	 * 
+	 * @return
+	 */
 	public ImmutableTwoValues<Map<String, Double>, Map<String, Double>> variableImportance()
 	{
 		// Determine the counts for each class in the dataset.
