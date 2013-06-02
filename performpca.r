@@ -3,7 +3,15 @@ inputFile <- args[1]
 outputFolder <- args[2]
 header <- colnames(read.table(inputFile, sep='\t', header=TRUE))
 proteinData <- read.table(inputFile, sep='\t', skip=3, col.names=header)[c(-102, -103, -104)]
-columnsToDrop <- c()  # Make usre to specify the columns that are constant and should therefore be removed.
+numberOfFeatures = length(proteinData)
+columnsToDrop <- c()
+for (i in 1:numberOfFeatures)
+{
+	if (length(unique(proteinData[, i])) == 1)
+	{
+		columnsToDrop <- c(colnames(proteinData)[i], columnsToDrop)
+	}
+}
 proteinData <- proteinData[,!(colnames(proteinData) %in% columnsToDrop)]
 pcaResults <- prcomp(proteinData, scale=TRUE)
 capture.output(columnsToDrop, file=paste(outputFolder, 'DroppedColumns.txt', sep='/'))
