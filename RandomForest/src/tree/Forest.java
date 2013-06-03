@@ -529,7 +529,7 @@ public class Forest
 	{
 		Double errorRate = 0.0;
 
-		Set<String> classNames = new HashSet<String>(this.processedData.responseData);  // A set containing the names of all the classes in the dataset.
+		Set<String> classNames = new HashSet<String>(predData.responseData);  // A set containing the names of all the classes in the dataset.
 
 		// Set up the mapping from observation index to predictions. The key is the index of the observation in the dataset, the Map contains
 		// a mapping from each class to the weighted vote for it from the forest.
@@ -561,7 +561,7 @@ public class Forest
 
 		// Set up the confusion matrix.
 		Map<String, Map<String, Double>> confusionMatrix = new HashMap<String, Map<String, Double>>();
-		Set<String> responsePossibilities = new HashSet<String>(this.processedData.responseData);
+		Set<String> responsePossibilities = new HashSet<String>(predData.responseData);
 		for (String s : responsePossibilities)
 		{
 			Map<String, Double> classEntry = new HashMap<String, Double>();
@@ -585,7 +585,7 @@ public class Forest
 			}
 			String predictedClass = maxEntry.getKey();
 
-			if (!predictedClass.equals(this.processedData.responseData.get(i)))
+			if (!predictedClass.equals(predData.responseData.get(i)))
 			{
 				// If the classification is not correct.
 				errorRate += 1.0; // Indicate that an incorrect prediction has been encountered.
