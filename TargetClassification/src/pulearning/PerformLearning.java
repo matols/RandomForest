@@ -173,11 +173,13 @@ public class PerformLearning
 			observationIndices.add(i);
 		}
 
+		Map<Integer, Map<Integer, Double>> weights = new HashMap<Integer, Map<Integer, Double>>();
 		Map<Integer, Map<Integer, Double>> closestDistances = new HashMap<Integer, Map<Integer, Double>>();
-		double maximumDistance = 0.0;
-		double minimumDistance = Integer.MAX_VALUE;
 		for (int i = 0; i < dataset.numberObservations; i++)
 		{
+			double maximumDistance = 0.0;
+			double minimumDistance = Integer.MAX_VALUE;
+
 			// Get the distance between observation i and all other observations (excluding itself).
 			List<Integer> otherObservations = new ArrayList<Integer>(observationIndices);
 			otherObservations.remove(i);
@@ -187,14 +189,8 @@ public class PerformLearning
 			List<IndexedDoubleData> sortedDistances = new ArrayList<IndexedDoubleData>();
 			for (Integer j : distances.keySet())
 			{
+				double distanceToJ = distances.get(j);
 				sortedDistances.add(new IndexedDoubleData(distances.get(j), j));
-			}
-			Collections.sort(sortedDistances);
-			Map<Integer, Double> closestToI = new HashMap<Integer, Double>();
-			for (int j = 0; j < numberTopConnectionsToKeep; j++)
-			{
-				double distanceToJ = sortedDistances.get(j).getData();
-				closestToI.put(sortedDistances.get(j).getIndex(), distanceToJ);
 				if (distanceToJ > maximumDistance)
 				{
 					maximumDistance = distanceToJ;
@@ -204,18 +200,18 @@ public class PerformLearning
 					minimumDistance = distanceToJ;
 				}
 			}
-			closestDistances.put(i, closestToI);
-		}
+			Collections.sort(sortedDistances);
 
-		// Determine weights from the distances.
-		Map<Integer, Map<Integer, Double>> weights = new HashMap<Integer, Map<Integer, Double>>();
-		for (Integer i : closestDistances.keySet())
-		{
+			Map<Integer, Double> closestToI = new HashMap<Integer, Double>();
 			Map<Integer, Double> weightingsForI = new HashMap<Integer, Double>();
-			for (Integer j : closestDistances.get(i).keySet())
+			for (int j = 0; j < numberTopConnectionsToKeep; j++)
 			{
-				weightingsForI.put(j, 1 - ((closestDistances.get(i).get(j) - minimumDistance) / (maximumDistance - minimumDistance)));
+				double distanceToJ = sortedDistances.get(j).getData();
+				int indexOfJ = sortedDistances.get(j).getIndex();
+				closestToI.put(indexOfJ, distanceToJ);
+				weightingsForI.put(indexOfJ, 1 - ((distanceToJ - minimumDistance) / (maximumDistance - minimumDistance)));
 			}
+			closestDistances.put(i, closestToI);
 			weights.put(i, weightingsForI);
 		}
 
