@@ -39,8 +39,8 @@ def main(PCAResults, figureSaveDir, PCsoPlot):
 			#plot.axis('scaled')
 			plot.set_xticks([])
 			plot.set_yticks([])
-			plot.scatter(class1PCValues[i], class1PCValues[j], s=class1Size, c=class1Color, zorder=2 if i < j else 1)
-			plot.scatter(class2PCValues[i], class2PCValues[j], s=class2Size, c=class2Color, zorder=1 if i < j else 2)
+			plot.scatter(class1PCValues[i], class1PCValues[j], s=class1Size, c=class1Color, zorder=2 if i <= j else 1)
+			plot.scatter(class2PCValues[i], class2PCValues[j], s=class2Size, c=class2Color, zorder=1 if i <= j else 2)
 			if j == 0:
 				plot.set_ylabel('PC' + str(i + 1), rotation=0)
 			if i == principalComponentsToPlot - 1:
