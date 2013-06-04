@@ -2,7 +2,7 @@ args <- commandArgs(trailingOnly=TRUE)
 inputFile <- args[1]
 outputFolder <- args[2]
 header <- colnames(read.table(inputFile, sep='\t', header=TRUE))
-proteinData <- read.table(inputFile, sep='\t', skip=3, col.names=header)[c(-102, -103, -104)]
+proteinData <- read.table(inputFile, sep='\t', skip=3, col.names=header)[c(-105, -106, -107)]
 numberOfFeatures = length(proteinData)
 columnsToDrop <- c()
 for (i in 1:numberOfFeatures)
