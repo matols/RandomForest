@@ -1,9 +1,9 @@
 import sys
 
 def main(args):
-	resultsPCA = args[0]
-	datasetOriginal = args[1]
-	datasetPCA = args[2]
+	resultsPCA = args[0]  # The scores from the RCA.
+	datasetOriginal = args[1]  # The file used to generate the scores.
+	datasetPCA = args[2]  # The location where the new dataset will be written out.
 
 	classification = {}
 	readOrig = open(datasetOriginal, 'r')
