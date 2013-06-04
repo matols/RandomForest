@@ -134,7 +134,7 @@ public class CrossValidationFoldGenerationMultiClass
 			boolean isDirCreated = outputDirectory.mkdirs();
 			if (!isDirCreated)
 			{
-				System.out.println("The output directory does not exist, but could not be created.");
+				System.out.println("The output directory does not exist, and could not be created.");
 				System.exit(0);
 			}
 		}

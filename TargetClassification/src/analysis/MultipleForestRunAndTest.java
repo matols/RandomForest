@@ -26,22 +26,24 @@ public class MultipleForestRunAndTest
 	 * @param posClass
 	 * @param resultsLocation
 	 * @param mccResultsLocation
-	 * @param analysisBeingRun - 1 for weight and mtry, 2 for sample size and 3 for node size.
+	 * @param analysisBeingRun - 1 for weight and mtry, 2 for sample size, 3 for node size, 4 for up or down sampling and 5 for tree depth.
 	 */
 	static List<Double> forestTraining(Map<String, Map<String, Double>> confusionMatrix,
-			Map<String, Double> weights, TreeGrowthControl ctrl, String inputFile, List<Long> seeds, int repetitions,
+			Map<String, Double> weights, TreeGrowthControl ctrl, String cvFoldLocation, String inputFile, List<Long> seeds, int repetitions, int cvFolds,
 			String resultsLocation, String mccResultsLocation, int analysisBeingRun)
 	{
-		return forestTraining(confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, resultsLocation, mccResultsLocation, analysisBeingRun, 0.0);
+		return forestTraining(confusionMatrix, weights, ctrl, cvFoldLocation, inputFile, seeds, repetitions, cvFolds, resultsLocation, mccResultsLocation,
+				analysisBeingRun, 0.0);
 	}
 
 	static List<Double> forestTraining(Map<String, Map<String, Double>> confusionMatrix,
-			Map<String, Double> weights, TreeGrowthControl ctrl, String inputFile, List<Long> seeds, int repetitions,
+			Map<String, Double> weights, TreeGrowthControl inputCtrl, String cvFoldLocation, String inputFile, List<Long> seeds, int repetitions, int cvFolds,
 			String resultsLocation, String mccResultsLocation, int analysisBeingRun, double callSpecificValue)
 	{
-		double cumulativeOOBError = 0.0;
 		List<Double> allRepetitionResults = new ArrayList<Double>();
-		long oobTime = 0l;
+		long timeTaken = 0l;
+		TreeGrowthControl ctrl = new TreeGrowthControl(inputCtrl);
+		ctrl.isCalculateOOB = false;
 		ProcessDataForGrowing processedInputFile = new ProcessDataForGrowing(inputFile, ctrl);
 		Map<String, Integer> countsOfClass = new HashMap<String, Integer>();
 		for (String s : weights.keySet())
@@ -51,63 +53,40 @@ public class MultipleForestRunAndTest
 
 		Date startTime;
 		Date endTime;
-		for (int j = 0; j < repetitions; j++)
+		for (int i = 0; i < repetitions; i++)
 		{
 			// Get the seed for this repetition.
-			long seed = seeds.get(j);
+			long seed = seeds.get(i);
+			String currentCVFoldLocation = cvFoldLocation + Integer.toString(i);
 
 			startTime = new Date();
-			Forest forest = new Forest(inputFile, ctrl, seed);
-			forest.setWeightsByClass(weights);
-			forest.growForest();
-			cumulativeOOBError += forest.oobErrorEstimate;
-			Map<String, Map<String, Double>> oobConfMatrix = forest.oobConfusionMatrix;
-    		for (String s : oobConfMatrix.keySet())
-    		{
-    			Double oldTruePos = confusionMatrix.get(s).get("TruePositive");
-    			Double newTruePos = oldTruePos + oobConfMatrix.get(s).get("TruePositive");
-    			confusionMatrix.get(s).put("TruePositive", newTruePos);
-    			Double oldFalsePos = confusionMatrix.get(s).get("FalsePositive");
-    			Double newFalsePos = oldFalsePos + oobConfMatrix.get(s).get("FalsePositive");
-    			confusionMatrix.get(s).put("FalsePositive", newFalsePos);
-    		}
-    		endTime = new Date();
-    		oobTime += endTime.getTime() - startTime.getTime();
-    		if (confusionMatrix.size() == 2)
-    		{
-    			// If there are only two classes, then calculate the MCC.
-    			List<Double> correctPredictions = new ArrayList<Double>();
-    			List<Double> incorrectPredictions = new ArrayList<Double>();
-    			for (String s : confusionMatrix.keySet())
-    			{
-    				correctPredictions.add(confusionMatrix.get(s).get("TruePositive"));
-    				incorrectPredictions.add(confusionMatrix.get(s).get("FalsePositive"));
-    			}
-    			double TP = correctPredictions.get(0);
-    			double FP = incorrectPredictions.get(0);
-    			double TN = correctPredictions.get(1);
-    			double FN = incorrectPredictions.get(1);
-    			double MCC = ((TP * TN) - (FP * FN)) / (Math.sqrt((TP + TN) * (TP + FN) * (TN + FP) * (TN + FN)));
-    			allRepetitionResults.add(MCC);
-    		}
-    		else
-    		{
-	    		double macroGMean = 1.0;
-	    		for (String s : oobConfMatrix.keySet())
-		    	{
-		    		double TP = oobConfMatrix.get(s).get("TruePositive");
-		    		double FN = countsOfClass.get(s) - TP;  // The number of false positives is the number of observations from the class  - the number of true positives.
-		    		double recall = TP / (TP + FN);
-		    		macroGMean *= recall;
-		    	}
-		    	macroGMean = Math.pow(macroGMean, (1.0 / oobConfMatrix.size()));
-				allRepetitionResults.add(macroGMean);
-    		}
+			Forest forest;
+			for (int j = 0; j < cvFolds; j++)
+			{
+				String trainingSet = currentCVFoldLocation + "/" + Integer.toString(j) + "/Train.txt";
+				String testingSet = currentCVFoldLocation + "/" + Integer.toString(j) + "/Test.txt";
+				forest = new Forest(trainingSet, ctrl, seed);
+				forest.setWeightsByClass(weights);
+				forest.growForest();
+				Map<String, Map<String, Double>> confMatrix = forest.predict(new ProcessDataForGrowing(testingSet, new TreeGrowthControl())).second;
+				for (String s : confMatrix.keySet())
+	    		{
+	    			Double oldTruePos = confusionMatrix.get(s).get("TruePositive");
+	    			Double newTruePos = oldTruePos + confMatrix.get(s).get("TruePositive");
+	    			confusionMatrix.get(s).put("TruePositive", newTruePos);
+	    			Double oldFalsePos = confusionMatrix.get(s).get("FalsePositive");
+	    			Double newFalsePos = oldFalsePos + confMatrix.get(s).get("FalsePositive");
+	    			confusionMatrix.get(s).put("FalsePositive", newFalsePos);
+	    		}
+			}
+			endTime = new Date();
+    		timeTaken += endTime.getTime() - startTime.getTime();
 		}
-		oobTime /= (double) repetitions;
+		timeTaken /= (double) repetitions;
 
-		// Aggregate OOB results over all the repetitions.
-		cumulativeOOBError /= repetitions;
+		// Aggregate prediction results over all the repetitions.
+		double totalPredictions = 0.0;
+		double incorrectPredictions = 0.0;
 		double macroRecall = 0.0;
 		double macroPrecision = 0.0;
 		double macroGMean = 1.0;
@@ -116,37 +95,42 @@ public class MultipleForestRunAndTest
 		{
 			double TP = confusionMatrix.get(s).get("TruePositive");
 			double FP = confusionMatrix.get(s).get("FalsePositive");
-    		double FN = (repetitions * countsOfClass.get(s)) - TP;  // The number of false positives is the number of observations from the class  - the number of true positives.
+			// Use (repetitions * countsOfClass.get(s)) for the number of observations from a class as each observation is predicted once per repetition,
+			// so is predicted a total of repetitions times.
+    		double FN = (repetitions * countsOfClass.get(s)) - TP;  // The number of false negatives is the number of observations from the class  - the number of true positives.
     		double recall = (TP / (TP + FN));
     		macroRecall += recall;
     		double precision = (TP / (TP + FP));
     		macroPrecision += precision;
     		macroGMean *= recall;
+    		totalPredictions += TP + FP;
+    		incorrectPredictions += FP;
 		}
 		if (confusionMatrix.size() == 2)
 		{
 			// If there are only two classes, then calculate the MCC.
-			List<Double> correctPredictions = new ArrayList<Double>();
-			List<Double> incorrectPredictions = new ArrayList<Double>();
+			List<Double> correctPredictionsMCC = new ArrayList<Double>();
+			List<Double> incorrectPredictionsMCC = new ArrayList<Double>();
 			for (String s : confusionMatrix.keySet())
 			{
-				correctPredictions.add(confusionMatrix.get(s).get("TruePositive"));
-				incorrectPredictions.add(confusionMatrix.get(s).get("FalsePositive"));
+				correctPredictionsMCC.add(confusionMatrix.get(s).get("TruePositive"));
+				incorrectPredictionsMCC.add(confusionMatrix.get(s).get("FalsePositive"));
 			}
-			double TP = correctPredictions.get(0);
-			double FP = incorrectPredictions.get(0);
-			double TN = correctPredictions.get(1);
-			double FN = incorrectPredictions.get(1);
+			double TP = correctPredictionsMCC.get(0);
+			double FP = incorrectPredictionsMCC.get(0);
+			double TN = correctPredictionsMCC.get(1);
+			double FN = incorrectPredictionsMCC.get(1);
 			MCC = ((TP * TN) - (FP * FN)) / (Math.sqrt((TP + TN) * (TP + FN) * (TN + FP) * (TN + FN)));
 		}
 		macroRecall /= confusionMatrix.size();
 		macroPrecision /= confusionMatrix.size();
-		double fHalf = (1 + (0.5 * 0.5)) * ((macroPrecision * macroRecall) / ((0.5 * 0.5 * macroPrecision) + macroRecall));;
+		double fHalf = (1 + (0.5 * 0.5)) * ((macroPrecision * macroRecall) / ((0.5 * 0.5 * macroPrecision) + macroRecall));
 		double fOne = 2 * ((macroPrecision * macroRecall) / (macroPrecision + macroRecall));
 		double fTwo = (1 + (2 * 2)) * ((macroPrecision * macroRecall) / ((2 * 2 * macroPrecision) + macroRecall));
-		double gMean = Math.pow(macroGMean, (1.0 / confusionMatrix.size()));;
+		double gMean = Math.pow(macroGMean, (1.0 / confusionMatrix.size()));
+		double errorRate = incorrectPredictions / totalPredictions;
 
-		// Write out the OOB results for this set of repetitions.
+		// Write out the prediction results for this set of repetitions.
 		try
 		{
 			FileWriter resultsOutputFile = new FileWriter(resultsLocation, true);
@@ -205,9 +189,9 @@ public class MultipleForestRunAndTest
 			resultsOutputWriter.write("\t");
 			resultsOutputWriter.write(String.format("%.5f", fTwo));
 			resultsOutputWriter.write("\t");
-			resultsOutputWriter.write(String.format("%.5f", 1 - cumulativeOOBError));
+			resultsOutputWriter.write(String.format("%.5f", 1 - errorRate));
 			resultsOutputWriter.write("\t");
-			resultsOutputWriter.write(String.format("%.5f", cumulativeOOBError));
+			resultsOutputWriter.write(String.format("%.5f", errorRate));
 			for (String s : confusionMatrix.keySet())
 			{
 				resultsOutputWriter.write("\t");
@@ -216,7 +200,7 @@ public class MultipleForestRunAndTest
 				resultsOutputWriter.write(String.format("%.5f", confusionMatrix.get(s).get("FalsePositive")));
 			}
 			resultsOutputWriter.write("\t");
-			resultsOutputWriter.write(Long.toString(oobTime));
+			resultsOutputWriter.write(Long.toString(timeTaken));
 			resultsOutputWriter.newLine();
 			resultsOutputWriter.close();
 		}

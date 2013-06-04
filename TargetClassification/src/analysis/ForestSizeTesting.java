@@ -10,9 +10,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+
+import datasetgeneration.CrossValidationFoldGenerationMultiClass;
 
 import tree.Forest;
 import tree.ProcessDataForGrowing;
@@ -49,7 +52,8 @@ public class ForestSizeTesting
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int repetitions = 100;
+		int repetitions = 10;
+		int cvFoldsToUse = 10;
 		Integer[] forestSizesToUse = {50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900,
 				950, 1000, 1050, 1100, 1150, 1200, 1250, 1300, 1350, 1400, 1450, 1500, 1550, 1600, 1650, 1700, 1750, 1800, 1850,
 				1900, 1950, 2000, 2050, 2100, 2150, 2200, 2250, 2300, 2350, 2400, 2450, 2500, 2550, 2600, 2650, 2700, 2750, 2800,
@@ -61,16 +65,43 @@ public class ForestSizeTesting
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
 		ctrl.isStratifiedBootstrapUsed = true;
+		ctrl.isCalculateOOB = false;
 		ctrl.minNodeSize = 1;
-		ctrl.mtry = 25;
+		ctrl.mtry = 10;
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
-		weights.put("Positive", 5.9);
+		weights.put("Positive", 1.0);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
+
+		// Write out the parameters used.
+		String parameterLocation = resultsDir + "/Parameters.txt";
+		try
+		{
+			FileWriter parameterOutputFile = new FileWriter(parameterLocation);
+			BufferedWriter parameterOutputWriter = new BufferedWriter(parameterOutputFile);
+			parameterOutputWriter.write("Forest sizes used - " + Arrays.toString(forestSizesToUse));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("Replacement used - " + Boolean.toString(ctrl.isReplacementUsed));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("Repetitions used - " + Integer.toString(repetitions));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("CV folds used - " + Integer.toString(cvFoldsToUse));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("Weights used - " + weights.toString());
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("Training observations used - " + Arrays.toString(trainingObsToUse));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
 
 		// Determine the numbers in each class.
 		ProcessDataForGrowing processedInputFile = new ProcessDataForGrowing(inputFile, ctrl);
@@ -110,6 +141,24 @@ public class ForestSizeTesting
 			System.exit(0);
 		}
 
+		// Generate CV folds.
+		String cvFoldLocation = resultsDir + "/CVFolds-Repetition";
+		for (int i = 0; i < repetitions; i++)
+		{
+			String repCvFoldLoc = cvFoldLocation + Integer.toString(i);
+			File cvFoldDir = new File(repCvFoldLoc);
+			if (!cvFoldDir.exists())
+			{
+				boolean isDirCreated = cvFoldDir.mkdirs();
+				if (!isDirCreated)
+				{
+					System.out.println("The CV fold directory does not exist, and could not be created.");
+					System.exit(0);
+				}
+			}
+			CrossValidationFoldGenerationMultiClass.main(inputFile, repCvFoldLoc, cvFoldsToUse);
+		}
+
 		String errorRateResultsLocation = resultsDir + "/ErrorResults.txt";
 		String gMeanResultsLocation = resultsDir + "/QualityMeasureResults.txt";
 		for (Integer i : forestSizesToUse)
@@ -124,40 +173,49 @@ public class ForestSizeTesting
 			List<Double> allRepetitionResults = new ArrayList<Double>();
 			for (int j = 0; j < repetitions; j++)
 			{
-				Forest forest = new Forest(inputFile, ctrl, seedsToUse.get(j));
-				forest.setWeightsByClass(weights);
-				forest.growForest();
-				errorRates.add(forest.oobErrorEstimate);
-				Map<String, Map<String, Double>> oobConfMatrix = forest.oobConfusionMatrix;
-				if (oobConfMatrix.size() == 2)
-	    		{
-	    			// If there are only two classes, then calculate the MCC.
-	    			List<Double> correctPredictions = new ArrayList<Double>();
-	    			List<Double> incorrectPredictions = new ArrayList<Double>();
-	    			for (String s : oobConfMatrix.keySet())
-	    			{
-	    				correctPredictions.add(oobConfMatrix.get(s).get("TruePositive"));
-	    				incorrectPredictions.add(oobConfMatrix.get(s).get("FalsePositive"));
-	    			}
-	    			double TP = correctPredictions.get(0);
-	    			double FP = incorrectPredictions.get(0);
-	    			double TN = correctPredictions.get(1);
-	    			double FN = incorrectPredictions.get(1);
-	    			double MCC = ((TP * TN) - (FP * FN)) / (Math.sqrt((TP + TN) * (TP + FN) * (TN + FP) * (TN + FN)));
-	    			allRepetitionResults.add(MCC);
-	    		}
-				else
+				Forest forest;
+				Map<String, Map<String, Double>> confusionMatrix = new HashMap<String, Map<String, Double>>();
+				for (String s : new HashSet<String>(processedInputFile.responseData))
 				{
-					double macroGMean = 1.0;
-		    		for (String s : oobConfMatrix.keySet())
-			    	{
-			    		double TP = oobConfMatrix.get(s).get("TruePositive");
-			    		double FN = countsOfClass.get(s) - TP;  // The number of false positives is the number of observations from the class  - the number of true positives.
-			    		double recall = TP / (TP + FN);
-			    		macroGMean *= recall;
-			    	}
-		    		allRepetitionResults.add(Math.pow(macroGMean, (1.0 / oobConfMatrix.size())));
+					confusionMatrix.put(s, new HashMap<String, Double>());
+					confusionMatrix.get(s).put("TruePositive", 0.0);
+					confusionMatrix.get(s).put("FalsePositive", 0.0);
 				}
+				String currentCVFoldLocation = cvFoldLocation + Integer.toString(j);
+				for (int k = 0; k < cvFoldsToUse; k++)
+				{
+					String trainingSet = currentCVFoldLocation + "/" + Integer.toString(k) + "/Train.txt";
+					String testingSet = currentCVFoldLocation + "/" + Integer.toString(k) + "/Test.txt";
+					forest = new Forest(trainingSet, ctrl, seedsToUse.get(j));
+					forest.setWeightsByClass(weights);
+					forest.growForest();
+					Map<String, Map<String, Double>> confMatrix = forest.predict(new ProcessDataForGrowing(testingSet, new TreeGrowthControl())).second;
+					for (String s : confMatrix.keySet())
+		    		{
+		    			Double oldTruePos = confusionMatrix.get(s).get("TruePositive");
+		    			Double newTruePos = oldTruePos + confMatrix.get(s).get("TruePositive");
+		    			confusionMatrix.get(s).put("TruePositive", newTruePos);
+		    			Double oldFalsePos = confusionMatrix.get(s).get("FalsePositive");
+		    			Double newFalsePos = oldFalsePos + confMatrix.get(s).get("FalsePositive");
+		    			confusionMatrix.get(s).put("FalsePositive", newFalsePos);
+		    		}
+				}
+				// Aggregate prediction results over all the repetitions.
+				double totalPredictions = 0.0;
+				double incorrectPredictions = 0.0;
+				double macroGMean = 1.0;
+				for (String s : confusionMatrix.keySet())
+				{
+					double TP = confusionMatrix.get(s).get("TruePositive");
+					double FP = confusionMatrix.get(s).get("FalsePositive");
+		    		double FN = countsOfClass.get(s) - TP;  // The number of false negatives is the number of observations from the class  - the number of true positives.
+		    		double recall = (TP / (TP + FN));
+		    		macroGMean *= recall;
+		    		totalPredictions += TP + FP;
+		    		incorrectPredictions += FP;
+				}
+				allRepetitionResults.add(Math.pow(macroGMean, (1.0 / confusionMatrix.size())));
+				errorRates.add(incorrectPredictions / totalPredictions);
 			}
 
 			try

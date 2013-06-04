@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
+import datasetgeneration.CrossValidationFoldGenerationMultiClass;
+
 import tree.ProcessDataForGrowing;
 import tree.TreeGrowthControl;
 
@@ -82,7 +84,8 @@ public class Downsampling
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int repetitions = 100;
+		int repetitions = 10;
+		int cvFoldsToUse = 10;
 		Double[] downsampleFractions = {0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
 		Double[] weightsToUse = {0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0};
 		Integer[] trainingObsToUse = {};
@@ -136,7 +139,7 @@ public class Downsampling
 			}
 			resultsOutputWriter.write("\tTimeTaken(ms)");
 			resultsOutputWriter.newLine();
-			resultsOutputWriter.write("\t\t\t\t\t\t\t\t\t");
+			resultsOutputWriter.write("\t\t\t\t\t\t\t\t\t\t");
 			for (String s : responseClasses)
 			{
 				resultsOutputWriter.write("\tTrue\tFalse");
@@ -170,6 +173,24 @@ public class Downsampling
 			seeds.add(seedToUse);
 		}
 
+		// Generate CV folds.
+		String cvFoldLocation = resultsDir + "/CVFolds-Repetition";
+		for (int i = 0; i < repetitions; i++)
+		{
+			String repCvFoldLoc = cvFoldLocation + Integer.toString(i);
+			File cvFoldDir = new File(repCvFoldLoc);
+			if (!cvFoldDir.exists())
+			{
+				boolean isDirCreated = cvFoldDir.mkdirs();
+				if (!isDirCreated)
+				{
+					System.out.println("The CV fold directory does not exist, and could not be created.");
+					System.exit(0);
+				}
+			}
+			CrossValidationFoldGenerationMultiClass.main(inputFile, repCvFoldLoc, cvFoldsToUse);
+		}
+
 		// Determine the subset of feature to remove.
 		boolean isSubsetUsed = false;
 		String subsetResultsLocation = resultsDir + "/SubsetResults.txt";
@@ -200,7 +221,7 @@ public class Downsampling
 				}
 				resultsOutputWriter.write("\tTimeTaken(ms)");
 				resultsOutputWriter.newLine();
-				resultsOutputWriter.write("\t\t\t\t\t\t\t\t\t");
+				resultsOutputWriter.write("\t\t\t\t\t\t\t\t\t\t");
 				for (String s : responseClasses)
 				{
 					resultsOutputWriter.write("\tTrue\tFalse");
@@ -247,6 +268,8 @@ public class Downsampling
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.write("Repetitions used - " + Integer.toString(repetitions));
 			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("CV folds used - " + Integer.toString(cvFoldsToUse));
+			parameterOutputWriter.newLine();
 			parameterOutputWriter.write("Mtry used - " + Integer.toString(ctrl.mtry));
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.write("Upsample fractions used - " + Arrays.toString(downsampleFractions));
@@ -292,7 +315,7 @@ public class Downsampling
 					confusionMatrix.get(s).put("TruePositive", 0.0);
 					confusionMatrix.get(s).put("FalsePositive", 0.0);
 				}
-				MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, ctrl, inputFile, seeds, repetitions, fullDatasetResultsLocation, fullDatasetGMeanResultsLocation, 4);
+				MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, ctrl, cvFoldLocation, inputFile, seeds, repetitions, cvFoldsToUse, fullDatasetResultsLocation, fullDatasetGMeanResultsLocation, 4);
 
 				if (isSubsetUsed)
 				{
@@ -304,7 +327,7 @@ public class Downsampling
 						confusionMatrix.get(s).put("TruePositive", 0.0);
 						confusionMatrix.get(s).put("FalsePositive", 0.0);
 					}
-					MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, subsetCtrl, inputFile, seeds, repetitions, subsetResultsLocation, subsetGMeanResultsLocation, 4);
+					MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, subsetCtrl, cvFoldLocation, inputFile, seeds, repetitions, cvFoldsToUse, subsetResultsLocation, subsetGMeanResultsLocation, 4);
 				}
 			}
 		}
