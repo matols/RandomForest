@@ -1,12 +1,5 @@
-package pulearning;
+package SyntheticData;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -16,17 +9,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import tree.ImmutableTwoValues;
 import tree.IndexedDoubleData;
 import tree.ProcessDataForGrowing;
 import tree.TreeGrowthControl;
 
-public class KNNDiscounting
+public class KNNPULearning
 {
 
 	/**
 	 * @param args
 	 */
-	public static void main(String[] args)
+	public ImmutableTwoValues<Set<Integer>, Map<Integer, Double>> main(String dataForLearning, int numberOfNeighbours, boolean isReliableNegativesGenerated)
 	{
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
@@ -34,17 +28,11 @@ public class KNNDiscounting
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isStandardised = true;
 
-		String[] variablesToIgnore = new String[]{"OGlycosylation"};  // Make sure to ignore any variables that are constant. Otherwise the standardised value of the variable will be NaN.
+		String[] variablesToIgnore = new String[]{};  // Make sure to ignore any variables that are constant. Otherwise the standardised value of the variable will be NaN.
 		ctrl.variablesToIgnore = Arrays.asList(variablesToIgnore);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-
-		// Parse inputs.
-		String dataForLearning = args[0];
-		String outputFolder = args[1];
-		int numberOfNeighbours = Integer.parseInt(args[2]);
-		boolean isReliableNegativesGenerated = Boolean.parseBoolean(args[3]);
 
 		// Process the input data.
 		ProcessDataForGrowing processedDataForLearning = new ProcessDataForGrowing(dataForLearning, ctrl);
@@ -159,31 +147,11 @@ public class KNNDiscounting
 			}
 		}
 
-		// Write out the new dataset and weight modifiers.
-		outputNewDataset(dataForLearning, outputFolder + "/NewDataset.txt", finalPositiveSet, finalNegativeSet);
-		String weightModifierLocation = outputFolder + "/WeightModifier.txt";
-		try
-		{
-			FileWriter weightModifierFile = new FileWriter(weightModifierLocation);
-			BufferedWriter weightModifierWriter = new BufferedWriter(weightModifierFile);
-			for (Integer i : allObservations)
-			{
-				weightModifierWriter.write(Integer.toString(i));
-				weightModifierWriter.write("\t");
-				weightModifierWriter.write(Double.toString(weightModifiers.get(i)));
-				weightModifierWriter.newLine();
-			}
-			weightModifierWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
+		return new ImmutableTwoValues<Set<Integer>, Map<Integer, Double>>(finalPositiveSet, weightModifiers);
 	}
 
 
-	static Map<Integer, Double> distanceBetweenObservations(ProcessDataForGrowing dataset, int observation, List<Integer> obsToCompareTo)
+	private Map<Integer, Double> distanceBetweenObservations(ProcessDataForGrowing dataset, int observation, List<Integer> obsToCompareTo)
 	{
 		Map<Integer, Double> distances = new HashMap<Integer, Double>();
 		for (Integer i : obsToCompareTo)
@@ -199,7 +167,7 @@ public class KNNDiscounting
 		return distances;
 	}
 
-	static List<Integer> determineReliableNegative(List<Integer> unlabelledObservations, Map<String, Double> meanPositiveVector,
+	private List<Integer> determineReliableNegative(List<Integer> unlabelledObservations, Map<String, Double> meanPositiveVector,
 			ProcessDataForGrowing processedDataForLearning)
 	{
 		// Determine the distance of all unlabelled observations from the mean positive vector.
@@ -226,7 +194,7 @@ public class KNNDiscounting
 		return reliableNegativeSet;
 	}
 
-	static List<Double> distanceFromMean(List<Integer> observationIndices, Map<String, Double> meanPositiveVector, ProcessDataForGrowing dataset)
+	private List<Double> distanceFromMean(List<Integer> observationIndices, Map<String, Double> meanPositiveVector, ProcessDataForGrowing dataset)
 	{
 		List<Double> distances = new ArrayList<Double>();
 		for (Integer i : observationIndices)
@@ -240,84 +208,6 @@ public class KNNDiscounting
 			distances.add(obsDistance);
 		}
 		return distances;
-	}
-
-	static void outputNewDataset(String originalDataset, String outputLocation, Set<Integer> positiveObservations,
-			Set<Integer> negativeObservations)
-	{
-		try (BufferedReader reader = Files.newBufferedReader(Paths.get(originalDataset), StandardCharsets.UTF_8))
-		{
-			// Record the header lines.
-			String headerOne = reader.readLine();
-			headerOne = headerOne.replaceAll("\n", "");
-			String headerTwo = reader.readLine();
-			headerTwo = headerTwo.replaceAll("\n", "");
-			String headerThree = reader.readLine();
-			headerThree = headerThree.replaceAll("\n", "");
-
-			String[] variableTypes = headerTwo.split("\t");
-			int responseColumn = 0;
-			for (int i = 0; i < variableTypes.length; i++)
-			{
-				if (variableTypes[i].equals("r"))
-				{
-					responseColumn = i;
-				}
-			}
-
-			try
-			{
-				FileWriter newDatasetFile = new FileWriter(outputLocation);
-				BufferedWriter newDatasetWriter = new BufferedWriter(newDatasetFile);
-				newDatasetWriter.write(headerOne);
-				newDatasetWriter.newLine();
-				newDatasetWriter.write(headerTwo);
-				newDatasetWriter.newLine();
-				newDatasetWriter.write(headerThree);
-				newDatasetWriter.newLine();
-
-				String line = null;
-				int lineCount = 0;
-				while ((line = reader.readLine()) != null)
-				{
-					if (line.trim().length() == 0)
-					{
-						// If the line is made up of all whitespace, then ignore the line.
-						continue;
-					}
-					line = line.replaceAll("\n", "");
-					String[] splitLine = line.split("\t");
-					if (positiveObservations.contains(lineCount))
-					{
-						splitLine[responseColumn] = "Positive";
-					}
-					else
-					{
-						splitLine[responseColumn] = "Negative";
-					}
-					lineCount++;
-
-					newDatasetWriter.write(splitLine[0]);
-					for (int i = 1; i < splitLine.length; i++)
-					{
-						newDatasetWriter.write("\t");
-						newDatasetWriter.write(splitLine[i]);
-					}
-					newDatasetWriter.newLine();
-				}
-				newDatasetWriter.close();
-			}
-			catch (Exception e)
-			{
-				e.printStackTrace();
-				System.exit(0);
-			}
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
 	}
 
 }
