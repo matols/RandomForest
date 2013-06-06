@@ -160,7 +160,8 @@ public class ForestSizeTesting
 		}
 
 		String errorRateResultsLocation = resultsDir + "/ErrorResults.txt";
-		String gMeanResultsLocation = resultsDir + "/QualityMeasureResults.txt";
+		String gMeanResultsLocation = resultsDir + "/GMeanResults.txt";
+		String mccResultsLocation = resultsDir + "/MCCResults.txt";
 		for (Integer i : forestSizesToUse)
 		{
 			DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -170,7 +171,8 @@ public class ForestSizeTesting
 
 			ctrl.numberOfTreesToGrow = i;
 			List<Double> errorRates = new ArrayList<Double>();
-			List<Double> allRepetitionResults = new ArrayList<Double>();
+			List<Double> gMeanResults = new ArrayList<Double>();
+			List<Double> mccResults = new ArrayList<Double>();
 			for (int j = 0; j < repetitions; j++)
 			{
 				Forest forest;
@@ -204,6 +206,7 @@ public class ForestSizeTesting
 				double totalPredictions = 0.0;
 				double incorrectPredictions = 0.0;
 				double macroGMean = 1.0;
+				double MCC = 0.0;
 				for (String s : confusionMatrix.keySet())
 				{
 					double TP = confusionMatrix.get(s).get("TruePositive");
@@ -214,7 +217,24 @@ public class ForestSizeTesting
 		    		totalPredictions += TP + FP;
 		    		incorrectPredictions += FP;
 				}
-				allRepetitionResults.add(Math.pow(macroGMean, (1.0 / confusionMatrix.size())));
+				if (confusionMatrix.size() == 2)
+				{
+					// If there are only two classes, then calculate the MCC.
+					List<Double> correctPredictionsMCC = new ArrayList<Double>();
+					List<Double> incorrectPredictionsMCC = new ArrayList<Double>();
+					for (String s : confusionMatrix.keySet())
+					{
+						correctPredictionsMCC.add(confusionMatrix.get(s).get("TruePositive"));
+						incorrectPredictionsMCC.add(confusionMatrix.get(s).get("FalsePositive"));
+					}
+					double TP = correctPredictionsMCC.get(0);
+					double FP = incorrectPredictionsMCC.get(0);
+					double TN = correctPredictionsMCC.get(1);
+					double FN = incorrectPredictionsMCC.get(1);
+					MCC = ((TP * TN) - (FP * FN)) / (Math.sqrt((TP + TN) * (TP + FN) * (TN + FP) * (TN + FN)));
+				}
+				mccResults.add(MCC);
+				gMeanResults.add(Math.pow(macroGMean, (1.0 / confusionMatrix.size())));
 				errorRates.add(incorrectPredictions / totalPredictions);
 			}
 
@@ -233,7 +253,17 @@ public class ForestSizeTesting
 				resultsOutputFile = new FileWriter(gMeanResultsLocation, true);
 				resultsOutputWriter = new BufferedWriter(resultsOutputFile);
 				resultsOutputWriter.write(Integer.toString(i));
-				for (Double d : allRepetitionResults)
+				for (Double d : gMeanResults)
+				{
+					resultsOutputWriter.write("\t" + Double.toString(d));
+				}
+				resultsOutputWriter.newLine();
+				resultsOutputWriter.close();
+
+				resultsOutputFile = new FileWriter(mccResultsLocation, true);
+				resultsOutputWriter = new BufferedWriter(resultsOutputFile);
+				resultsOutputWriter.write(Integer.toString(i));
+				for (Double d : mccResults)
 				{
 					resultsOutputWriter.write("\t" + Double.toString(d));
 				}
