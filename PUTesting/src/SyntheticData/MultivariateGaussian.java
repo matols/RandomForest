@@ -1,4 +1,4 @@
-package SyntheticData;
+package syntheticdata;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -14,6 +14,8 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.math3.distribution.MultivariateNormalDistribution;
+
+import algorithms.KNNPULearning;
 
 import tree.ImmutableTwoValues;
 
