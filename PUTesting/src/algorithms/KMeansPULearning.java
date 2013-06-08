@@ -19,7 +19,7 @@ public class KMeansPULearning
 	/**
 	 * @param args
 	 */
-	public ImmutableTwoValues<Set<Integer>, Map<Integer, Double>> main(String dataForLearning, int numberOfMeans, int clusteringRepetitions, boolean isReliableNegativesGenerated)
+	public ImmutableTwoValues<Set<Integer>, Map<Integer, Double>> main(String dataForLearning, int numberOfMeans, int clusteringRepetitions)
 	{
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
@@ -46,6 +46,7 @@ public class KMeansPULearning
 		// Setup the results.
 		Map<Integer, Double> weightModifiers = new HashMap<Integer, Double>();
 		Set<Integer> finalPositiveSet = new HashSet<Integer>();
+		Set<Integer> finalNegativeSet = new HashSet<Integer>();
 
 		// Determine the indices for the positive, unlabelled and all observations.
 		List<Integer> allObservations = new ArrayList<Integer>();
@@ -72,6 +73,14 @@ public class KMeansPULearning
 		int numberUnlabelledObservations = unlabelledObservations.size();
 
 		// Cluster the data clusteringRepetitions times.
+		Map<Integer, Map<String, Double>> observationWeightings = new HashMap<Integer, Map<String, Double>>();
+		Map<String, Double> baseWeighting = new HashMap<String, Double>();
+		baseWeighting.put("Positive", 0.0);
+		baseWeighting.put("Unlabelled", 0.0);
+		for (Integer i : unlabelledObservations)
+		{
+			observationWeightings.put(i, new HashMap<String, Double>(baseWeighting));
+		}
 		for (int i = 0; i < clusteringRepetitions; i++)
 		{
 			// Initialise the means.
@@ -104,8 +113,49 @@ public class KMeansPULearning
 				}
 				clusterAssignment = newAssignment;
 			}
-			System.out.println(clusterAssignment);
-			System.out.println(clusterMeans);
+
+			// Update the record of which observations occur in a cluster with each unlabelled observation.
+			for (Integer j : clusterAssignment.keySet())
+			{
+				int positives = 0;
+				int unlabelleds = -1;  // Start the number of unlabelled observations at -1 as each unlabelled observation is similar to the number of unlabelled observations in the cluster -1 (as we don;t care that it is similar to itself).
+				for (Integer k : clusterAssignment.get(j))
+				{
+					if (positiveObservations.contains(k))
+					{
+						positives++;
+					}
+					else
+					{
+						unlabelleds++;
+					}
+				}
+				for (Integer k : clusterAssignment.get(j))
+				{
+					if (unlabelledObservations.contains(k))
+					{
+						observationWeightings.get(k).put("Positive", observationWeightings.get(k).get("Positive") + positives);
+						observationWeightings.get(k).put("Unlabelled", observationWeightings.get(k).get("Unlabelled") + unlabelleds);
+					}
+				}
+			}
+		}
+
+		// Determine the final positive and negative sets, and the weightings for the observations.
+		for (Integer i : unlabelledObservations)
+		{
+			double positiveWeight = observationWeightings.get(i).get("Positive");
+			double negativeWeight = observationWeightings.get(i).get("Unlabelled");
+			if (positiveWeight > negativeWeight)
+			{
+				finalPositiveSet.add(i);
+				weightModifiers.put(i, (positiveWeight - negativeWeight) / (positiveWeight + negativeWeight));
+			}
+			else
+			{
+				finalNegativeSet.add(i);
+				weightModifiers.put(i, (negativeWeight - positiveWeight) / (positiveWeight + negativeWeight));
+			}
 		}
 
 		return new ImmutableTwoValues<Set<Integer>, Map<Integer, Double>>(finalPositiveSet, weightModifiers);
