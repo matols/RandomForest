@@ -10,7 +10,6 @@ import java.util.Map;
 import java.util.Set;
 
 import tree.ImmutableTwoValues;
-import tree.IndexedDoubleData;
 import tree.ProcessDataForGrowing;
 import tree.TreeGrowthControl;
 
@@ -47,13 +46,11 @@ public class KMeansPULearning
 		// Setup the results.
 		Map<Integer, Double> weightModifiers = new HashMap<Integer, Double>();
 		Set<Integer> finalPositiveSet = new HashSet<Integer>();
-		Set<Integer> finalNegativeSet = new HashSet<Integer>();
 
 		// Determine the indices for the positive, unlabelled and all observations.
 		List<Integer> allObservations = new ArrayList<Integer>();
 		List<Integer> positiveObservations = new ArrayList<Integer>();
 		List<Integer> unlabelledObservations = new ArrayList<Integer>();
-		List<Integer> reliableNegativeSet = new ArrayList<Integer>();
 		for (int i = 0; i < processedDataForLearning.numberObservations; i++)
 		{
 			allObservations.add(i);
@@ -73,24 +70,6 @@ public class KMeansPULearning
 		int numberAllObservations = allObservations.size();
 		int numberPositiveObservations = positiveObservations.size();
 		int numberUnlabelledObservations = unlabelledObservations.size();
-		int numberNegativeObservations = 0;
-
-		// Generate the reliable negative set if it is to be used.
-		if (isReliableNegativesGenerated)
-		{
-			// Determine the mean vector for the positive observations.
-			Map<String, Double> meanPositiveVector = calculateMeanVector(positiveObservations, processedDataForLearning);
-
-			// Calculate the reliable negative set.
-			reliableNegativeSet = determineReliableNegative(unlabelledObservations, meanPositiveVector,
-					processedDataForLearning);
-			numberNegativeObservations = reliableNegativeSet.size();
-			for (Integer i : reliableNegativeSet)
-			{
-				finalNegativeSet.add(i);
-				weightModifiers.put(i, 1.0);
-			}
-		}
 
 		// Cluster the data clusteringRepetitions times.
 		for (int i = 0; i < clusteringRepetitions; i++)
@@ -193,33 +172,6 @@ public class KMeansPULearning
 			meanVector.put(s, expectedValue);
 		}
 		return meanVector;
-	}
-
-	private List<Integer> determineReliableNegative(List<Integer> unlabelledObservations, Map<String, Double> meanPositiveVector,
-			ProcessDataForGrowing processedDataForLearning)
-	{
-		// Determine the distance of all unlabelled observations from the mean positive vector.
-		List<Double> distsanceToPositiveCluster = distanceFromMean(unlabelledObservations, meanPositiveVector, processedDataForLearning);
-		List<IndexedDoubleData> sortedDistances = new ArrayList<IndexedDoubleData>();
-		double meanDistanceToPositive = 0.0;
-		for (int i = 0; i < unlabelledObservations.size(); i++)
-		{
-			meanDistanceToPositive += distsanceToPositiveCluster.get(i);
-			sortedDistances.add(new IndexedDoubleData(distsanceToPositiveCluster.get(i), i));
-		}
-		Collections.sort(sortedDistances);
-		meanDistanceToPositive /= unlabelledObservations.size();
-
-		// The reliable negative set is all the observations with a distance to the positive cluster greater than the mean distance.
-		List<Integer> reliableNegativeSet = new ArrayList<Integer>();
-		for (int i = 0; i < sortedDistances.size(); i++)
-		{
-			if (sortedDistances.get(i).getData() > meanDistanceToPositive)
-			{
-				reliableNegativeSet.add(sortedDistances.get(i).getIndex());
-			}
-		}
-		return reliableNegativeSet;
 	}
 
 	private List<Double> distanceFromMean(List<Integer> observationIndices, Map<String, Double> meanPositiveVector, ProcessDataForGrowing dataset)
