@@ -52,6 +52,16 @@ public class MultivariateGaussian
 
 		// Parse input.
 		String outputLocation = args[0];
+		File outputLDir = new File(outputLocation);
+		if (!outputLDir.exists())
+		{
+			boolean isDirCreated = outputLDir.mkdirs();
+			if (!isDirCreated)
+			{
+				System.out.format("The output directory (%s) does not exist, and could not be created.\n", outputLocation);
+				System.exit(0);
+			}
+		}
 
 		// Sanity check on control parameters.
 		boolean isErrorFound = false;
