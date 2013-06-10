@@ -202,7 +202,7 @@ public class FeatureSelection
 
 			FileWriter convergenceOutputFile = new FileWriter(convergenOutputLocation);
 			BufferedWriter convergenceOutputWriter = new BufferedWriter(convergenceOutputFile);
-			convergenceOutputWriter.write("Generation\tFitness\tIndividual");
+			convergenceOutputWriter.write("Generation\tSeedUsed\tFitness\tIndividual");
 			convergenceOutputWriter.newLine();
 			convergenceOutputWriter.close();
 
@@ -490,6 +490,8 @@ public class FeatureSelection
 		    			FileWriter convergenceOutputFile = new FileWriter(convergenOutputLocation, true);
 		    			BufferedWriter convergenceOutputWriter = new BufferedWriter(convergenceOutputFile);
 		    			convergenceOutputWriter.write(Integer.toString(currentGeneration));
+		    			convergenceOutputWriter.write("\t");
+		    			convergenceOutputWriter.write(Long.toString(seedForThisConvergence));
 		    			convergenceOutputWriter.write("\t");
 		    			convergenceOutputWriter.write(Double.toString(fitness.get(0)));
 		    			convergenceOutputWriter.write("\t");

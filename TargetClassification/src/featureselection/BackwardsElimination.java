@@ -72,18 +72,17 @@ public class BackwardsElimination
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int externalSubsamplesToGenerate = 5;
+		int externalSubsamplesToGenerate = 100;
 		double fractionToReserveAsValidation = 0.1;
-		int internalSubsamplesToGenerate = 2;
+		int internalSubsamplesToGenerate = 10;
 		int validationIterations = 10;
-		double fractionToElim = 0.05;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
-		double featuresToEliminate;
+		double fractionToElim = 0.02;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
 		boolean continueRun = false;  // Whether or not you want to continue a run in progress or restart the whole process.
 		Integer[] trainingObsToUse = {};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 5;
+		ctrl.numberOfTreesToGrow = 1500;
 		ctrl.mtry = 10;
 		ctrl.isStratifiedBootstrapUsed = true;
 		ctrl.isCalculateOOB = false;
@@ -91,7 +90,7 @@ public class BackwardsElimination
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		TreeGrowthControl varImpCtrl = new TreeGrowthControl(ctrl);
-		varImpCtrl.numberOfTreesToGrow = 10;
+		varImpCtrl.numberOfTreesToGrow = 5000;
 		varImpCtrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		Map<String, Double> weights = new HashMap<String, Double>();
@@ -179,6 +178,7 @@ public class BackwardsElimination
 				BufferedWriter errorRateOutputWriter = new BufferedWriter(errorRateOutputFile);
 				int numberOfFeaturesRemaining = featuresUsed.size();
 				String featureNumberHeader = "";
+				double featuresToEliminate;
 				while (numberOfFeaturesRemaining > 0)
 				{
 					featureNumberHeader += Integer.toString(numberOfFeaturesRemaining) + "\t";
