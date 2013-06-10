@@ -19,7 +19,8 @@ public class KMeansPULearning
 	/**
 	 * @param args
 	 */
-	public ImmutableTwoValues<Set<Integer>, Map<Integer, Double>> main(String dataForLearning, int numberOfMeans, int clusteringRepetitions)
+	public ImmutableTwoValues<Set<Integer>, Map<Integer, Double>> main(String dataForLearning, int numberOfMeans,
+			int clusteringRepetitions, String[] variablesToIgnore)
 	{
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
@@ -27,7 +28,6 @@ public class KMeansPULearning
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isStandardised = true;
 
-		String[] variablesToIgnore = new String[]{"OGlycosylation"};  // Make sure to ignore any variables that are constant. Otherwise the standardised value of the variable will be NaN.
 		ctrl.variablesToIgnore = Arrays.asList(variablesToIgnore);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================

@@ -154,7 +154,7 @@ public class SplitDataset
 						}
 						else
 						{
-							observationOutput += "Negative";
+							observationOutput += "Unlabelled";
 						}
 						posFracWriter.write(observationOutput);
 						posFracWriter.newLine();

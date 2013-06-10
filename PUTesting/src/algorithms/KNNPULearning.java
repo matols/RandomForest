@@ -20,7 +20,7 @@ public class KNNPULearning
 	/**
 	 * @param args
 	 */
-	public ImmutableTwoValues<Set<Integer>, Map<Integer, Double>> main(String dataForLearning, int numberOfNeighbours, boolean isReliableNegativesGenerated)
+	public ImmutableTwoValues<Set<Integer>, Map<Integer, Double>> main(String dataForLearning, int numberOfNeighbours, boolean isReliableNegativesGenerated, String[] variablesToIgnore)
 	{
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
@@ -28,7 +28,6 @@ public class KNNPULearning
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isStandardised = true;
 
-		String[] variablesToIgnore = new String[]{};  // Make sure to ignore any variables that are constant. Otherwise the standardised value of the variable will be NaN.
 		ctrl.variablesToIgnore = Arrays.asList(variablesToIgnore);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
