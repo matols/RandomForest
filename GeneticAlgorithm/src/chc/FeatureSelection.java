@@ -260,6 +260,7 @@ public class FeatureSelection
 
 		// Initialise the random number generator.
 		Random random = new Random();
+		long seedForThisConvergence = random.nextLong();
 
 		// Initialise the stopping criteria for the GA.
 	    int currentGeneration = 1;
@@ -308,7 +309,7 @@ public class FeatureSelection
 	    	List<String> variablesToIgnore = new ArrayList<String>(Arrays.asList(featureNames));
 	    	variablesToIgnore.removeAll(geneSet);
 	    	ctrl.variablesToIgnore = variablesToIgnore;
-	    	Forest forest = new Forest(inputLocation, ctrl);
+	    	Forest forest = new Forest(inputLocation, ctrl, seedForThisConvergence);
 	    	forest.setWeightsByClass(weights);
 	    	forest.growForest();
 	    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
@@ -389,7 +390,7 @@ public class FeatureSelection
 	    	    	List<String> variablesToIgnore = new ArrayList<String>(Arrays.asList(featureNames));
 	    	    	variablesToIgnore.removeAll(geneSet);
 	    	    	ctrl.variablesToIgnore = variablesToIgnore;
-	    	    	Forest forest = new Forest(inputLocation, ctrl);
+	    	    	Forest forest = new Forest(inputLocation, ctrl, seedForThisConvergence);
 	    	    	forest.setWeightsByClass(weights);
 	    	    	forest.growForest();
 	    	    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
@@ -506,6 +507,7 @@ public class FeatureSelection
 	    			convergencesOccurred++;
 
 	    			threshold = numberFeatures / 4;
+	    			seedForThisConvergence = random.nextLong();
 
 	    			// Generate the new population by copying over the best individuals found so far, and then randomly instantiating the rest of the population.
 	    			population = new ArrayList<List<String>>(this.bestMembersFound);
@@ -539,7 +541,7 @@ public class FeatureSelection
 	    		    	List<String> variablesToIgnore = new ArrayList<String>(Arrays.asList(featureNames));
 	    		    	variablesToIgnore.removeAll(geneSet);
 	    		    	ctrl.variablesToIgnore = variablesToIgnore;
-	    		    	Forest forest = new Forest(inputLocation, ctrl);
+	    		    	Forest forest = new Forest(inputLocation, ctrl, seedForThisConvergence);
 	    		    	forest.setWeightsByClass(weights);
 	    		    	forest.growForest();
 	    		    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
