@@ -165,19 +165,6 @@ public class VariableImportance {
 			importanceRanking.put(s, new ArrayList<Integer>());
 		}
 
-		// Setup the proximity mapping.
-		 ProcessDataForGrowing inputData = new ProcessDataForGrowing(inputLocation, ctrl);
-	     Map<Integer, Map<Integer, Double>> proximities = new HashMap<Integer, Map<Integer, Double>>();
-	     for (int i = 0; i < inputData.numberObservations; i++)
-	     {
-	    	 Map<Integer, Double> proxims = new HashMap<Integer, Double>();
-	    	 for (int j = 0; j < inputData.numberObservations; j++)
-	    	 {
-	    		 proxims.put(j, 0.0);
-	    	 }
-	    	 proximities.put(i, proxims);
-	     }
-
 		// Determine the seeds that will be used.
 		Random randGen = new Random();
 		List<Long> seedsUsed = new ArrayList<Long>();

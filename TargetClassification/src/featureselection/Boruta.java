@@ -60,7 +60,7 @@ public class Boruta
 		boolean verbose = false;
 		int numberOfTrees = 5000;
 		boolean isCompareSelf = false;
-		boolean isMultipleTestingUsed = true;
+		boolean isMultipleTestingUsed = false;
 		int argIndex = 2;
 		while (argIndex < args.length)
 		{
@@ -96,7 +96,7 @@ public class Boruta
 				break;
 			case "-m":
 				argIndex += 1;
-				isMultipleTestingUsed = false;
+				isMultipleTestingUsed = true;
 				break;
 			default:
 				System.out.format("Unexpeted argument : %s.\n", currentArg);
@@ -153,6 +153,8 @@ public class Boruta
 			parameterOutputWriter.write("Weights used - " + weights.toString());
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.write("Training observations used - " + Arrays.toString(trainingObsToUse));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("Number of trees - " + Integer.toString(ctrl.numberOfTreesToGrow));
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.close();
 

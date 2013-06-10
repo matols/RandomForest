@@ -810,9 +810,7 @@ public class Forest
 	 * Calculate the importance for each variable in the dataset.
 	 * 
 	 * The first Map returned is the variable importance calculated based on the change in accuracy of the forest.
-	 * The second Map returned is the variable importance calculated based on the change in a quality metric of the forest.
-	 * The quality metric used is the Matthews correlation coefficient if there are two classes, and the macro G mean if there
-	 * are more than two classes.
+	 * The second Map returned is the variable importance calculated based on the change in g mean of the forest.
 	 * 
 	 * @return
 	 */
@@ -822,14 +820,17 @@ public class Forest
 		Map<String, Integer> countsOfClass = new HashMap<String, Integer>();
 		for (String s : this.processedData.responseData)
 		{
+			countsOfClass.put(s, 0);
+		}
+		for (String s : this.processedData.responseData)
+		{
 			countsOfClass.put(s, countsOfClass.get(s) + 1);
 		}
 		int numberOfClasses = countsOfClass.size();
-		boolean isMCCUsed = numberOfClasses == 2;
 
 		// Determine base accuracy for each tree.
 		List<Double> baseOOBAccuracy = new ArrayList<Double>();
-		List<Double> baseOOBQualityMeasure = new ArrayList<Double>();
+		List<Double> baseOOBGMean = new ArrayList<Double>();
 		for (int i = 0; i < this.forest.size(); i++)
 		{
 			List<Integer> oobOnThisTree = this.oobObservations.get(i);
@@ -839,36 +840,16 @@ public class Forest
 			Double originalAccuracy = 1 - originalPredictions.first;
 			baseOOBAccuracy.add(originalAccuracy);
 			Map<String, Map<String, Double>> confusionMatrix = originalPredictions.second;
-			if (isMCCUsed)
-    		{
-    			// If there are only two classes, then calculate the MCC.
-    			List<Double> correctPredictions = new ArrayList<Double>();
-    			List<Double> incorrectPredictions = new ArrayList<Double>();
-    			for (String p : confusionMatrix.keySet())
-    			{
-    				correctPredictions.add(confusionMatrix.get(p).get("TruePositive"));
-    				incorrectPredictions.add(confusionMatrix.get(p).get("FalsePositive"));
-    			}
-    			double TP = correctPredictions.get(0);
-    			double FP = incorrectPredictions.get(0);
-    			double TN = correctPredictions.get(1);
-    			double FN = incorrectPredictions.get(1);
-    			double MCC = ((TP * TN) - (FP * FN)) / (Math.sqrt((TP + TN) * (TP + FN) * (TN + FP) * (TN + FN)));
-    			baseOOBQualityMeasure.add(MCC);
-    		}
-			else
+			double macroGMean = 1.0;
+			for (String s : confusionMatrix.keySet())
 			{
-				double macroGMean = 1.0;
-				for (String s : confusionMatrix.keySet())
-				{
-					double TP = confusionMatrix.get(s).get("TruePositive");
-		    		double FN = countsOfClass.get(s) - TP;  // The number of false positives is the number of observations from the class  - the number of true positives.
-		    		double recall = (TP / (TP + FN));
-		    		macroGMean *= recall;
-				}
-				double gMean = Math.pow(macroGMean, (1.0 / confusionMatrix.size()));
-				baseOOBQualityMeasure.add(gMean);
+				double TP = confusionMatrix.get(s).get("TruePositive");
+	    		double FN = countsOfClass.get(s) - TP;  // The number of false positives is the number of observations from the class  - the number of true positives.
+	    		double recall = (TP / (TP + FN));
+	    		macroGMean *= recall;
 			}
+			macroGMean = Math.pow(macroGMean, (1.0 / numberOfClasses));
+			baseOOBGMean.add(macroGMean);
 		}
 
 		// Determine permuted importance.
@@ -900,36 +881,16 @@ public class Forest
 				Double permutedAccuracy = 1 - permutedPredictions.first;  // Determine the predictive accuracy for the permuted observations.
 				cumulativeAccChange += (baseOOBAccuracy.get(i) - permutedAccuracy);
 				Map<String, Map<String, Double>> confusionMatrix = permutedPredictions.second;
-				double permutedQualityMeasure;
-				if (isMCCUsed)
-	    		{
-	    			// If there are only two classes, then calculate the MCC.
-	    			List<Double> correctPredictions = new ArrayList<Double>();
-	    			List<Double> incorrectPredictions = new ArrayList<Double>();
-	    			for (String p : confusionMatrix.keySet())
-	    			{
-	    				correctPredictions.add(confusionMatrix.get(p).get("TruePositive"));
-	    				incorrectPredictions.add(confusionMatrix.get(p).get("FalsePositive"));
-	    			}
-	    			double TP = correctPredictions.get(0);
-	    			double FP = incorrectPredictions.get(0);
-	    			double TN = correctPredictions.get(1);
-	    			double FN = incorrectPredictions.get(1);
-	    			permutedQualityMeasure = ((TP * TN) - (FP * FN)) / (Math.sqrt((TP + TN) * (TP + FN) * (TN + FP) * (TN + FN)));
-	    		}
-				else
+				double permutedMacroGMean = 1.0;
+				for (String p : confusionMatrix.keySet())
 				{
-					double permutedMacroGMean = 1.0;
-					for (String p : confusionMatrix.keySet())
-					{
-						double TP = confusionMatrix.get(p).get("TruePositive");
-			    		double FN = countsOfClass.get(p) - TP;  // The number of false positives is the number of observations from the class  - the number of true positives.
-			    		double recall = (TP / (TP + FN));
-			    		permutedMacroGMean *= recall;
-					}
-					permutedQualityMeasure = Math.pow(permutedMacroGMean, (1.0 / confusionMatrix.size()));
+					double TP = confusionMatrix.get(p).get("TruePositive");
+		    		double FN = countsOfClass.get(p) - TP;  // The number of false positives is the number of observations from the class  - the number of true positives.
+		    		double recall = (TP / (TP + FN));
+		    		permutedMacroGMean *= recall;
 				}
-				cumulativeGMeanChange += (baseOOBQualityMeasure.get(i) - permutedQualityMeasure);
+				permutedMacroGMean = Math.pow(permutedMacroGMean, (1.0 / numberOfClasses));
+				cumulativeGMeanChange += (baseOOBGMean.get(i) - permutedMacroGMean);
 			}
 			cumulativeAccChange /= this.forest.size();  // Get the mean change in the accuracy. This is the importance for the variable.
 			cumulativeGMeanChange /= this.forest.size();  // Get the mean change in the accuracy. This is the importance for the variable.
