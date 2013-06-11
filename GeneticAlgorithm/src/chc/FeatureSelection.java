@@ -19,7 +19,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 
 import tree.Forest;
 import tree.IndexedDoubleData;
@@ -41,7 +40,7 @@ public class FeatureSelection
 	/**
 	 * A list of the individuals that have the best fitness found.
 	 */
-	public List<List<String>> bestMembersFound = new ArrayList<List<String>>();
+	public List<String> bestPopulationMember = new ArrayList<String>();
 
 
 	public FeatureSelection(String[] args, TreeGrowthControl ctrl, Map<String, Double> weights)
@@ -80,6 +79,7 @@ public class FeatureSelection
 		long maxTimeAllowed = 0;  // What the maximum time allowed (in ms) for the run is. 0 indicates that timing is not used.
 		int maxConvergences = 0;  // The number of times the population is allowed to converge.
 		int maxStagnant = 5;  // The number of consecutive generations that can occur without any offspring being added to the population.
+		double mutationRate = 0.35;  // The mutation rate for altering the best individual when convergence has occured.
 
 		// Read in the user input.
 		int argIndex = 2;
@@ -122,6 +122,11 @@ public class FeatureSelection
 				maxStagnant = Integer.parseInt(args[argIndex]);
 				argIndex += 1;
 				break;
+			case "-m":
+				argIndex += 1;
+				mutationRate = Double.parseDouble(args[argIndex]);
+				argIndex += 1;
+				break;
 			default:
 				System.out.format("Unexpeted argument : %s.\n", currentArg);
 				System.exit(0);
@@ -147,6 +152,8 @@ public class FeatureSelection
 		    parameterOutputWriter.write("Number of Evaluations:\t" + Integer.toString(maxEvaluations));
 		    parameterOutputWriter.newLine();
 		    parameterOutputWriter.write("Length of time allowed (ms):\t" + Long.toString(maxTimeAllowed));
+		    parameterOutputWriter.newLine();
+		    parameterOutputWriter.write("Number of Convergences:\t" + Integer.toString(maxConvergences));
 		    parameterOutputWriter.newLine();
 		    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 		    Date now = new Date();
@@ -463,18 +470,7 @@ public class FeatureSelection
 	    		// If the fitness has improved during this generation. The fitness of the most fit individual can not get worse, so if it
 	    		// is not the same then it must have improved.
 	    		this.currentBestFitness = fitness.get(0);
-	    		this.bestMembersFound = new ArrayList<List<String>>();  // Clear out the list of the best individuals found as there is a new top fitness.
-	    	}
-	    	// Add all the members with the best fitness to the set of best individuals found.
-	    	for (int i = 0; i < populationSize; i++)
-	    	{
-	    		if ((fitness.get(i) == this.currentBestFitness) && (!this.bestMembersFound.contains(population.get(i))))
-	    		{
-	    			// If the individual in position i has the best fitness of any individual found, and
-	    			// the individual is not already recorded as having the best fitness found (i.e. a new individual has been found
-	    			// that has the same fitness as the most fit individual already found).
-	    			this.bestMembersFound.add(population.get(i));
-	    		}
+	    		this.bestPopulationMember = new ArrayList<String>(population.get(0));  // Add the new fittest individual.
 	    	}
 
 	    	if (populationLastChanged == maxStagnant)
@@ -511,21 +507,28 @@ public class FeatureSelection
 	    			threshold = numberFeatures / 4;
 	    			seedForThisConvergence = random.nextLong();
 
-	    			// Generate the new population by copying over the best individuals found so far, and then randomly instantiating the rest of the population.
-	    			population = new ArrayList<List<String>>(this.bestMembersFound);
-	    			featuresAvailableForSelection = new ArrayList<String>(Arrays.asList(featureNames));
+	    			// Generate the new population by generating populationSize mutated copies of the fittest individual ever found.
+	    			population = new ArrayList<List<String>>();
 	    			for (int i = 0; i < populationSize; i++)
 	    			{
 	    				List<String> newPopMember = new ArrayList<String>();
-	    				for (int j = 0; j < (numberFeatures / 2.0); j++)
+	    				for (String s : featureNames)
 	    				{
-	    					// Select a random available observation from class s.
-	    					String chosenFeature = featuresAvailableForSelection.get(random.nextInt(featuresAvailableForSelection.size()));
-	    					newPopMember.add(chosenFeature);
-	    					featuresAvailableForSelection.remove(chosenFeature);
-	    					if (featuresAvailableForSelection.isEmpty())
+	    					if (random.nextDouble() < mutationRate)
 	    					{
-	    						featuresAvailableForSelection = new ArrayList<String>(Arrays.asList(featureNames));
+	    						// Mutation should occur.
+	    						if (!this.bestPopulationMember.contains(s))
+	    						{
+	    							newPopMember.add(s);
+	    						}
+	    					}
+	    					else
+	    					{
+	    						// Mutation should not occur.
+	    						if (this.bestPopulationMember.contains(s))
+	    						{
+	    							newPopMember.add(s);
+	    						}
 	    					}
 	    				}
 	    				population.add(newPopMember);
@@ -595,7 +598,6 @@ public class FeatureSelection
     			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classGMeanResults, classGMeanOutputLocations);
 
 	    // Write out the best member(s) of the population.
-	    Set<List<String>> recordedIndividuals = new HashSet<List<String>>();
 	    try
 		{
 	    	String bestIndivOutputLocation = outputLocation + "/BestIndividuals.txt";
@@ -604,16 +606,7 @@ public class FeatureSelection
 			bestIndivOutputWriter.write("Fitness\t");
 			bestIndivOutputWriter.write(Double.toString(this.currentBestFitness));
 			bestIndivOutputWriter.newLine();
-			for (int i = 0; i < this.bestMembersFound.size(); i++)
-			{
-				List<String> currentMember = this.bestMembersFound.get(i);
-				if (!recordedIndividuals.contains(currentMember))
-				{
-					recordedIndividuals.add(currentMember);
-					bestIndivOutputWriter.write(currentMember.toString());
-				    bestIndivOutputWriter.newLine();
-				}
-			}
+			bestIndivOutputWriter.write(this.bestPopulationMember.toString());
 		    bestIndivOutputWriter.close();
 		}
 		catch (Exception e)
