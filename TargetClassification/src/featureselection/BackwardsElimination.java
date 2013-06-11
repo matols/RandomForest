@@ -75,14 +75,14 @@ public class BackwardsElimination
 		int externalSubsamplesToGenerate = 100;
 		double fractionToReserveAsValidation = 0.1;
 		int internalSubsamplesToGenerate = 10;
-		int validationIterations = 10;
+		int validationIterations = 1;
 		double fractionToElim = 0.02;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
 		boolean continueRun = false;  // Whether or not you want to continue a run in progress or restart the whole process.
 		Integer[] trainingObsToUse = {};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 1500;
+		ctrl.numberOfTreesToGrow = 500;
 		ctrl.mtry = 10;
 		ctrl.isStratifiedBootstrapUsed = true;
 		ctrl.isCalculateOOB = false;
@@ -90,7 +90,7 @@ public class BackwardsElimination
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		TreeGrowthControl varImpCtrl = new TreeGrowthControl(ctrl);
-		varImpCtrl.numberOfTreesToGrow = 5000;
+		varImpCtrl.numberOfTreesToGrow = 500;
 		varImpCtrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		Map<String, Double> weights = new HashMap<String, Double>();
@@ -515,8 +515,10 @@ public class BackwardsElimination
 		Map<Integer, Double> averageErrorRates = new HashMap<Integer, Double>();
 		Map<Integer, Double> averageGMeans = new HashMap<Integer, Double>();
 		int bestNumberOfFeatures = featuresUsed.size();
-		double lowestGMean = 0.0;
-		for (Integer j : errorRates.get(0).keySet())
+		double bestGMean = 0.0;
+		List<Integer> featureSetSizes = new ArrayList<Integer>(errorRates.get(0).keySet());
+		Collections.sort(featureSetSizes, Collections.reverseOrder());
+		for (Integer j : featureSetSizes)
 		{
 			double averageError = 0.0;
 			double averageGMean = 0.0;
@@ -529,10 +531,10 @@ public class BackwardsElimination
 			averageErrorRates.put(j, averageError);
 			averageGMean /= internalSubsamplesToGenerate;
 			averageGMeans.put(j, averageGMean);
-			if (averageGMean > lowestGMean)
+			if (averageGMean > bestGMean)
 			{
 				bestNumberOfFeatures = j;
-				lowestGMean = averageGMean;
+				bestGMean = averageGMean;
 			}
 		}
 
