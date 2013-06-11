@@ -149,6 +149,11 @@ public class CARTTree
 		this.seed = seed;
 	}
 
+	public String getTreeAsString()
+	{
+		return this.cartTree.save(1, 0).first;
+	}
+
 	/**
 	 * Controls the growth of the tree.
 	 */
