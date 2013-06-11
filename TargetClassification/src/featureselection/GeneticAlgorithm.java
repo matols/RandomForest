@@ -116,7 +116,7 @@ public class GeneticAlgorithm {
 
 				List<String> individual = new ArrayList<String>();
 				String[] splitLine = line.split("\t");
-				for (String p : splitLine[2].split(","))
+				for (String p : splitLine[3].split(","))
 				{
 					individual.add(p);
 				}
