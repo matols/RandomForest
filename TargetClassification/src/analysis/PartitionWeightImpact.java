@@ -34,6 +34,9 @@ public class PartitionWeightImpact
 		ctrl.isStratifiedBootstrapUsed = true;
 		ctrl.minNodeSize = 1;
 		ctrl.mtry = 10;
+		ctrl.isReplacementUsed = false;
+		ctrl.selectionFraction = 1.0;
+		ctrl.isCalculateOOB = false;
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Negative", 1.0);
