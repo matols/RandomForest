@@ -9,6 +9,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -98,6 +99,8 @@ public class SampleSizeTesting
 		ctrl.minNodeSize = 1;
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
+		String majorityClass = "Unlabelled";
+		String minorityClass = "Positive";
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
 		//===================================================================
@@ -106,9 +109,8 @@ public class SampleSizeTesting
 
 		// Determine the observations of each class.
 		ProcessDataForGrowing procData = new ProcessDataForGrowing(inputFile, ctrl);
-		String negClass = "Unlabelled";
-		String posClass = "Positive";
-		Set<String> responseClasses = new HashSet<String>(procData.responseData);
+		List<String> responseClasses = new ArrayList<String>(new HashSet<String>(procData.responseData));
+		Collections.sort(responseClasses);
 		Map<String, List<Integer>> responseSplits = new HashMap<String, List<Integer>>();
 		for (String s : responseClasses)
 		{
@@ -119,8 +121,8 @@ public class SampleSizeTesting
 			responseSplits.get(procData.responseData.get(i)).add(i);
 		}
 		int numberOfObservations = procData.numberObservations;
-		int numberPosObs = responseSplits.get(posClass).size();
-		int numberUnlabObs = responseSplits.get(negClass).size();
+		int numberPosObs = responseSplits.get(minorityClass).size();
+		int numberUnlabObs = responseSplits.get(majorityClass).size();
 
 		// Setup the results output files.
 		String fullDatasetResultsLocation = resultsDir + "/FullDatasetResults.txt";
@@ -309,10 +311,10 @@ public class SampleSizeTesting
 //				weights.put("Positive", (1 - positiveFraction) / positiveFraction);
 
 				// Setup the sample size constraints.
-				ctrl.sampSize.put(posClass, positiveObservationsToUse);
-				ctrl.sampSize.put(negClass, unlabelledObservationsToUse);
-				subsetCtrl.sampSize.put(posClass, positiveObservationsToUse);
-				subsetCtrl.sampSize.put(negClass, unlabelledObservationsToUse);
+				ctrl.sampSize.put(minorityClass, positiveObservationsToUse);
+				ctrl.sampSize.put(majorityClass, unlabelledObservationsToUse);
+				subsetCtrl.sampSize.put(minorityClass, positiveObservationsToUse);
+				subsetCtrl.sampSize.put(majorityClass, unlabelledObservationsToUse);
 
 				for (Double posWeight : weightsToUse)
 				{

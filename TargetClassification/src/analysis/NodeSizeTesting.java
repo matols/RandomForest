@@ -9,6 +9,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -104,7 +105,8 @@ public class NodeSizeTesting
 		//===================================================================
 
 		ProcessDataForGrowing procData = new ProcessDataForGrowing(inputFile, ctrl);
-		Set<String> classesInDataset = new HashSet<String>(procData.responseData);
+		List<String> classesInDataset = new ArrayList<String>(new HashSet<String>(procData.responseData));
+		Collections.sort(classesInDataset);
 
 		// Setup the results output files.
 		String fullDatasetResultsLocation = resultsDir + "/FullDatasetResults.txt";

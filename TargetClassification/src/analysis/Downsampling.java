@@ -9,6 +9,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -98,17 +99,18 @@ public class Downsampling
 		ctrl.isStratifiedBootstrapUsed = false;
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
+		String majorityClass = "Unlabelled";
+		String minorityClass = "Positive";
 		Map<String, Double> weights = new HashMap<String, Double>();
-		weights.put("Unlabelled", 1.0);
+		weights.put(majorityClass, 1.0);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
 
 		// Determine the observations of each class.
 		ProcessDataForGrowing procData = new ProcessDataForGrowing(inputFile, ctrl);
-		String majorityClass = "Unlabelled";
-		String minorityClass = "Positive";
-		Set<String> responseClasses = new HashSet<String>(procData.responseData);
+		List<String> responseClasses = new ArrayList<String>(new HashSet<String>(procData.responseData));
+		Collections.sort(responseClasses);
 		Map<String, List<Integer>> responseSplits = new HashMap<String, List<Integer>>();
 		for (String s : responseClasses)
 		{
@@ -305,7 +307,7 @@ public class Downsampling
 			    String strDate = sdfDate.format(startTime);
 				System.out.format("\tNow starting positive weight %f at %s.\n", posWeight, strDate);
 
-				weights.put("Positive", posWeight);
+				weights.put(minorityClass, posWeight);
 
 				// Perform the analysis for the entire dataset.
 				confusionMatrix = new HashMap<String, Map<String, Double>>();

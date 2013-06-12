@@ -192,7 +192,9 @@ public class MultipleForestRunAndTest
 			resultsOutputWriter.write(String.format("%.5f", 1 - errorRate));
 			resultsOutputWriter.write("\t");
 			resultsOutputWriter.write(String.format("%.5f", errorRate));
-			for (String s : confusionMatrix.keySet())
+			List<String> classesUsed = new ArrayList<String>(confusionMatrix.keySet());
+			Collections.sort(classesUsed);
+			for (String s : classesUsed)
 			{
 				resultsOutputWriter.write("\t");
 				resultsOutputWriter.write(String.format("%.5f", confusionMatrix.get(s).get("TruePositive")));
