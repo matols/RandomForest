@@ -73,9 +73,9 @@ public class BackwardsElimination
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
 		int externalSubsamplesToGenerate = 100;
-		double fractionToReserveAsValidation = 0.1;
+		double fractionToReserveAsValidation = 0.2;
 		int internalSubsamplesToGenerate = 10;
-		int validationIterations = 1;
+		int validationIterations = 10;
 		double fractionToElim = 0.02;  // Eliminating a fraction allows you to remove lots of variables when there are lots remaining, and get better resolution when there are few remaining.
 		boolean continueRun = false;  // Whether or not you want to continue a run in progress or restart the whole process.
 		Integer[] trainingObsToUse = {};
@@ -90,7 +90,7 @@ public class BackwardsElimination
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		TreeGrowthControl varImpCtrl = new TreeGrowthControl(ctrl);
-		varImpCtrl.numberOfTreesToGrow = 500;
+		varImpCtrl.numberOfTreesToGrow = 5000;
 		varImpCtrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		Map<String, Double> weights = new HashMap<String, Double>();
@@ -324,13 +324,13 @@ public class BackwardsElimination
 		List<StringsSortedByDoubles> sortedVariables = new ArrayList<StringsSortedByDoubles>();
 		try (BufferedReader reader = Files.newBufferedReader(Paths.get(entireDatasetVarImpLocation), StandardCharsets.UTF_8))
 		{
-			String line;
+			String line = reader.readLine();  // Strip off the first line header.
 			while ((line = reader.readLine()) != null)
 			{
 				line = line.replaceAll("\n", "");
 				String[] chunks = line.split("\t");
 				double averageRank = 0.0;
-				for (int i = 1; i < chunks.length; i++)
+				for (int i = 0; i < chunks.length; i++)
 				{
 					averageRank += Integer.parseInt(chunks[i]);
 				}
