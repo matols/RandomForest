@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -118,6 +119,26 @@ public class ProcessDataForGrowing
 	public ProcessDataForGrowing(String data, TreeGrowthControl ctrl)
 	{
 
+		if (!ctrl.variablesToIgnore.isEmpty() && !ctrl.variablesToUse.isEmpty())
+		{
+			// If variables are specified as being ignored and kept, then ensure that there are no overlaps in the lists.
+			Set<String> overlap = new HashSet<String>();
+			for (String s : ctrl.variablesToIgnore)
+			{
+				if (ctrl.variablesToUse.contains(s))
+				{
+					overlap.add(s);
+				}
+			}
+			if (!overlap.isEmpty())
+			{
+				System.out.print("The variables: ");
+				System.out.print(overlap);
+				System.out.println(" are specified as being both used and ignored in the TreeGrowthControl object.");
+				System.exit(0);
+			}
+		}
+
 		this.dataFileGrownFrom = data;
 		int responseColumn = 0;  // The variable indicating which column in the data file is the classifications.
 		this.numberObservations = 0;
@@ -141,6 +162,13 @@ public class ProcessDataForGrowing
 			{
 				System.out.println("You have masked out too many variables. You must leave at least one covariable and one response variable.");
 				System.exit(0);
+			}
+
+			// Determine the variables that are to be used.
+			List<String> variablesToUse = ctrl.variablesToUse;
+			if (variablesToUse.isEmpty())
+			{
+				variablesToUse = Arrays.asList(variableNames);
 			}
 
 			// Record the type of the variables in the file.
@@ -221,9 +249,10 @@ public class ProcessDataForGrowing
 						this.responseData.add(splitLine[i]);  // Record the classification for this observation.
 						possibleClasses.add(splitLine[i]);  // Record all the possible values that the class variable can take.
 					}
-					else if (!ctrl.variablesToIgnore.contains(variableNames[i]))
+					else if (!ctrl.variablesToIgnore.contains(variableNames[i]) && variablesToUse.contains(variableNames[i]))
 					{
-						// Record only the variables that are not marked as to be ignored (by either input or from the data file having an x for the variable type).
+						// Record only the variables that are not marked as to be ignored (by either input or from the data
+						// file having an x for the variable type) and are intended ot be used.
 						if (variableTypes[i].equals("n"))
 						{
 							this.covariableData.get(variableNames[i]).add(Double.parseDouble(splitLine[i]));

@@ -48,8 +48,16 @@ public class TreeGrowthControl
 	/**
 	 * The input variables to exclude from being considered as a candidate for splitting a node. The variables in this list
 	 * are simply not be read in from the input file.
+	 * There can be no overlap between variables in this.variablesToIgnore and this.variablesToUse.
 	 */
 	public List<String> variablesToIgnore = new ArrayList<String>();
+
+	/**
+	 * The input variables to use. If this list is not empty, then all variables in the dataset not in the list will be ignored.
+	 * The ignored variables are simply not read in from the input file.
+	 * There can be no overlap between variables in this.variablesToIgnore and this.variablesToUse.
+	 */
+	public List<String> variablesToUse = new ArrayList<String>();
 
 	/**
 	 * The observations to include when growing a tree. The list contains the integer index of the observations to keep (with 0 being the first
