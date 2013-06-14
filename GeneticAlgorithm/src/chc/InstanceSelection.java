@@ -344,7 +344,7 @@ public class InstanceSelection
 	    {
 	    	// Train and test the subsasmples.
     		ctrl.trainingObservations = geneSet;
-	    	Forest forest = new Forest(datasetLocation, ctrl);
+	    	Forest forest = new Forest(processedInputFile, ctrl);
 	    	forest.setWeightsByClass(weights);
 	    	forest.growForest();
 	    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
@@ -438,7 +438,7 @@ public class InstanceSelection
 		    		population.add(geneSet);
 		    		// Train and test the subsamples.
 		    		ctrl.trainingObservations = geneSet;
-			    	Forest forest = new Forest(datasetLocation, ctrl);
+		    		Forest forest = new Forest(processedInputFile, ctrl);
 			    	forest.setWeightsByClass(weights);
     		    	forest.growForest();
 			    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
@@ -603,7 +603,7 @@ public class InstanceSelection
 	    		    {
 	    		    	// Train and test the subsamples.
 	    	    		ctrl.trainingObservations = geneSet;
-	    		    	Forest forest = new Forest(datasetLocation, ctrl);
+	    	    		Forest forest = new Forest(processedInputFile, ctrl);
 	    		    	forest.setWeightsByClass(weights);
 	    		    	forest.growForest();
 	    		    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
