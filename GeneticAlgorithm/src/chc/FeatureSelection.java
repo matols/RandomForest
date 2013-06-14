@@ -70,12 +70,6 @@ public class FeatureSelection
 			System.out.println("The second argument must be a valid directory location or location where a directory can be created.");
 			System.exit(0);
 		}
-		ProcessDataForGrowing processedTestSet = new ProcessDataForGrowing();
-		if (args.length == 3)
-		{
-			// There is a test dataset provided as well.
-			processedTestSet = new ProcessDataForGrowing(args[2], ctrl);
-		}
 
 		// Optional inputs.
 		int populationSize = 50;  // The size of the population to use for the GA.
@@ -85,7 +79,8 @@ public class FeatureSelection
 		long maxTimeAllowed = 0;  // What the maximum time allowed (in ms) for the run is. 0 indicates that timing is not used.
 		int maxConvergences = 0;  // The number of times the population is allowed to converge.
 		int maxStagnant = 5;  // The number of consecutive generations that can occur without any offspring being added to the population.
-		double mutationRate = 0.35;  // The mutation rate for altering the best individual when convergence has occured.
+		double mutationRate = 0.35;  // The mutation rate for altering the best individual when convergence has occurred.
+		String testSet = null;  // The record of the test set to be used (or null if no test set is being used).
 
 		// Read in the user input.
 		int argIndex = 2;
@@ -133,6 +128,11 @@ public class FeatureSelection
 				mutationRate = Double.parseDouble(args[argIndex]);
 				argIndex += 1;
 				break;
+			case "-q":
+				argIndex += 1;
+				testSet = args[argIndex];
+				argIndex += 1;
+				break;
 			default:
 				System.out.format("Unexpeted argument : %s.\n", currentArg);
 				System.exit(0);
@@ -143,6 +143,13 @@ public class FeatureSelection
 	        // No stopping criteria given.
 	        System.out.println("At least one of -g, -e, -t or -c must be given, otherwise there are no stopping criteria.");
 	        System.exit(0);
+		}
+
+		ProcessDataForGrowing processedTestSet = new ProcessDataForGrowing();
+		if (testSet != null)
+		{
+			// There is a test dataset provided as well.
+			processedTestSet = new ProcessDataForGrowing(testSet, ctrl);
 		}
 
 		// Write out the parameters used for the GA.
@@ -334,7 +341,16 @@ public class FeatureSelection
 	    	double macroGMean = 1.0;
 	    	for (String s : oobConfusionMatrix.keySet())
 	    	{
-	    		double TP = oobConfusionMatrix.get(s).get("TruePositive") + testConfMatrix.get(s).get("TruePositive");
+	    		double TP;
+	    		try
+	    		{
+	    			TP = oobConfusionMatrix.get(s).get("TruePositive") + testConfMatrix.get(s).get("TruePositive");
+	    		}
+	    		catch (NullPointerException e)
+	    		{
+	    			// If there is no test set used.
+	    			TP = oobConfusionMatrix.get(s).get("TruePositive");
+	    		}
 	    		double FN = (classCounts.get(s) + classCountsTestSet.get(s)) - TP;  // The number of false positives is the number of observations from the class - the number of true positives.
 	    		double recall = TP / (TP + FN);
 	    		macroGMean *= recall;
@@ -416,7 +432,16 @@ public class FeatureSelection
 	    	    	double macroGMean = 1.0;
 	    	    	for (String s : oobConfusionMatrix.keySet())
 	    	    	{
-	    	    		double TP = oobConfusionMatrix.get(s).get("TruePositive") + testConfMatrix.get(s).get("TruePositive");
+	    	    		double TP;
+	    	    		try
+	    	    		{
+	    	    			TP = oobConfusionMatrix.get(s).get("TruePositive") + testConfMatrix.get(s).get("TruePositive");
+	    	    		}
+	    	    		catch (NullPointerException e)
+	    	    		{
+	    	    			// If there is no test set used.
+	    	    			TP = oobConfusionMatrix.get(s).get("TruePositive");
+	    	    		}
 	    	    		double FN = (classCounts.get(s) + classCountsTestSet.get(s)) - TP;  // The number of false positives is the number of observations from the class - the number of true positives.
 			    		double recall = TP / (TP + FN);
 			    		macroGMean *= recall;
@@ -566,7 +591,16 @@ public class FeatureSelection
 	    		    	double macroGMean = 1.0;
 	    		    	for (String s : oobConfusionMatrix.keySet())
 	    		    	{
-	    		    		double TP = oobConfusionMatrix.get(s).get("TruePositive") + testConfMatrix.get(s).get("TruePositive");
+	    		    		double TP;
+	    		    		try
+	    		    		{
+	    		    			TP = oobConfusionMatrix.get(s).get("TruePositive") + testConfMatrix.get(s).get("TruePositive");
+	    		    		}
+	    		    		catch (NullPointerException e)
+	    		    		{
+	    		    			// If there is no test set used.
+	    		    			TP = oobConfusionMatrix.get(s).get("TruePositive");
+	    		    		}
 	    		    		double FN = (classCounts.get(s) + classCountsTestSet.get(s)) - TP;  // The number of false positives is the number of observations from the class - the number of true positives.
 	    		    		double recall = TP / (TP + FN);
 	    		    		macroGMean *= recall;
