@@ -70,6 +70,12 @@ public class FeatureSelection
 			System.out.println("The second argument must be a valid directory location or location where a directory can be created.");
 			System.exit(0);
 		}
+		ProcessDataForGrowing processedTestSet = new ProcessDataForGrowing();
+		if (args.length == 3)
+		{
+			// There is a test dataset provided as well.
+			processedTestSet = new ProcessDataForGrowing(args[2], ctrl);
+		}
 
 		// Optional inputs.
 		int populationSize = 50;  // The size of the population to use for the GA.
@@ -189,9 +195,11 @@ public class FeatureSelection
 
 		ProcessDataForGrowing processedInputData = new ProcessDataForGrowing(inputLocation, ctrl);
 		Map<String, Integer> classCounts = new HashMap<String, Integer>();
+		Map<String, Integer> classCountsTestSet = new HashMap<String, Integer>();
 		for (String s : new HashSet<String>(processedInputData.responseData))
 		{
 			classCounts.put(s, Collections.frequency(processedInputData.responseData, s));
+			classCountsTestSet.put(s, Collections.frequency(processedTestSet.responseData, s));
 		}
 
 		// Setup the generation stats files and write out the class weights being used.
@@ -319,12 +327,15 @@ public class FeatureSelection
 	    	forest.growForest();
 	    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
 
+	    	// Predict the test set (if it was provided)
+	    	Map<String, Map<String, Double>> testConfMatrix = forest.predict(processedTestSet).second;
+
 	    	// Determine the macro G mean.
 	    	double macroGMean = 1.0;
 	    	for (String s : oobConfusionMatrix.keySet())
 	    	{
-	    		double TP = oobConfusionMatrix.get(s).get("TruePositive");
-	    		double FN = classCounts.get(s) - TP;  // The number of false positives is the number of observaitons from the class - the number of true positives.
+	    		double TP = oobConfusionMatrix.get(s).get("TruePositive") + testConfMatrix.get(s).get("TruePositive");
+	    		double FN = (classCounts.get(s) + classCountsTestSet.get(s)) - TP;  // The number of false positives is the number of observations from the class - the number of true positives.
 	    		double recall = TP / (TP + FN);
 	    		macroGMean *= recall;
 		    	classGMeanResults.get(s).add(recall);
@@ -397,13 +408,16 @@ public class FeatureSelection
 	    	    	forest.setWeightsByClass(weights);
 	    	    	forest.growForest();
 	    	    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
-			    	
-			    	// Determine the g mean.
-			    	double macroGMean = 1.0;
-			    	for (String s : oobConfusionMatrix.keySet())
-			    	{
-			    		double TP = oobConfusionMatrix.get(s).get("TruePositive");
-			    		double FN = classCounts.get(s) - TP;  // The number of false positives is the number of observaitons from the class - the number of true positives.
+
+	    	    	// Predict the test set (if it was provided)
+	    	    	Map<String, Map<String, Double>> testConfMatrix = forest.predict(processedTestSet).second;
+
+	    	    	// Determine the macro G mean.
+	    	    	double macroGMean = 1.0;
+	    	    	for (String s : oobConfusionMatrix.keySet())
+	    	    	{
+	    	    		double TP = oobConfusionMatrix.get(s).get("TruePositive") + testConfMatrix.get(s).get("TruePositive");
+	    	    		double FN = (classCounts.get(s) + classCountsTestSet.get(s)) - TP;  // The number of false positives is the number of observations from the class - the number of true positives.
 			    		double recall = TP / (TP + FN);
 			    		macroGMean *= recall;
 				    	classGMeanResults.get(s).add(recall);
@@ -545,12 +559,15 @@ public class FeatureSelection
 	    		    	forest.growForest();
 	    		    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
 
+	    		    	// Predict the test set (if it was provided)
+	    		    	Map<String, Map<String, Double>> testConfMatrix = forest.predict(processedTestSet).second;
+
 	    		    	// Determine the macro G mean.
 	    		    	double macroGMean = 1.0;
 	    		    	for (String s : oobConfusionMatrix.keySet())
 	    		    	{
-	    		    		double TP = oobConfusionMatrix.get(s).get("TruePositive");
-	    		    		double FN = classCounts.get(s) - TP;  // The number of false positives is the number of observaitons from the class - the number of true positives.
+	    		    		double TP = oobConfusionMatrix.get(s).get("TruePositive") + testConfMatrix.get(s).get("TruePositive");
+	    		    		double FN = (classCounts.get(s) + classCountsTestSet.get(s)) - TP;  // The number of false positives is the number of observations from the class - the number of true positives.
 	    		    		double recall = TP / (TP + FN);
 	    		    		macroGMean *= recall;
 	    			    	classGMeanResults.get(s).add(recall);
