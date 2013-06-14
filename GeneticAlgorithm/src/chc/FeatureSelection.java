@@ -313,10 +313,8 @@ public class FeatureSelection
 	    for (List<String> geneSet : population)
 	    {
 	    	// Train and test the feature set.
-	    	List<String> variablesToIgnore = new ArrayList<String>(Arrays.asList(featureNames));
-	    	variablesToIgnore.removeAll(geneSet);
-	    	ctrl.variablesToIgnore = variablesToIgnore;
-	    	Forest forest = new Forest(inputLocation, ctrl, seedForThisConvergence);
+	    	ctrl.variablesToUse = geneSet;
+	    	Forest forest = new Forest(processedInputData, ctrl, seedForThisConvergence);
 	    	forest.setWeightsByClass(weights);
 	    	forest.growForest();
 	    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
@@ -394,10 +392,8 @@ public class FeatureSelection
 		    		population.add(geneSet);
 
 		    		// Train and test the feature set.
-	    	    	List<String> variablesToIgnore = new ArrayList<String>(Arrays.asList(featureNames));
-	    	    	variablesToIgnore.removeAll(geneSet);
-	    	    	ctrl.variablesToIgnore = variablesToIgnore;
-	    	    	Forest forest = new Forest(inputLocation, ctrl, seedForThisConvergence);
+		    		ctrl.variablesToUse = geneSet;
+			    	Forest forest = new Forest(processedInputData, ctrl, seedForThisConvergence);
 	    	    	forest.setWeightsByClass(weights);
 	    	    	forest.growForest();
 	    	    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
@@ -543,10 +539,8 @@ public class FeatureSelection
 	    		    for (List<String> geneSet : population)
 	    		    {
 	    		    	// Train and test the feature set.
-	    		    	List<String> variablesToIgnore = new ArrayList<String>(Arrays.asList(featureNames));
-	    		    	variablesToIgnore.removeAll(geneSet);
-	    		    	ctrl.variablesToIgnore = variablesToIgnore;
-	    		    	Forest forest = new Forest(inputLocation, ctrl, seedForThisConvergence);
+	    		    	ctrl.variablesToUse = geneSet;
+	    		    	Forest forest = new Forest(processedInputData, ctrl, seedForThisConvergence);
 	    		    	forest.setWeightsByClass(weights);
 	    		    	forest.growForest();
 	    		    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
