@@ -54,7 +54,7 @@ public class Controller
 		//===================================================================
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 500;
+		ctrl.numberOfTreesToGrow = 5;
 		ctrl.mtry = 10;
 		ctrl.isStratifiedBootstrapUsed = true;
 		ctrl.isCalculateOOB = false;
@@ -64,8 +64,8 @@ public class Controller
 		weights.put("Positive", 1.0);
 
 		Map<String, Integer> fractionsToSelect = new HashMap<String, Integer>();
-		fractionsToSelect.put("Unlabelled", 500);
-		fractionsToSelect.put("Positive", 500);
+		fractionsToSelect.put("Unlabelled", 5);
+		fractionsToSelect.put("Positive", 5);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -123,9 +123,9 @@ public class Controller
 		try
 		{
 			BufferedReader inputReader = new BufferedReader(new FileReader(inputLocation));
-			headerOne = inputReader.readLine();
-			headerTwo = inputReader.readLine();
-			headerThree = inputReader.readLine();
+			headerOne = inputReader.readLine().trim();
+			headerTwo = inputReader.readLine().trim();
+			headerThree = inputReader.readLine().trim();
 			String line;
 			while ((line = inputReader.readLine()) != null)
 			{
@@ -147,18 +147,39 @@ public class Controller
 
 		try
 		{
-			String culledOutputLocation = outputLocation + "/CulledDataset.txt";
-			FileWriter culledOutputFile = new FileWriter(culledOutputLocation);
-			BufferedWriter culledOutputWriter = new BufferedWriter(culledOutputFile);
-			culledOutputWriter.write(headerOne);
-			culledOutputWriter.write(headerTwo);
-			culledOutputWriter.write(headerThree);
-			for (Integer i : bestIndividual)
+			String keptProteinsOutputLocation = outputLocation + "/ProteinsToKeep.txt";
+			String removedProteinsOutputLocation = outputLocation + "/ProteinsToDiscard.txt";
+			FileWriter keptProteinsOutputFile = new FileWriter(keptProteinsOutputLocation);
+			BufferedWriter keptProteinsOutputWriter = new BufferedWriter(keptProteinsOutputFile);
+			FileWriter removedProteinsOutputFile = new FileWriter(removedProteinsOutputLocation);
+			BufferedWriter removedProteinsOutputWriter = new BufferedWriter(removedProteinsOutputFile);
+			keptProteinsOutputWriter.write(headerOne);
+			keptProteinsOutputWriter.newLine();
+			keptProteinsOutputWriter.write(headerTwo);
+			keptProteinsOutputWriter.newLine();
+			keptProteinsOutputWriter.write(headerThree);
+			keptProteinsOutputWriter.newLine();
+			removedProteinsOutputWriter.write(headerOne);
+			removedProteinsOutputWriter.newLine();
+			removedProteinsOutputWriter.write(headerTwo);
+			removedProteinsOutputWriter.newLine();
+			removedProteinsOutputWriter.write(headerThree);
+			removedProteinsOutputWriter.newLine();
+			for (int i = 0; i < numberOfObservations; i++)
 			{
-				culledOutputWriter.write(indexToLineMap.get(i));
-				culledOutputWriter.newLine();
+				if (bestIndividual.contains(i))
+				{
+					keptProteinsOutputWriter.write(indexToLineMap.get(i));
+					keptProteinsOutputWriter.newLine();
+				}
+				else
+				{
+					removedProteinsOutputWriter.write(indexToLineMap.get(i));
+					removedProteinsOutputWriter.newLine();
+				}
 			}
-			culledOutputWriter.close();
+			keptProteinsOutputWriter.close();
+			removedProteinsOutputWriter.close();
 		}
 		catch (Exception e)
 		{
