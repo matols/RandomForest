@@ -85,24 +85,18 @@ public class WeightTesting
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int repetitions = 30;
+		int repetitions = 100;
 		int cvFoldsToUse = 10;
 		Double[] weightsToUse = {1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9,
-				2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9,
-				4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0, 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.9,
-				6.0, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9, 7.0, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7, 7.8, 7.9,
-				8.0, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 9.0, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9,
-				10.0, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9,
-				11.0, 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9, 12.0, 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 12.7, 12.8, 12.9,
-				13.0, 13.1, 13.2, 13.3, 13.4, 13.5, 13.6, 13.7, 13.8, 13.9, 14.0, 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 14.7, 14.8, 14.9,
-				15.0};
-		Integer[] mtryToUse = {5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110};
+				2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0};
+		Integer[] mtryToUse = {5, 10, 15, 20, 25, 30};
 		Integer[] trainingObsToUse = {};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
 		ctrl.numberOfTreesToGrow = 1000;
 		ctrl.isStratifiedBootstrapUsed = true;
+		ctrl.isCalculateOOB = true;  // Set this to false to use cross-validation, and true to use OOB observations.
 		ctrl.minNodeSize = 1;
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
@@ -168,20 +162,23 @@ public class WeightTesting
 
 		// Generate CV folds.
 		String cvFoldLocation = resultsDir + "/CVFolds-Repetition";
-		for (int i = 0; i < repetitions; i++)
+		if (!ctrl.isCalculateOOB)
 		{
-			String repCvFoldLoc = cvFoldLocation + Integer.toString(i);
-			File cvFoldDir = new File(repCvFoldLoc);
-			if (!cvFoldDir.exists())
+			for (int i = 0; i < repetitions; i++)
 			{
-				boolean isDirCreated = cvFoldDir.mkdirs();
-				if (!isDirCreated)
+				String repCvFoldLoc = cvFoldLocation + Integer.toString(i);
+				File cvFoldDir = new File(repCvFoldLoc);
+				if (!cvFoldDir.exists())
 				{
-					System.out.println("The CV fold directory does not exist, and could not be created.");
-					System.exit(0);
+					boolean isDirCreated = cvFoldDir.mkdirs();
+					if (!isDirCreated)
+					{
+						System.out.println("The CV fold directory does not exist, and could not be created.");
+						System.exit(0);
+					}
 				}
+				CrossValidationFoldGenerationMultiClass.main(inputFile, repCvFoldLoc, cvFoldsToUse);
 			}
-			CrossValidationFoldGenerationMultiClass.main(inputFile, repCvFoldLoc, cvFoldsToUse);
 		}
 
 		// Determine the subset of feature to remove.
@@ -244,11 +241,8 @@ public class WeightTesting
 		}
 
 		// Setup alternate forest growth control objects.
-		TreeGrowthControl subsetCtrl = new TreeGrowthControl();
-		subsetCtrl.isReplacementUsed = ctrl.isReplacementUsed;
-		subsetCtrl.numberOfTreesToGrow = ctrl.numberOfTreesToGrow;
+		TreeGrowthControl subsetCtrl = new TreeGrowthControl(ctrl);
 		subsetCtrl.variablesToIgnore = covarsToRemove;
-		subsetCtrl.isStratifiedBootstrapUsed = true;
 
 		// Write out the parameters used.
 		String parameterLocation = resultsDir + "/Parameters.txt";
@@ -262,8 +256,16 @@ public class WeightTesting
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.write("Repetitions used - " + Integer.toString(repetitions));
 			parameterOutputWriter.newLine();
-			parameterOutputWriter.write("CV folds used - " + Integer.toString(cvFoldsToUse));
-			parameterOutputWriter.newLine();
+			if (ctrl.isCalculateOOB)
+			{
+				parameterOutputWriter.write("CV not used");
+				parameterOutputWriter.newLine();
+			}
+			else
+			{
+				parameterOutputWriter.write("CV used with " + Integer.toString(cvFoldsToUse) + " folds");
+				parameterOutputWriter.newLine();
+			}
 			parameterOutputWriter.write("Weights used - " + Arrays.toString(weightsToUse));
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.write("Mtry used - " + Arrays.toString(mtryToUse));
@@ -277,8 +279,6 @@ public class WeightTesting
 			e.printStackTrace();
 			System.exit(0);
 		}
-
-		Map<String, Map<String, Double>> confusionMatrix;
 
 		for (Integer mtry : mtryToUse)
 		{
@@ -298,26 +298,12 @@ public class WeightTesting
 				System.out.format("\tNow starting weight - %f at %s.\n", posWeight, strDate);
 
 				// Perform the analysis for the entire dataset.
-				confusionMatrix = new HashMap<String, Map<String, Double>>();
-				for (String s : new HashSet<String>(procData.responseData))
-				{
-					confusionMatrix.put(s, new HashMap<String, Double>());
-					confusionMatrix.get(s).put("TruePositive", 0.0);
-					confusionMatrix.get(s).put("FalsePositive", 0.0);
-				}
-				MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, ctrl, cvFoldLocation, inputFile, seeds, repetitions, cvFoldsToUse, fullDatasetResultsLocation, fullDatasetGMeanResultsLocation, 1);
+				MultipleForestRunAndTest.forestTraining(weights, ctrl, cvFoldLocation, inputFile, seeds, repetitions, cvFoldsToUse, fullDatasetResultsLocation, fullDatasetGMeanResultsLocation, 1);
 
 				if (isSubsetUsed)
 				{
 					// Perform the analysis for the chosen subset.
-					confusionMatrix = new HashMap<String, Map<String, Double>>();
-					for (String s : new HashSet<String>(procData.responseData))
-					{
-						confusionMatrix.put(s, new HashMap<String, Double>());
-						confusionMatrix.get(s).put("TruePositive", 0.0);
-						confusionMatrix.get(s).put("FalsePositive", 0.0);
-					}
-					MultipleForestRunAndTest.forestTraining(confusionMatrix, weights, subsetCtrl, cvFoldLocation, inputFile, seeds, repetitions, cvFoldsToUse, subsetResultsLocation, subsetGMeanResultsLocation, 1);
+					MultipleForestRunAndTest.forestTraining(weights, subsetCtrl, cvFoldLocation, inputFile, seeds, repetitions, cvFoldsToUse, subsetResultsLocation, subsetGMeanResultsLocation, 1);
 				}
 			}
 		}

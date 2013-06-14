@@ -28,31 +28,34 @@ public class MultipleForestRunAndTest
 	 * @param mccResultsLocation
 	 * @param analysisBeingRun - 1 for weight and mtry, 2 for sample size, 3 for node size, 4 for up or down sampling and 5 for tree depth.
 	 */
-	static List<Double> forestTraining(Map<String, Map<String, Double>> confusionMatrix,
+	static List<Double> forestTraining(
 			Map<String, Double> weights, TreeGrowthControl ctrl, String cvFoldLocation, String inputFile, List<Long> seeds, int repetitions, int cvFolds,
 			String resultsLocation, String mccResultsLocation, int analysisBeingRun)
 	{
-		return forestTraining(confusionMatrix, weights, ctrl, cvFoldLocation, inputFile, seeds, repetitions, cvFolds, resultsLocation, mccResultsLocation,
+		return forestTraining(weights, ctrl, cvFoldLocation, inputFile, seeds, repetitions, cvFolds, resultsLocation, mccResultsLocation,
 				analysisBeingRun, 0.0);
 	}
 
-	static List<Double> forestTraining(Map<String, Map<String, Double>> confusionMatrix,
-			Map<String, Double> weights, TreeGrowthControl inputCtrl, String cvFoldLocation, String inputFile, List<Long> seeds, int repetitions, int cvFolds,
+	static List<Double> forestTraining(
+			Map<String, Double> weights, TreeGrowthControl ctrl, String cvFoldLocation, String inputFile, List<Long> seeds, int repetitions, int cvFolds,
 			String resultsLocation, String mccResultsLocation, int analysisBeingRun, double callSpecificValue)
 	{
 		List<Double> allRepetitionResults = new ArrayList<Double>();
 		long timeTaken = 0l;
-		TreeGrowthControl ctrl = new TreeGrowthControl(inputCtrl);
-		ctrl.isCalculateOOB = false;
 		ProcessDataForGrowing processedInputFile = new ProcessDataForGrowing(inputFile, ctrl);
+		Map<String, Map<String, Double>> confusionMatrix = new HashMap<String, Map<String, Double>>();
 		Map<String, Integer> countsOfClass = new HashMap<String, Integer>();
 		for (String s : weights.keySet())
 		{
 			countsOfClass.put(s, Collections.frequency(processedInputFile.responseData, s));
+			confusionMatrix.put(s, new HashMap<String, Double>());
+			confusionMatrix.get(s).put("TruePositive", 0.0);
+			confusionMatrix.get(s).put("FalsePositive", 0.0);
 		}
 
 		Date startTime;
 		Date endTime;
+		
 		for (int i = 0; i < repetitions; i++)
 		{
 			// Get the seed for this repetition.
@@ -61,21 +64,39 @@ public class MultipleForestRunAndTest
 
 			startTime = new Date();
 			Forest forest;
-			for (int j = 0; j < cvFolds; j++)
+			if (!ctrl.isCalculateOOB)
 			{
-				String trainingSet = currentCVFoldLocation + "/" + Integer.toString(j) + "/Train.txt";
-				String testingSet = currentCVFoldLocation + "/" + Integer.toString(j) + "/Test.txt";
-				forest = new Forest(trainingSet, ctrl, seed);
+				for (int j = 0; j < cvFolds; j++)
+				{
+					String trainingSet = currentCVFoldLocation + "/" + Integer.toString(j) + "/Train.txt";
+					String testingSet = currentCVFoldLocation + "/" + Integer.toString(j) + "/Test.txt";
+					forest = new Forest(trainingSet, ctrl, seed);
+					forest.setWeightsByClass(weights);
+					forest.growForest();
+					Map<String, Map<String, Double>> confMatrix = forest.predict(new ProcessDataForGrowing(testingSet, new TreeGrowthControl())).second;
+					for (String s : confMatrix.keySet())
+		    		{
+		    			Double oldTruePos = confusionMatrix.get(s).get("TruePositive");
+		    			Double newTruePos = oldTruePos + confMatrix.get(s).get("TruePositive");
+		    			confusionMatrix.get(s).put("TruePositive", newTruePos);
+		    			Double oldFalsePos = confusionMatrix.get(s).get("FalsePositive");
+		    			Double newFalsePos = oldFalsePos + confMatrix.get(s).get("FalsePositive");
+		    			confusionMatrix.get(s).put("FalsePositive", newFalsePos);
+		    		}
+				}
+			}
+			else
+			{
+				forest = new Forest(processedInputFile, ctrl, seed);
 				forest.setWeightsByClass(weights);
 				forest.growForest();
-				Map<String, Map<String, Double>> confMatrix = forest.predict(new ProcessDataForGrowing(testingSet, new TreeGrowthControl())).second;
-				for (String s : confMatrix.keySet())
+				for (String s : forest.oobConfusionMatrix.keySet())
 	    		{
 	    			Double oldTruePos = confusionMatrix.get(s).get("TruePositive");
-	    			Double newTruePos = oldTruePos + confMatrix.get(s).get("TruePositive");
+	    			Double newTruePos = oldTruePos + forest.oobConfusionMatrix.get(s).get("TruePositive");
 	    			confusionMatrix.get(s).put("TruePositive", newTruePos);
 	    			Double oldFalsePos = confusionMatrix.get(s).get("FalsePositive");
-	    			Double newFalsePos = oldFalsePos + confMatrix.get(s).get("FalsePositive");
+	    			Double newFalsePos = oldFalsePos + forest.oobConfusionMatrix.get(s).get("FalsePositive");
 	    			confusionMatrix.get(s).put("FalsePositive", newFalsePos);
 	    		}
 			}
