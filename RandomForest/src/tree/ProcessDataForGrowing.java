@@ -271,7 +271,7 @@ public class ProcessDataForGrowing
 			// Remove records of covariables that were specified as being ignored in the TreeGrowthControl object.
 			for (String s : variableNames)
 			{
-				if (ctrl.variablesToIgnore.contains(s))
+				if (ctrl.variablesToIgnore.contains(s) || !variablesToUse.contains(s))
 				{
 					// If the variable is to be ignored, then remove it from the covariable data record.
 					covariableData.remove(s);

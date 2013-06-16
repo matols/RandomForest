@@ -137,6 +137,7 @@ public class TreeGrowthControl
 		this.sampSize = new HashMap<String, Integer>(ctrl.sampSize);
 		this.isStratifiedBootstrapUsed = ctrl.isStratifiedBootstrapUsed;
 		this.variablesToIgnore = new ArrayList<String>(ctrl.variablesToIgnore);
+		this.variablesToUse = new ArrayList<String>(ctrl.variablesToUse);
 		this.trainingObservations = new ArrayList<Integer>(ctrl.trainingObservations);
 		this.isScaled = ctrl.isScaled;
 		this.isStandardised = ctrl.isStandardised;
@@ -191,6 +192,15 @@ public class TreeGrowthControl
 				}
 			}
 			this.maxTreeDepth = Integer.parseInt(ctrlVariables[10]);
+			this.variablesToUse = new ArrayList<String>();
+			if (!ctrlVariables[3].equals(""))
+			{
+				String[] covToKeep = ctrlVariables[11].split(",");
+				for (String s : covToKeep)
+				{
+					this.variablesToUse.add(s);
+				}
+			}
 		}
 		catch (Exception e)
 		{
@@ -254,7 +264,15 @@ public class TreeGrowthControl
 			{
 				outputWriter.write("-");
 			}
-			outputWriter.write("\t" + Integer.toString(this.minNodeSize));
+			outputWriter.write("\t" + Integer.toString(this.minNodeSize) + "\t");
+			if (!this.variablesToUse.isEmpty())
+			{
+				outputWriter.write(this.variablesToUse.get(0));
+				for (int i = 1; i < this.variablesToUse.size(); i++)
+				{
+					outputWriter.write("," + this.variablesToUse.get(i));
+				}
+			}
 			outputWriter.close();
 		}
 		catch (Exception e)

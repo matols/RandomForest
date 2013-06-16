@@ -329,7 +329,7 @@ public class FeatureSelection
 	    {
 	    	// Train and test the feature set.
 	    	ctrl.variablesToUse = geneSet;
-	    	Forest forest = new Forest(processedInputData, ctrl, seedForThisConvergence);
+	    	Forest forest = new Forest(inputLocation, ctrl, seedForThisConvergence);
 	    	forest.setWeightsByClass(weights);
 	    	forest.growForest();
 	    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
@@ -420,7 +420,7 @@ public class FeatureSelection
 
 		    		// Train and test the feature set.
 		    		ctrl.variablesToUse = geneSet;
-			    	Forest forest = new Forest(processedInputData, ctrl, seedForThisConvergence);
+			    	Forest forest = new Forest(inputLocation, ctrl, seedForThisConvergence);
 	    	    	forest.setWeightsByClass(weights);
 	    	    	forest.growForest();
 	    	    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
@@ -579,7 +579,7 @@ public class FeatureSelection
 	    		    {
 	    		    	// Train and test the feature set.
 	    		    	ctrl.variablesToUse = geneSet;
-	    		    	Forest forest = new Forest(processedInputData, ctrl, seedForThisConvergence);
+	    		    	Forest forest = new Forest(inputLocation, ctrl, seedForThisConvergence);
 	    		    	forest.setWeightsByClass(weights);
 	    		    	forest.growForest();
 	    		    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
