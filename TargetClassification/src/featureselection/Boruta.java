@@ -340,7 +340,7 @@ public class Boruta
 			// Determine whether testing for Confirmed and Rejected variables should be performed on this run.
 			// This is done either if multiple testing is being used and the number of runs has reached the level for significance
 			// or if multiple testing is not being used and the number of runs has reached the maximum specified.
-			if ((isMultipleTestingUsed && currentRun >= numberOfRunsForSignificance) || currentRun + 1 == maxRuns)
+			if ((isMultipleTestingUsed && currentRun >= numberOfRunsForSignificance) || currentRun == maxRuns)
 			{
 				decisionsMadeThisRound = doTest(hits, currentRun, confidenceLevel, true);  // Allow variables to be Confirmed.
 				for (String s : decisionsMadeThisRound.keySet())
