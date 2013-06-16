@@ -86,6 +86,7 @@ public class SplitDataset
 			e.printStackTrace();
 			System.exit(0);
 		}
+		featureTypes = featureTypes.replace("r", "x");  // x out the old response class.
 
 		// Process the input file.
 		ProcessDataForGrowing processedDataset = new ProcessDataForGrowing(inputFile, new TreeGrowthControl());
@@ -126,25 +127,41 @@ public class SplitDataset
 			// Write out the dataset for each positive fraction.
 			for (double posFrac : fractionsOfPositives)
 			{
+				// Create the directory for the positive fraction.
+				String posFracLocation = newOutputLocation + "/PositiveFraction-" + Double.toString(posFrac);
+				File posFracDir = new File(posFracLocation);
+				if (!posFracDir.exists())
+				{
+					boolean isDirCreated = posFracDir.mkdirs();
+					if (!isDirCreated)
+					{
+						System.out.format("The class output directory (%s) does not exist, and could not be created.\n", posFracLocation);
+						System.exit(0);
+					}
+				}
+
 				int numberOfPosObsToUse = (int) Math.floor(posFrac * numberOfPositiveObservations);
 				List<Integer> positiveObsToUse = positiveObservationIndices.subList(0, numberOfPosObsToUse);
-				String positiveFractionOutputLoc = newOutputLocation + "/PositiveFraction-" + Double.toString(posFrac) + ".txt";
+				String positiveFractionOutputLoc = posFracLocation + "/Dataset.txt";
 				try
 				{
 					FileWriter posFracFile = new FileWriter(positiveFractionOutputLoc);
 					BufferedWriter posFracWriter = new BufferedWriter(posFracFile);
 					posFracWriter.write(featureNames);
+					posFracWriter.write("\tNewClass");
 					posFracWriter.newLine();
 					posFracWriter.write(featureTypes);
+					posFracWriter.write("\tr");
 					posFracWriter.newLine();
 					posFracWriter.write(featureCategories);
+					posFracWriter.write("\t");
 					posFracWriter.newLine();
 					for (int i = 0; i < processedDataset.numberObservations; i++)
 					{
 						String observationValues = indexToObservationMapping.get(i);
 						String[] splitObservation = observationValues.split("\t");
 						String observationOutput = "";
-						for (int j = 0; j < splitObservation.length - 1; j++)
+						for (int j = 0; j < splitObservation.length; j++)
 						{
 							observationOutput += splitObservation[j] + "\t";
 						}
