@@ -17,12 +17,12 @@ import algorithms.RFPULearning;
 public class EvaluateRF
 {
 
-	public void runRFPULearning(String originalDatasetLoc, String maskedDatasetLoc, String outputFile)
+	public void runRFPULearning(String[] args)
 	{
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		double[] positiveThreshold = new double[]{0.5, 0.75};
+		double[] positiveThreshold = new double[]{0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9};
 		Map<String, Double> weights = new HashMap<String, Double>();
 		int numberOfTrees = 500;
 		int numberOfForests = 10;
@@ -34,6 +34,21 @@ public class EvaluateRF
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
+
+		// Parse input.
+		String originalDatasetLoc = args[0];
+		String maskedDatasetLoc = args[1];
+		String outputLocation = args[2];
+		File outputDir = new File(outputLocation);
+		if (!outputDir.exists())
+		{
+			boolean isDirCreated = outputDir.mkdirs();
+			if (!isDirCreated)
+			{
+				System.out.format("The output directory (%s) does not exist, and could not be created.\n", outputLocation);
+				System.exit(0);
+			}
+		}
 
 		ProcessDataForGrowing processedOriginalDataset = new ProcessDataForGrowing(originalDatasetLoc, ctrl);
 		List<Integer> originalPositiveIndices = new ArrayList<Integer>();
@@ -98,19 +113,18 @@ public class EvaluateRF
 				}
 			}
 
-			File outputLDir = new File(outputFile);
 			try
 			{
 				FileWriter resultsFile;
 				BufferedWriter resultsWriter;
-				if (outputLDir.exists())
+				if (outputDir.exists())
 				{
-					resultsFile = new FileWriter(outputFile, true);
+					resultsFile = new FileWriter(outputLocation, true);
 					resultsWriter = new BufferedWriter(resultsFile);
 				}
 				else
 				{
-					resultsFile = new FileWriter(outputFile);
+					resultsFile = new FileWriter(outputLocation);
 					resultsWriter = new BufferedWriter(resultsFile);
 					resultsWriter.write("PositiveFraction\tPositivesInEntireDataset\tNegativesInEntireDataset\tPositiveThreshold\tKnownPositives\tTruePositives\tFalsePositives\tTrueNegatives\tFalseNegatives");
 					resultsWriter.newLine();

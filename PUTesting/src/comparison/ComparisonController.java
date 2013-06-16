@@ -21,10 +21,10 @@ public class ComparisonController
 		// Parse input.
 		String inputFile = args[0];
 		String outputLocation = args[1];
-		File outputLDir = new File(outputLocation);
-		if (!outputLDir.exists())
+		File outputDir = new File(outputLocation);
+		if (!outputDir.exists())
 		{
-			boolean isDirCreated = outputLDir.mkdirs();
+			boolean isDirCreated = outputDir.mkdirs();
 			if (!isDirCreated)
 			{
 				System.out.format("The output directory (%s) does not exist, and could not be created.\n", outputLocation);
