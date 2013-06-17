@@ -24,7 +24,7 @@ public class SplitDataset
 	/**
 	 * @param args
 	 */
-	public Map<String, String> main(String inputFile, String outputLocation, double[] fractionsOfPositives)
+	public Map<String, String> main(String inputFile, String outputLocation, double[] fractionsOfPositives, int samplesToGenerate)
 	{
 		// Ensure that the output location exists.
 		File outputDir = new File(outputLocation);
@@ -122,12 +122,10 @@ public class SplitDataset
 				}
 			}
 			int numberOfPositiveObservations = positiveObservationIndices.size();
-			Collections.shuffle(positiveObservationIndices);
 
-			// Write out the dataset for each positive fraction.
+			// Create the directory for the positive fraction.
 			for (double posFrac : fractionsOfPositives)
 			{
-				// Create the directory for the positive fraction.
 				String posFracLocation = newOutputLocation + "/PositiveFraction-" + Double.toString(posFrac);
 				File posFracDir = new File(posFracLocation);
 				if (!posFracDir.exists())
@@ -139,49 +137,60 @@ public class SplitDataset
 						System.exit(0);
 					}
 				}
+			}
 
-				int numberOfPosObsToUse = (int) Math.floor(posFrac * numberOfPositiveObservations);
-				List<Integer> positiveObsToUse = positiveObservationIndices.subList(0, numberOfPosObsToUse);
-				String positiveFractionOutputLoc = posFracLocation + "/Dataset.txt";
-				try
+			for (int sampNum = 0; sampNum < samplesToGenerate; sampNum++)
+			{
+				Collections.shuffle(positiveObservationIndices);
+	
+				// Write out the dataset for each positive fraction.
+				for (double posFrac : fractionsOfPositives)
 				{
-					FileWriter posFracFile = new FileWriter(positiveFractionOutputLoc);
-					BufferedWriter posFracWriter = new BufferedWriter(posFracFile);
-					posFracWriter.write(featureNames);
-					posFracWriter.write("\tNewClass");
-					posFracWriter.newLine();
-					posFracWriter.write(featureTypes);
-					posFracWriter.write("\tr");
-					posFracWriter.newLine();
-					posFracWriter.write(featureCategories);
-					posFracWriter.write("\t");
-					posFracWriter.newLine();
-					for (int i = 0; i < processedDataset.numberObservations; i++)
+					String posFracLocation = newOutputLocation + "/PositiveFraction-" + Double.toString(posFrac);
+	
+					int numberOfPosObsToUse = (int) Math.floor(posFrac * numberOfPositiveObservations);
+					List<Integer> positiveObsToUse = positiveObservationIndices.subList(0, numberOfPosObsToUse);
+					String positiveFractionOutputLoc = posFracLocation + "/Dataset" + Integer.toString(sampNum) + ".txt";
+					try
 					{
-						String observationValues = indexToObservationMapping.get(i);
-						String[] splitObservation = observationValues.split("\t");
-						String observationOutput = "";
-						for (int j = 0; j < splitObservation.length; j++)
-						{
-							observationOutput += splitObservation[j] + "\t";
-						}
-						if (positiveObsToUse.contains(i))
-						{
-							observationOutput += "Positive";
-						}
-						else
-						{
-							observationOutput += "Unlabelled";
-						}
-						posFracWriter.write(observationOutput);
+						FileWriter posFracFile = new FileWriter(positiveFractionOutputLoc);
+						BufferedWriter posFracWriter = new BufferedWriter(posFracFile);
+						posFracWriter.write(featureNames);
+						posFracWriter.write("\tNewClass");
 						posFracWriter.newLine();
+						posFracWriter.write(featureTypes);
+						posFracWriter.write("\tr");
+						posFracWriter.newLine();
+						posFracWriter.write(featureCategories);
+						posFracWriter.write("\t");
+						posFracWriter.newLine();
+						for (int i = 0; i < processedDataset.numberObservations; i++)
+						{
+							String observationValues = indexToObservationMapping.get(i);
+							String[] splitObservation = observationValues.split("\t");
+							String observationOutput = "";
+							for (int j = 0; j < splitObservation.length; j++)
+							{
+								observationOutput += splitObservation[j] + "\t";
+							}
+							if (positiveObsToUse.contains(i))
+							{
+								observationOutput += "Positive";
+							}
+							else
+							{
+								observationOutput += "Unlabelled";
+							}
+							posFracWriter.write(observationOutput);
+							posFracWriter.newLine();
+						}
+						posFracWriter.close();
 					}
-					posFracWriter.close();
-				}
-				catch (Exception e)
-				{
-					e.printStackTrace();
-					System.exit(0);
+					catch (Exception e)
+					{
+						e.printStackTrace();
+						System.exit(0);
+					}
 				}
 			}
 		}

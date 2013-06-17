@@ -14,6 +14,7 @@ public class ComparisonController
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
 		double[] fractionOfPositiveObservationsToKeep = new double[]{0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
+		int samplesToGenerate = 100;
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -34,7 +35,7 @@ public class ComparisonController
 
 		// Split the input file so that each class is treated as positive (and all others as negative)
 		SplitDataset datasetSplitter = new SplitDataset();
-		datasetSplitter.main(inputFile, outputLocation, fractionOfPositiveObservationsToKeep);
+		datasetSplitter.main(inputFile, outputLocation, fractionOfPositiveObservationsToKeep, samplesToGenerate);
 	}
 
 }
