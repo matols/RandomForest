@@ -23,6 +23,13 @@ public class RFPULearning
 	public ImmutableTwoValues<Set<Integer>, Map<Integer, Double>> main(String dataForLearning, int numberOfTrees,
 			int numberOfForests, int mtry, String[] variablesToIgnore, Map<String, Double> weights, double fractionPositiveNeeded)
 	{
+		return main(dataForLearning, numberOfTrees, numberOfForests, mtry, variablesToIgnore, weights, fractionPositiveNeeded, 0L);
+	}
+
+	public ImmutableTwoValues<Set<Integer>, Map<Integer, Double>> main(String dataForLearning, int numberOfTrees,
+			int numberOfForests, int mtry, String[] variablesToIgnore, Map<String, Double> weights, double fractionPositiveNeeded,
+			long startingSeed)
+	{
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================

@@ -25,10 +25,10 @@ public class EvaluateRF
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		double[] positiveThreshold = new double[]{0.5, 0.75, 1.0};
+		double[] positiveThreshold = new double[]{0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
 
-		int[] numberOfTrees = new int[]{10, 20};
-		int numberOfForests = 2;
+		int[] numberOfTrees = new int[]{100, 250, 500, 750, 1000};
+		int numberOfForests = 10;
 		int mtry = 6;
 		String[] variablesToIgnore = new String[]{};
 
