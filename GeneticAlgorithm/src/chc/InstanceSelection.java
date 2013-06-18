@@ -14,11 +14,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 
 import tree.Forest;
 import tree.IndexedDoubleData;
@@ -40,7 +38,7 @@ public class InstanceSelection
 	/**
 	 * A list of the individuals that have the best fitness found.
 	 */
-	public List<List<Integer>> bestMembersFound = new ArrayList<List<Integer>>();
+	public List<Integer> bestPopulationMember = new ArrayList<Integer>();
 
 
 	public InstanceSelection(String[] args, TreeGrowthControl inputCtrl, Map<String, Double> weights, Map<String, Integer> fractionsToSelect)
@@ -296,6 +294,10 @@ public class InstanceSelection
 		Date gaStartTime = new Date();
 		Random observationSelector = new Random();
 
+		// Initialise the random number generator.
+		Random random = new Random();
+		long seedForThisConvergence = random.nextLong();
+
 		// Initialise the stopping criteria for the GA.
 	    int currentGeneration = 1;
 	    int numberEvaluations = 0;
@@ -344,7 +346,7 @@ public class InstanceSelection
 	    {
 	    	// Train and test the subsasmples.
     		ctrl.trainingObservations = geneSet;
-	    	Forest forest = new Forest(processedInputFile, ctrl);
+	    	Forest forest = new Forest(datasetLocation, ctrl, seedForThisConvergence);
 	    	forest.setWeightsByClass(weights);
 	    	forest.growForest();
 	    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
@@ -438,7 +440,7 @@ public class InstanceSelection
 		    		population.add(geneSet);
 		    		// Train and test the subsamples.
 		    		ctrl.trainingObservations = geneSet;
-		    		Forest forest = new Forest(processedInputFile, ctrl);
+		    		Forest forest = new Forest(datasetLocation, ctrl, seedForThisConvergence);
 			    	forest.setWeightsByClass(weights);
     		    	forest.growForest();
 			    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
@@ -527,18 +529,7 @@ public class InstanceSelection
 	    		// If the fitness has improved during this generation. The fitness of the most fit individual can not get worse, so if it
 	    		// is not the same then it must have improved.
 	    		this.currentBestFitness = fitness.get(0);
-	    		this.bestMembersFound = new ArrayList<List<Integer>>();  // Clear out the list of the best individuals found as there is a new top fitness.
-	    	}
-	    	// Add all the members with the best fitness to the set of best individuals found.
-	    	for (int i = 0; i < populationSize; i++)
-	    	{
-	    		if ((fitness.get(i) == this.currentBestFitness) && (!this.bestMembersFound.contains(population.get(i))))
-	    		{
-	    			// If the individual in position i has the best fitness of any individual found, and
-	    			// the individual is not already recorded as having the best fitness found (i.e. a new individual has been found
-	    			// that has the same fitness as the most fit individual already found).
-	    			this.bestMembersFound.add(population.get(i));
-	    		}
+	    		this.bestPopulationMember = new ArrayList<Integer>(population.get(0));  // Add the new fittest individual.
 	    	}
 
 		    if (populationLastChanged == maxStagnant)
@@ -570,9 +561,12 @@ public class InstanceSelection
 	    			// Record the fact that a convergence has occurred.
 	    			convergencesOccurred++;
 
+	    			// Generate the new growth seed.
+	    			seedForThisConvergence = random.nextLong();
+
 	    			threshold = initialSetSize / 4;
-	    			// Generate the new population by copying over the best individuals found so far, and then randomly instantiating the rest of the population.
-	    			population = new ArrayList<List<Integer>>(this.bestMembersFound);
+	    			// Generate the new population by randomly instantiating the population.
+	    			population = new ArrayList<List<Integer>>();
 	    			for (int i = 0; i < populationSize; i++)
 	    			{
 	    				List<Integer> newPopMember = new ArrayList<Integer>();
@@ -603,7 +597,7 @@ public class InstanceSelection
 	    		    {
 	    		    	// Train and test the subsamples.
 	    	    		ctrl.trainingObservations = geneSet;
-	    	    		Forest forest = new Forest(processedInputFile, ctrl);
+	    	    		Forest forest = new Forest(datasetLocation, ctrl, seedForThisConvergence);
 	    		    	forest.setWeightsByClass(weights);
 	    		    	forest.growForest();
 	    		    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
@@ -670,8 +664,7 @@ public class InstanceSelection
     	writeOutStatus(fitnessDirectoryLocation, fitness, populationDirectoryLocation, population, currentGeneration,
     			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classGMeanResults, classGMeanOutputLocations);
 
-	    // Write out the best member(s) of the population.
-	    Set<List<Integer>> recordedIndividuals = new HashSet<List<Integer>>();
+	    // Write out the best member of the population.
 	    try
 		{
 	    	String bestIndivOutputLocation = outputLocation + "/BestIndividuals.txt";
@@ -680,16 +673,7 @@ public class InstanceSelection
 			bestIndivOutputWriter.write("Fitness\t");
 			bestIndivOutputWriter.write(Double.toString(this.currentBestFitness));
 			bestIndivOutputWriter.newLine();
-			for (int i = 0; i < this.bestMembersFound.size(); i++)
-			{
-				List<Integer> currentMember = this.bestMembersFound.get(i);
-				if (!recordedIndividuals.contains(currentMember))
-				{
-					recordedIndividuals.add(currentMember);
-					bestIndivOutputWriter.write(currentMember.toString());
-				    bestIndivOutputWriter.newLine();
-				}
-			}
+			bestIndivOutputWriter.write(this.bestPopulationMember.toString());
 		    bestIndivOutputWriter.close();
 		}
 		catch (Exception e)
