@@ -25,9 +25,9 @@ public class EvaluateRF
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		double[] positiveThreshold = new double[]{0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0};
+		double[] positiveThreshold = new double[]{0.5, 0.75, 1.0};
 
-		int numberOfTrees = 10;
+		int[] numberOfTrees = new int[]{10, 20};
 		int numberOfForests = 2;
 		int mtry = 6;
 		String[] variablesToIgnore = new String[]{};
@@ -49,16 +49,7 @@ public class EvaluateRF
 		String inputDirLoc = args[1];
 		File inputDirectory = new File(inputDirLoc);
 		String outputLocation = args[2];
-		File outputDir = new File(outputLocation);
-		if (!outputDir.exists())
-		{
-			boolean isDirCreated = outputDir.mkdirs();
-			if (!isDirCreated)
-			{
-				System.out.format("The output directory (%s) does not exist, and could not be created.\n", outputLocation);
-				System.exit(0);
-			}
-		}
+		File outputFile = new File(outputLocation);
 		double positiveFraction = Double.parseDouble(args[3]);
 
 		// Determine the datasets in the input directory.
@@ -94,98 +85,105 @@ public class EvaluateRF
 		RFPULearning RFULearner = new RFPULearning();
 		for (double d : positiveThreshold)
 		{
-			String posThresholdOutputLocation = outputLocation + "/PositiveThreshold-" + Double.toString(d) + ".txt";
-			File posThresholdFile = new File(posThresholdOutputLocation);
-
-			double positivesFoundAsPositives = 0.0;
-			double negativesFoundAsPositives = 0.0;
-			double negativesFoundAsNegatives = 0.0;
-			double positivesFoundAsNegatives = 0.0;
-
 			DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 		    Date startTime = new Date();
 		    String strDate = sdfDate.format(startTime);
 			System.out.format("Now starting positive threshold - %f at %s.\n", d, strDate);
 
-			for (String s : datasetsToTest)
+			for (int trees : numberOfTrees)
 			{
-				String subsampleDatasetLoc = inputDirLoc + "/" + s;
+				sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			    startTime = new Date();
+			    strDate = sdfDate.format(startTime);
+			    System.out.format("\tNow starting number of trees - %d at %s.\n", trees, strDate);
 
-				// Determine the positive set.
-				Set<Integer> positiveSet = RFULearner.main(subsampleDatasetLoc, numberOfTrees, numberOfForests, mtry, variablesToIgnore, weights, d).first;
-				for (int i = 0; i < processedOriginalDataset.numberObservations; i++)
+				double positivesFoundAsPositives = 0.0;
+				double negativesFoundAsPositives = 0.0;
+				double negativesFoundAsNegatives = 0.0;
+				double positivesFoundAsNegatives = 0.0;
+
+				for (String s : datasetsToTest)
 				{
-					if (originalPositiveIndices.contains(i))
+					String subsampleDatasetLoc = inputDirLoc + "/" + s;
+	
+					// Determine the positive set.
+					Set<Integer> positiveSet = RFULearner.main(subsampleDatasetLoc, trees, numberOfForests, mtry, variablesToIgnore, weights, d).first;
+					for (int i = 0; i < processedOriginalDataset.numberObservations; i++)
 					{
-						if (positiveSet.contains(i))
+						if (originalPositiveIndices.contains(i))
 						{
-							positivesFoundAsPositives++;
+							if (positiveSet.contains(i))
+							{
+								positivesFoundAsPositives++;
+							}
+							else
+							{
+								positivesFoundAsNegatives++;
+							}
 						}
 						else
 						{
-							positivesFoundAsNegatives++;
+							if (positiveSet.contains(i))
+							{
+								negativesFoundAsPositives++;
+							}
+							else
+							{
+								negativesFoundAsNegatives++;
+							}
 						}
+					}
+				}
+
+				positivesFoundAsPositives /= datasetsToTest.length;
+				negativesFoundAsPositives /= datasetsToTest.length;
+				negativesFoundAsNegatives /= datasetsToTest.length;
+				positivesFoundAsNegatives /= datasetsToTest.length;
+	
+				try
+				{
+					FileWriter resultsFile;
+					BufferedWriter resultsWriter;
+					if (outputFile.exists())
+					{
+						resultsFile = new FileWriter(outputLocation, true);
+						resultsWriter = new BufferedWriter(resultsFile);
 					}
 					else
 					{
-						if (positiveSet.contains(i))
-						{
-							negativesFoundAsPositives++;
-						}
-						else
-						{
-							negativesFoundAsNegatives++;
-						}
+						resultsFile = new FileWriter(outputLocation);
+						resultsWriter = new BufferedWriter(resultsFile);
+						resultsWriter.write("PositiveFraction\tPositivesInEntireDataset\tNegativesInEntireDataset\tPositiveThreshold\tForestSize\tKnownPositives\tAveragePositivesFoundAsPositives\tAverageNegativesFoundAsPositives\tAverageNegativesFoundAsNegatives\tAveragePositivesFoundAsNegatives");
+						resultsWriter.newLine();
 					}
-				}
-			}
-
-			positivesFoundAsPositives /= datasetsToTest.length;
-			negativesFoundAsPositives /= datasetsToTest.length;
-			negativesFoundAsNegatives /= datasetsToTest.length;
-			positivesFoundAsNegatives /= datasetsToTest.length;
-
-			try
-			{
-				FileWriter resultsFile;
-				BufferedWriter resultsWriter;
-				if (posThresholdFile.exists())
-				{
-					resultsFile = new FileWriter(posThresholdOutputLocation, true);
-					resultsWriter = new BufferedWriter(resultsFile);
-				}
-				else
-				{
-					resultsFile = new FileWriter(posThresholdOutputLocation);
-					resultsWriter = new BufferedWriter(resultsFile);
-					resultsWriter.write("PositiveFraction\tPositivesInEntireDataset\tNegativesInEntireDataset\tPositiveThreshold\tKnownPositives\tAveragePositivesFoundAsPositives\tAverageNegativesFoundAsPositives\tAverageNegativesFoundAsNegatives\tAveragePositivesFoundAsNegatives");
+	
+					resultsWriter.write(Double.toString(positiveFraction));
+					resultsWriter.write("\t");
+					resultsWriter.write(Integer.toString(originalPositiveIndices.size()));
+					resultsWriter.write("\t");
+					resultsWriter.write(Integer.toString(originalNonPositiveIndices.size()));
+					resultsWriter.write("\t");
+					resultsWriter.write(Double.toString(d));
+					resultsWriter.write("\t");
+					resultsWriter.write(Integer.toString(trees));
+					resultsWriter.write("\t");
+					resultsWriter.write(Integer.toString(subsamplePositives));
+					resultsWriter.write("\t");
+					resultsWriter.write(Double.toString(positivesFoundAsPositives));
+					resultsWriter.write("\t");
+					resultsWriter.write(Double.toString(negativesFoundAsPositives));
+					resultsWriter.write("\t");
+					resultsWriter.write(Double.toString(negativesFoundAsNegatives));
+					resultsWriter.write("\t");
+					resultsWriter.write(Double.toString(positivesFoundAsNegatives));
 					resultsWriter.newLine();
+					resultsWriter.close();
 				}
-
-				resultsWriter.write(Double.toString(positiveFraction));
-				resultsWriter.write("\t");
-				resultsWriter.write(Integer.toString(originalPositiveIndices.size()));
-				resultsWriter.write("\t");
-				resultsWriter.write(Integer.toString(originalNonPositiveIndices.size()));
-				resultsWriter.write("\t");
-				resultsWriter.write(Double.toString(d));
-				resultsWriter.write("\t");
-				resultsWriter.write(Integer.toString(subsamplePositives));
-				resultsWriter.write("\t");
-				resultsWriter.write(Double.toString(positivesFoundAsPositives));
-				resultsWriter.write("\t");
-				resultsWriter.write(Double.toString(negativesFoundAsPositives));
-				resultsWriter.write("\t");
-				resultsWriter.write(Double.toString(negativesFoundAsNegatives));
-				resultsWriter.write("\t");
-				resultsWriter.write(Double.toString(positivesFoundAsNegatives));
-				resultsWriter.newLine();
-				resultsWriter.close();
-			}
-			catch (Exception e)
-			{
-				e.printStackTrace();
-				System.exit(0);
+				catch (Exception e)
+				{
+					e.printStackTrace();
+					System.exit(0);
+				}
 			}
 		}
 	}

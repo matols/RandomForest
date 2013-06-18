@@ -46,12 +46,12 @@ public class WeightAndMtryTesting
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		Double[] weightsToUse = {8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0};
+		Double[] weightsToUse = {55.0, 60.0, 65.0, 70.0, 75.0, 80.0, 85.0, 90.0, 95.0, 100.0, 105.0, 110.0, 115.0, 120.0, 125.0, 130.0, 135.0, 140.0, 145.0, 150.0};
 		Integer[] mtryToUse = {6};
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 1000;
+		ctrl.numberOfTreesToGrow = 100;
 		ctrl.isStratifiedBootstrapUsed = true;
 		ctrl.isCalculateOOB = true;
 		ctrl.minNodeSize = 1;
