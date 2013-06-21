@@ -7,11 +7,11 @@ def main(args):
 	"""
 	"""
 
-	entireDataset = args[0]
-	fastaFile = args[1]
-	blastSimilarities = args[2]
-	leafLocation = args[3]
-	outputDirectory = args[4]
+	entireDataset = args[0]  # The dataset containing all redundant and non-redundant proteins
+	fastaFile = args[1]  # The fasta format file of the proteins in the entire dataset.
+	blastSimilarities = args[2]  # A file containing the similarities between the proteins in the entire dataset.
+	leafLocation = args[3]  # The location of the script to run the Leaf algorithm.
+	outputDirectory = args[4]  # The location of the directory where the results should be written.
 	if os.path.exists(outputDirectory):
 		shutil.rmtree(outputDirectory)
 	os.mkdir(outputDirectory)
