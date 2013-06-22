@@ -5,6 +5,14 @@ import sys
 
 def main(args):
 	"""
+	Creates 4 datasets and a list of protien accessions.
+	The 4 datasets are:
+		A dataset of the non-redundant known positives (those that are positive from DrugBank, TTD, UniProt) and non-redundant unlabelled proteins that are
+			not too similar to a known positive.
+		A dataset of proteins removed as redudant when calculating the non-redundant known positives and non-redundat unlabelleds.
+		A dataset of the non-redudant positives, where the positives are all known positives and unlabelleds too similar to a known positive, and the
+			non-redundat unlabelleds.
+		A dataset of all the proteins removed as redundant when calculating the non-redunadnt all positives and non-redunadnt unlabelleds.
 	"""
 
 	entireDataset = args[0]  # The dataset containing all redundant and non-redundant proteins
@@ -63,101 +71,40 @@ def main(args):
 	readBlast.close()
 	allPositives -= set([''])
 
-	# Create the fasta file of positive proteins.
-	positiveFastaFile = outputDirectory + '/PositiveFasta.fasta'
-	writeFasta = open(positiveFastaFile, 'w')
-	for i in fastaDict:
-		if i in allPositives:
-			writeFasta.write(fastaDict[i])
-	writeFasta.close()
+	# Determine the non-redundant proteins from the set of known poitive proteins
+	knownPositiveFastaFile = outputDirectory + '/KnownPositiveFasta.fasta'
+	knownPositiveDirectory = outputDirectory + '/KnownPositives'
+	nonredundantKnownPositives = nonredundantPositives = generate_nonredundant_proteins(fastaDict, knownPositiveProteinAccessions, positiveFastaFile, positiveDirectory)
 
-	# Run Leaf on the positive proteins.
-	print('\nRunning Leaf on the positive proteins.')
-	positiveDirectory = outputDirectory + '/Positives'
-	leafArgs = []
-	leafArgs.append('python')
-	leafArgs.append(leafLocation)
-	leafArgs.append(positiveFastaFile)
-	leafArgs.append('-v')
-	leafArgs.append('-o')
-	leafArgs.append(positiveDirectory)
-	subprocess.call(leafArgs)
+	# Determine the non-redundant proteins from the set of all poitive proteins.
+	positiveFastaFile = outputDirectory + '/AllPositiveFasta.fasta'
+	positiveDirectory = outputDirectory + '/AllPositives'
+	nonredundantPositives = generate_nonredundant_proteins(fastaDict, allPositives, positiveFastaFile, positiveDirectory)
 
-	# Calculate the non-redundant positives.
-	keptPositives = positiveDirectory + '/KeptList.txt'
-	nonredundantPositives = []
-	readKept = open(keptPositives, 'r')
-	readKept.readline()
-	for line in readKept:
-		nonredundantPositives.append((line.strip()).split('\t')[0])
-	readKept.close()
-
-	# Create the fasta file of unlabelled proteins.
+	# Determine the non-redundant unlabelled proteins.
 	unlabelledFastaFile = outputDirectory + '/UnlabelledFasta.fasta'
-	writeFasta = open(unlabelledFastaFile, 'w')
-	for i in fastaDict:
-		if i not in allPositives:
-			writeFasta.write(fastaDict[i])
-	writeFasta.close()
-
-	# Run Leaf on the unlabelled proteins.
-	print('\nRunning Leaf on the unlabelled proteins.')
 	unlabelledDirectory = outputDirectory + '/Unlabelleds'
-	leafArgs = []
-	leafArgs.append('python')
-	leafArgs.append(leafLocation)
-	leafArgs.append(unlabelledFastaFile)
-	leafArgs.append('-v')
-	leafArgs.append('-o')
-	leafArgs.append(unlabelledDirectory)
-	subprocess.call(leafArgs)
+	nonredundantUnlabelleds = generate_nonredundant_proteins(fastaDict, [i for i in fastaDict if i not in allPositives], unlabelledFastaFile, unlabelledDirectory)
 
-	# Calculate the non-redundant unlabelleds.
-	keptUnlabelleds = unlabelledDirectory + '/KeptList.txt'
-	nonredundantUnlabelleds = []
-	readKept = open(keptUnlabelleds, 'r')
-	readKept.readline()
-	for line in readKept:
-		nonredundantUnlabelleds.append((line.strip()).split('\t')[0])
-	readKept.close()
+	# Create non-redundant dataset when using only the known positives.
+	nonredundantDataset = outputDirectory + '/NonRedundantProteins-KnownPositives.txt'
+	generate_dataset(datasetDict, nonredundantKnownPositives, nonredundantUnlabelleds, variableNames, variableTypes, varaiableCats, nonredundantDataset)
 
-	# Create non-redundant dataset.
-	nonredundantDataset = outputDirectory + '/NonRedundantProteins.txt'
-	writeDataset = open(nonredundantDataset, 'w')
-	writeDataset.write(variableNames)
-	writeDataset.write(variableTypes)
-	writeDataset.write(varaiableCats)
-	for i in nonredundantPositives:
-		dataRow = datasetDict[i]
-		dataRow[-1] = 'Positive'
-		writeDataset.write('\t'.join(dataRow))
-		writeDataset.write('\n')
-	for i in nonredundantUnlabelleds:
-		dataRow = datasetDict[i]
-		dataRow[-1] = 'Unlabelled'
-		writeDataset.write('\t'.join(dataRow))
-		writeDataset.write('\n')
-	writeDataset.close()
+	# Create the redundant dataset when using only the known positives.
+	redundantPositives = set(knownPositiveProteinAccessions) - set(nonredundantKnownPositives)
+	redundantUnlabelleds = fastaDict.keys() - set(knownPositiveProteinAccessions) - set(nonredundantUnlabelleds)
+	redundantDataset = outputDirectory + '/RedundantProteins-KnownPositives.txt'
+	generate_dataset(datasetDict, redundantPositives, redundantUnlabelleds, variableNames, variableTypes, varaiableCats, redundantDataset)
 
-	# Create the redundant dataset.
+	# Create non-redundant dataset when using all the positives.
+	nonredundantDataset = outputDirectory + '/NonRedundantProteins-AllPositives.txt'
+	generate_dataset(datasetDict, nonredundantPositives, nonredundantUnlabelleds, variableNames, variableTypes, varaiableCats, nonredundantDataset)
+
+	# Create the redundant dataset when using all the positives.
 	redundantPositives = set(allPositives) - set(nonredundantPositives)
 	redundantUnlabelleds = fastaDict.keys() - set(allPositives) - set(nonredundantUnlabelleds)
-	redundantDataset = outputDirectory + '/RedundantProteins.txt'
-	writeDataset = open(redundantDataset, 'w')
-	writeDataset.write(variableNames)
-	writeDataset.write(variableTypes)
-	writeDataset.write(varaiableCats)
-	for i in redundantPositives:
-		dataRow = datasetDict[i]
-		dataRow[-1] = 'Positive'
-		writeDataset.write('\t'.join(dataRow))
-		writeDataset.write('\n')
-	for i in redundantUnlabelleds:
-		dataRow = datasetDict[i]
-		dataRow[-1] = 'Unlabelled'
-		writeDataset.write('\t'.join(dataRow))
-		writeDataset.write('\n')
-	writeDataset.close()
+	redundantDataset = outputDirectory + '/RedundantProteins-AllPositives.txt'
+	generate_dataset(datasetDict, redundantPositives, redundantUnlabelleds, variableNames, variableTypes, varaiableCats, redundantDataset)
 
 	# Record the unlabelled proteins switched to positives.
 	unlabelledSwitchedToPositive = set(allPositives) - set(knownPositiveProteinAccessions)
@@ -166,6 +113,52 @@ def main(args):
 	for i in unlabelledSwitchedToPositive:
 		writeLikely.write(i + '\n')
 	writeLikely.close()
+
+	def generate_dataset(datasetDict, positivesToOutput, unlabelledsToOutput, variableNames, variableTypes, varaiableCats, outputLocation):
+		writeDataset = open(outputLocation, 'w')
+		writeDataset.write(variableNames)
+		writeDataset.write(variableTypes)
+		writeDataset.write(varaiableCats)
+		for i in positivesToOutput:
+			dataRow = datasetDict[i]
+			dataRow[-1] = 'Positive'
+			writeDataset.write('\t'.join(dataRow))
+			writeDataset.write('\n')
+		for i in unlabelledsToOutput:
+			dataRow = datasetDict[i]
+			dataRow[-1] = 'Unlabelled'
+			writeDataset.write('\t'.join(dataRow))
+			writeDataset.write('\n')
+		writeDataset.close()
+
+	def generate_nonredundant_proteins(fastaDict, inputProteins, fastaOutputLoc, leafOutputLoc):
+		# Create the fasta file of the input proteins.
+		writeFasta = open(fastaOutputLoc, 'w')
+		for i in fastaDict:
+			if i not in inputProteins:
+				writeFasta.write(fastaDict[i])
+		writeFasta.close()
+
+		# Run Leaf on the input proteins.
+		leafArgs = []
+		leafArgs.append('python')
+		leafArgs.append(leafLocation)
+		leafArgs.append(fastaOutputLoc)
+		leafArgs.append('-v')
+		leafArgs.append('-o')
+		leafArgs.append(leafOutputLoc)
+		subprocess.call(leafArgs)
+
+		# Calculate the non-redundant proteins.
+		keptProteins = leafOutputLoc + '/KeptList.txt'
+		nonredundantProteins = []
+		readKept = open(keptProteins, 'r')
+		readKept.readline()
+		for line in readKept:
+			nonredundantProteins.append((line.strip()).split('\t')[0])
+		readKept.close()
+
+		return nonredundantProteins
 
 
 if __name__ == '__main__':
