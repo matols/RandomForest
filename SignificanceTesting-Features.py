@@ -25,24 +25,26 @@ def main(args):
         unlabelledData[name] = []
     featureTypes = readIn.readline().strip()
     featureTypes = featureTypes.split('\t')
-    featuresToIgnore = [featureNames[i] for i in range(len(featureNames)) if featureTypes[i] == 'x']
+    featuresToIgnore = [featureNames[i] for i in range(len(featureNames)) if featureTypes[i] in ['x', 'r']]
     numberOfFeatures = len(featureNames[:-1]) - len(featuresToIgnore)
     categories = readIn.readline()
     for line in readIn:
         line = (line.strip()).split('\t')
         if line[-1] == 'Positive':
             numberOfPositiveObs += 1
-            for i in range(len(line) - 1):
-                positiveData[featureNames[i]].append(float(line[i]))
+            for i in range(len(featureNames)):
+                if not featureNames[i] in featuresToIgnore:
+                    positiveData[featureNames[i]].append(float(line[i]))
         else:
             numberOfUnlabelledObs += 1
-            for i in range(len(line) - 1):
-                unlabelledData[featureNames[i]].append(float(line[i]))
+            for i in range(len(featureNames)):
+                if not featureNames[i] in featuresToIgnore:
+                    unlabelledData[featureNames[i]].append(float(line[i]))
     readIn.close()
 
     writeTo = open(outputFile, 'w')
     writeTo.write('Feature\tPValue\tSigAt0.05\tSigAt0.01\tSigAtBonferroni0.05\tClassWithGreaterMean\tPositiveMean\tPositiveMedian\tPositiveVariance\tUnlabelledMean\tUnlabelledMedian\tUnlabelledVariance\n')
-    for name in [i for i in featureNames[:-1] if not i in featuresToIgnore]:
+    for name in [i for i in featureNames if not i in featuresToIgnore]:
         writeTo.write(name + '\t')
         twoSidedPValue = ''
         significantAtFivePercent = False
