@@ -10,7 +10,7 @@ def main(args):
 	@type args[0] - str
 	@use  args[0] - The location of the file containing the proximity information.
 	@type args[1] - str
-	@use  args[1] - The location of the file containing the dataset that the proximity information was claculated from.
+	@use  args[1] - The location of the file containing the dataset that the proximity information was calculated from.
 	@type args[2] - str
 	@use  args[2] - The location where the processed proximity information should be saved.
 	"""
