@@ -28,17 +28,17 @@ public class RFPULearning
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
 		TreeGrowthControl ctrl = new TreeGrowthControl();
-		ctrl.numberOfTreesToGrow = 500;
+		ctrl.numberOfTreesToGrow = 1000;
 		ctrl.isStratifiedBootstrapUsed = true;
 		ctrl.mtry = 10;
 		ctrl.isCalculateOOB = false;
 
-		int numberOfForests = 10;
+		int numberOfForests = 100;
 		double[] fractionPositiveNeeded = new double[]{0.5, 0.55, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0};
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
-		weights.put("Positive", 2.2);
+		weights.put("Positive", 1.0);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -93,57 +93,52 @@ public class RFPULearning
 
 		// Determine the indices for the unlabelled observations.
 		List<Integer> unlabelledObservations = new ArrayList<Integer>();
+		Map<Integer, Map<String, Double>> observationWeightings = new HashMap<Integer, Map<String, Double>>();
 		for (int i = 0; i < processedDataForLearning.numberObservations; i++)
 		{
 			if (processedDataForLearning.responseData.get(i).equals("Unlabelled"))
 			{
 				// If the observation is in the 'Unlabelled' class.
 				unlabelledObservations.add(i);
+				Map<String, Double> currentObsWeighting = new HashMap<String, Double>();
+				currentObsWeighting.put("Positive", 0.0);
+				currentObsWeighting.put("Negative", 0.0);
+				observationWeightings.put(i, currentObsWeighting);
 			}
 		}
 
 		// Create the forests.
-		List<Forest> forests = new ArrayList<Forest>();
 		Random seedGenerator = new Random();
 		for (int i = 0; i < numberOfForests; i++)
 		{
-			Forest newForest = new Forest(processedDataForLearning, ctrl, seedGenerator.nextLong());
-			newForest.setWeightsByClass(weights);
-			newForest.growForest();
-			forests.add(newForest);
-		}
+			System.out.format("Now generating forest %d.\n", i);
+			Forest forest = new Forest(processedDataForLearning, ctrl, seedGenerator.nextLong());
+			forest.setWeightsByClass(weights);
+			forest.growForest();
 
-		// Predict the class of each unlabelled observation using the forests.
-		Map<Integer, Map<String, Double>> observationWeightings = new HashMap<Integer, Map<String, Double>>();
-		for (Integer i : unlabelledObservations)
-		{
-			List<Integer> currentObservation = new ArrayList<Integer>();
-			currentObservation.add(i);
-
-			double positiveWeight = 0.0;
-			double negativeWeight = 0.0;
-
-			// Predict the class of observation i from each forest.
-			for (Forest f : forests)
+			for (Integer j : unlabelledObservations)
 			{
+				List<Integer> currentObservation = new ArrayList<Integer>();
+				currentObservation.add(j);
+
 				// Get the trees that this observation is OOB on for this forest.
-				List<Integer> treesObservationIsOOBOn = f.oobOnTree.get(i);
+				List<Integer> treesObservationIsOOBOn = forest.oobOnTree.get(j);
 
 				// Predict the class of the observation on the trees it is OOB on.
-				Map<Integer, Map<String, Double>> predResults = f.predictRaw(processedDataForLearning, currentObservation, treesObservationIsOOBOn);
+				Map<Integer, Map<String, Double>> predResults = forest.predictRaw(processedDataForLearning, currentObservation, treesObservationIsOOBOn);
+
+				// Get the current prediction weighting for observation j.
+				double currentPosWeight = observationWeightings.get(j).get("Positive");
+				double currentNegWeight = observationWeightings.get(j).get("Negative");
 
 				// Update the weightings for the observation.
-				positiveWeight += predResults.get(i).get("Positive");
-				negativeWeight += predResults.get(i).get("Unlabelled");
+				observationWeightings.get(j).put("Positive", currentPosWeight + predResults.get(j).get("Positive"));
+				observationWeightings.get(j).put("Negative", currentNegWeight + predResults.get(j).get("Unlabelled"));
 			}
-
-			Map<String, Double> currentObsWeighting = new HashMap<String, Double>();
-			currentObsWeighting.put("Positive", positiveWeight);
-			currentObsWeighting.put("Negative", negativeWeight);
-			observationWeightings.put(i, currentObsWeighting);
 		}
 
-		// Determine the final positive and negative sets.
+		// Determine the observations to remove from the unlabelled set.
+		System.out.println("Now determining the observations to remove from the unlabelled set.");
 		for (double posFracNeeded : fractionPositiveNeeded)
 		{
 			Set<Integer> observationsNoLongerUnlabelled = new HashSet<Integer>();
