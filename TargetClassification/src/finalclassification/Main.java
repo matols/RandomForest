@@ -2,6 +2,7 @@ package finalclassification;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -51,7 +52,51 @@ public class Main
 		// Parse the input arguments.
 		String nonRedundantDataset = args[0];
 		String redundantDataset = args[1];
-		String outputLocation = args[2];
+		String resultsDirLocation = args[2];
+		File resultsDirectory = new File(resultsDirLocation);
+		if (!resultsDirectory.exists())
+		{
+			boolean isDirCreated = resultsDirectory.mkdirs();
+			if (!isDirCreated)
+			{
+				System.out.println("The output directory could not be created.");
+				System.exit(0);
+			}
+		}
+		else if (!resultsDirectory.isDirectory())
+		{
+			// Exists and is not a directory.
+			System.out.println("The second argument must be a valid directory location or location where a directory can be created.");
+			System.exit(0);
+		}
+
+		// Write out the parameters used.
+		String paramLocation = resultsDirLocation + "/Parameters.txt";
+		String controllerLocation = resultsDirLocation + "/Controller.txt";
+		try
+		{
+			FileWriter paramFile = new FileWriter(paramLocation);
+			BufferedWriter paramWriter = new BufferedWriter(paramFile);
+			paramWriter.write("Features used - ");
+			paramWriter.write(Arrays.toString(featuresToUse));
+			paramWriter.newLine();
+			paramWriter.write("Observations used - ");
+			paramWriter.write(Arrays.toString(observationsToUse));
+			paramWriter.newLine();
+			paramWriter.write("Seed used - ");
+			paramWriter.write(Long.toString(seed));
+			paramWriter.newLine();
+			paramWriter.newLine();
+			paramWriter.write(weights.toString());
+			paramWriter.close();
+
+			ctrl.save(controllerLocation);
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
 
 		Forest forest = new Forest(nonRedundantDataset, ctrl, seed);
 		forest.setWeightsByClass(weights);
@@ -151,11 +196,13 @@ public class Main
 		}
 
 		// Write out the protein accessions and their predictions.
-		String proteinPredictionLocation = outputLocation + "/ProteinPredictions.txt";
+		String proteinPredictionLocation = resultsDirLocation + "/ProteinPredictions.txt";
 		try
 		{
 			FileWriter proteinPredictionFile = new FileWriter(proteinPredictionLocation);
 			BufferedWriter proteinPredictionWriter = new BufferedWriter(proteinPredictionFile);
+			proteinPredictionWriter.write("UPAccession\tPositiveWeight\tUnlabelledWeight\tOriginalClass");
+			proteinPredictionWriter.newLine();
 			for (Integer i : nonredundantPredictions.keySet())
 			{
 				proteinPredictionWriter.write(nonRedundantProteins.get(i));
