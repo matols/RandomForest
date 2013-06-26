@@ -117,7 +117,7 @@ def main(args):
 
         # Create the redundant dataset when using only the known positives.
         redundantPositives = set(knownPositiveProteinAccessions) - set(knownNonRedundantPositiveProteinAccessions)
-        redundantUnlabelleds = fastaDict.keys() - set(knownPositiveProteinAccessions) - set(unlabelledWithRemoval)
+        redundantUnlabelleds = set(fastaDict.keys()) - set(knownPositiveProteinAccessions) - set(unlabelledWithRemoval)
         print('\tGenerating the redundant known positive dataset.')
         generate_dataset(datasetDict, redundantPositives, redundantUnlabelleds, variableNames, variableTypes, varaiableCats, outputKnownPRedundant)
 
@@ -133,7 +133,7 @@ def main(args):
 
         # Create the redundant dataset when using all the positives.
         redundantPositives = set(allPositiveProteins) - set(nonredundantAllPositives)
-        redundantUnlabelleds = fastaDict.keys() - set(allPositiveProteins) - set(unlabelledWithRemoval)
+        redundantUnlabelleds = set(fastaDict.keys()) - set(allPositiveProteins) - set(unlabelledWithRemoval)
         print('\tGenerating the redundant all positive dataset.')
         generate_dataset(datasetDict, redundantPositives, redundantUnlabelleds, variableNames, variableTypes, varaiableCats, outputAllPRedundant)
 
