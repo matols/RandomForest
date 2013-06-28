@@ -138,6 +138,8 @@ def main(args):
         generate_dataset(datasetDict, redundantPositives, redundantUnlabelleds, variableNames, variableTypes, varaiableCats, outputAllPRedundant)
 
         # Record the unlabelled proteins switched to positives.
+        outputLikelyPositives = posFracOutputDir + '/DatasetOfProteinsRemovedFromU.txt'
+        generate_dataset(datasetDict, [], unlabelledSwitchedToPositive, variableNames, variableTypes, varaiableCats, outputLikelyPositives)
         likelyPositives = posFracOutputDir + '/UnlabelledProteinsTooSimilarToPositives.txt'
         writeLikely = open(likelyPositives, 'w')
         for i in unlabelledSwitchedToPositive:
