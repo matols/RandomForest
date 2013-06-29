@@ -529,7 +529,7 @@ public class Forest
 	{
 		Double errorRate = 0.0;
 
-		Set<String> classNames = new HashSet<String>(predData.responseData);  // A set containing the names of all the classes in the dataset.
+		Set<String> classNames = new HashSet<String>(this.processedData.responseData);  // A set containing the names of all the classes in the dataset used for training.
 
 		// Set up the mapping from observation index to predictions. The key is the index of the observation in the dataset, the Map contains
 		// a mapping from each class to the weighted vote for it from the forest.
@@ -542,6 +542,7 @@ public class Forest
 		for (int i : observationsToPredict)
 		{
 			predictions.put(i, new HashMap<String, Double>(possiblePredictions));
+		
 		}
 
 		// Get the raw predictions for each tree.
@@ -561,8 +562,7 @@ public class Forest
 
 		// Set up the confusion matrix.
 		Map<String, Map<String, Double>> confusionMatrix = new HashMap<String, Map<String, Double>>();
-		Set<String> responsePossibilities = new HashSet<String>(predData.responseData);
-		for (String s : responsePossibilities)
+		for (String s : classNames)
 		{
 			Map<String, Double> classEntry = new HashMap<String, Double>();
 			classEntry.put("TruePositive", 0.0);
@@ -636,7 +636,7 @@ public class Forest
 
 	public Map<Integer, Map<String, Double>> predictRaw(ProcessDataForGrowing predData, List<Integer> observationsToPredict, List<Integer> treesToUseForPrediction)
 	{
-		Set<String> classNames = new HashSet<String>(this.processedData.responseData);  // A set containing the names of all the classes in the dataset.
+		Set<String> classNames = new HashSet<String>(this.processedData.responseData);  // A set containing the names of all the classes in the dataset used for training.
 
 		// Set up the mapping from observation index to predictions. The key is the index of the observation in the dataset, the Map contains
 		// a mapping from each class to the weighted vote for it from the forest.

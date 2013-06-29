@@ -261,13 +261,6 @@ public class ProcessDataForGrowing
 				}
 			}
 
-			// If there is only one class provided, then alert the user and exit.
-			if (possibleClasses.size() < 2)
-			{
-				System.out.println("The data provided has less than two classes.");
-				System.exit(0);
-			}
-
 			// Remove records of covariables that were specified as being ignored in the TreeGrowthControl object.
 			for (String s : variableNames)
 			{
