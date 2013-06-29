@@ -1,9 +1,7 @@
 package analysis;
 
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -16,7 +14,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 
 import datasetgeneration.CrossValidationFoldGenerationMultiClass;
 
@@ -33,36 +30,15 @@ public class WeightTesting
 	{
 		String inputFile = args[0];
 		String resultsDir = args[1];
-		List<String> covarsToKeep = new ArrayList<String>();
+		String testFileLocation = null;
 		if (args.length == 3)
 		{
-			String keepFile = args[2];
-			try
-			{
-				String line;
-				BufferedReader featureSubSetReader = new BufferedReader(new FileReader(keepFile));
-				while ((line = featureSubSetReader.readLine()) != null)
-				{
-					line = line.trim();
-					covarsToKeep.add(line);
-				}
-				featureSubSetReader.close();
-			}
-			catch (Exception e)
-			{
-				e.printStackTrace();
-				System.exit(0);
-			}
+			testFileLocation = args[2];
 		}
-		main(inputFile, resultsDir, covarsToKeep);
+		main(inputFile, resultsDir, testFileLocation);
 	}
 
-	public static void main(String inputFile, String resultsDir)
-	{
-		main(inputFile, resultsDir, new ArrayList<String>());
-	}
-
-	public static void main(String inputFile, String resultsDir, List<String> covarsToKeep)
+	public static void main(String inputFile, String resultsDir, String testFileLocation)
 	{
 		// Setup the directory for the results.
 		File resultsDirectory = new File(resultsDir);
@@ -94,11 +70,13 @@ public class WeightTesting
 
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 1000;
+		ctrl.numberOfTreesToGrow = 1500;
 		ctrl.isStratifiedBootstrapUsed = true;
 		ctrl.isCalculateOOB = true;  // Set this to false to use cross-validation, and true to use OOB observations.
 		ctrl.minNodeSize = 1;
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
+
+		boolean isGMeanAveraged = false;
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
@@ -181,69 +159,6 @@ public class WeightTesting
 			}
 		}
 
-		// Determine the subset of feature to remove.
-		boolean isSubsetUsed = false;
-		String subsetResultsLocation = resultsDir + "/SubsetResults.txt";
-		String subsetGMeanResultsLocation = resultsDir + "/SubsetAllValues.txt";
-		List<String> covarsToRemove = new ArrayList<String>();
-		if (!covarsToKeep.isEmpty())
-		{
-			// If covarsToKeep is empty, then this won't be needed.
-			isSubsetUsed = true;
-			for (String s : procData.covariableData.keySet())
-			{
-				if (!covarsToKeep.contains(s))
-				{
-					covarsToRemove.add(s);
-				}
-			}
-			// Setup the subset results output files.
-			try
-			{
-				FileWriter resultsOutputFile = new FileWriter(subsetResultsLocation);
-				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-				resultsOutputWriter.write("Weight\tMtry\tGMean\tMCC\tF0.5\tF1\tF2\tAccuracy\tOOBError");
-				for (String s : classesInDataset)
-				{
-					resultsOutputWriter.write("\t");
-					resultsOutputWriter.write(s);
-					resultsOutputWriter.write("\t");
-				}
-				resultsOutputWriter.write("\tTimeTaken(ms)");
-				resultsOutputWriter.newLine();
-				resultsOutputWriter.write("\t\t\t\t\t\t\t\t");
-				for (String s : classesInDataset)
-				{
-					resultsOutputWriter.write("\tTrue\tFalse");
-				}
-				resultsOutputWriter.write("\t");
-				resultsOutputWriter.newLine();
-				resultsOutputWriter.close();
-			}
-			catch (Exception e)
-			{
-				e.printStackTrace();
-				System.exit(0);
-			}
-			try
-			{
-				FileWriter resultsOutputFile = new FileWriter(subsetGMeanResultsLocation);
-				BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-				resultsOutputWriter.write("Weight\tMtry");
-				resultsOutputWriter.newLine();
-				resultsOutputWriter.close();
-			}
-			catch (Exception e)
-			{
-				e.printStackTrace();
-				System.exit(0);
-			}
-		}
-
-		// Setup alternate forest growth control objects.
-		TreeGrowthControl subsetCtrl = new TreeGrowthControl(ctrl);
-		subsetCtrl.variablesToIgnore = covarsToRemove;
-
 		// Write out the parameters used.
 		String parameterLocation = resultsDir + "/Parameters.txt";
 		try
@@ -283,7 +198,6 @@ public class WeightTesting
 		for (Integer mtry : mtryToUse)
 		{
 			ctrl.mtry = mtry;
-			subsetCtrl.mtry = mtry;
 
 			System.out.format("Now working on mtry - %d.\n", mtry);
 
@@ -298,12 +212,13 @@ public class WeightTesting
 				System.out.format("\tNow starting weight - %f at %s.\n", posWeight, strDate);
 
 				// Perform the analysis for the entire dataset.
-				MultipleForestRunAndTest.forestTraining(weights, ctrl, cvFoldLocation, inputFile, seeds, repetitions, cvFoldsToUse, fullDatasetResultsLocation, fullDatasetGMeanResultsLocation, 1);
-
-				if (isSubsetUsed)
+				if (testFileLocation != null)
 				{
-					// Perform the analysis for the chosen subset.
-					MultipleForestRunAndTest.forestTraining(weights, subsetCtrl, cvFoldLocation, inputFile, seeds, repetitions, cvFoldsToUse, subsetResultsLocation, subsetGMeanResultsLocation, 1);
+					MultipleForestRunAndTest.forestTraining(weights, ctrl, cvFoldLocation, inputFile, seeds, repetitions, cvFoldsToUse, fullDatasetResultsLocation, fullDatasetGMeanResultsLocation, 1, testFileLocation, isGMeanAveraged);
+				}
+				else
+				{
+					MultipleForestRunAndTest.forestTraining(weights, ctrl, cvFoldLocation, inputFile, seeds, repetitions, cvFoldsToUse, fullDatasetResultsLocation, fullDatasetGMeanResultsLocation, 1);
 				}
 			}
 		}

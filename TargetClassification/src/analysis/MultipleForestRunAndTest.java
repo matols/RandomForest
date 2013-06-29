@@ -33,24 +33,47 @@ public class MultipleForestRunAndTest
 			String resultsLocation, String mccResultsLocation, int analysisBeingRun)
 	{
 		return forestTraining(weights, ctrl, cvFoldLocation, inputFile, seeds, repetitions, cvFolds, resultsLocation, mccResultsLocation,
-				analysisBeingRun, 0.0);
+				analysisBeingRun, 0.0, null, false);
 	}
 
 	static List<Double> forestTraining(
 			Map<String, Double> weights, TreeGrowthControl ctrl, String cvFoldLocation, String inputFile, List<Long> seeds, int repetitions, int cvFolds,
-			String resultsLocation, String mccResultsLocation, int analysisBeingRun, double callSpecificValue)
+			String resultsLocation, String mccResultsLocation, int analysisBeingRun, String testFileLocation, boolean isGmeansAveraged)
+	{
+		return forestTraining(weights, ctrl, cvFoldLocation, inputFile, seeds, repetitions, cvFolds, resultsLocation, mccResultsLocation,
+				analysisBeingRun, 0.0, testFileLocation, isGmeansAveraged);
+	}
+
+	static List<Double> forestTraining(
+			Map<String, Double> weights, TreeGrowthControl ctrl, String cvFoldLocation, String inputFile, List<Long> seeds, int repetitions, int cvFolds,
+			String resultsLocation, String mccResultsLocation, int analysisBeingRun, double callSpecificValue, String testFileLocation,
+			boolean isGmeansAveraged)
 	{
 		List<Double> allRepetitionResults = new ArrayList<Double>();
 		long timeTaken = 0l;
 		ProcessDataForGrowing processedInputFile = new ProcessDataForGrowing(inputFile, ctrl);
+		ProcessDataForGrowing processedTestFile = null;
+		if (testFileLocation != null)
+		{
+			processedTestFile = new ProcessDataForGrowing(testFileLocation, new TreeGrowthControl());
+		}
 		Map<String, Map<String, Double>> confusionMatrix = new HashMap<String, Map<String, Double>>();
+		Map<String, Map<String, Double>> testConfusionMatrix = new HashMap<String, Map<String, Double>>();
 		Map<String, Integer> countsOfClass = new HashMap<String, Integer>();
+		Map<String, Integer> testCountsOfClass = new HashMap<String, Integer>();
 		for (String s : weights.keySet())
 		{
 			countsOfClass.put(s, Collections.frequency(processedInputFile.responseData, s));
+			if (testFileLocation != null)
+			{
+				testCountsOfClass.put(s, Collections.frequency(processedTestFile.responseData, s));
+			}
 			confusionMatrix.put(s, new HashMap<String, Double>());
 			confusionMatrix.get(s).put("TruePositive", 0.0);
 			confusionMatrix.get(s).put("FalsePositive", 0.0);
+			testConfusionMatrix.put(s, new HashMap<String, Double>());
+			testConfusionMatrix.get(s).put("TruePositive", 0.0);
+			testConfusionMatrix.get(s).put("FalsePositive", 0.0);
 		}
 
 		Date startTime;
@@ -63,7 +86,7 @@ public class MultipleForestRunAndTest
 			String currentCVFoldLocation = cvFoldLocation + Integer.toString(i);
 
 			startTime = new Date();
-			Forest forest;
+			Forest forest = null;
 			if (!ctrl.isCalculateOOB)
 			{
 				for (int j = 0; j < cvFolds; j++)
@@ -102,8 +125,56 @@ public class MultipleForestRunAndTest
 			}
 			endTime = new Date();
     		timeTaken += endTime.getTime() - startTime.getTime();
+
+    		// Generate the test set predictions.
+			if (testFileLocation != null)
+			{
+				Map<String, Map<String, Double>> predResults = forest.predict(processedTestFile).second;
+				for (String s : predResults.keySet())
+	    		{
+	    			Double oldTruePos = testConfusionMatrix.get(s).get("TruePositive");
+	    			Double newTruePos = oldTruePos + predResults.get(s).get("TruePositive");
+	    			testConfusionMatrix.get(s).put("TruePositive", newTruePos);
+	    			Double oldFalsePos = testConfusionMatrix.get(s).get("FalsePositive");
+	    			Double newFalsePos = oldFalsePos + predResults.get(s).get("FalsePositive");
+	    			testConfusionMatrix.get(s).put("FalsePositive", newFalsePos);
+	    		}
+			}
 		}
 		timeTaken /= (double) repetitions;
+
+		// Determine how to process the test set predictions.
+		double testGMean = 1.0;
+		if (testFileLocation != null)
+		{
+			if (isGmeansAveraged)
+			{
+				for (String s : testConfusionMatrix.keySet())
+				{
+					double TP = testConfusionMatrix.get(s).get("TruePositive");
+					// Use (repetitions * testCountsOfClass.get(s)) for the number of observations from a class as each observation is predicted once per repetition,
+					// so is predicted a total of repetitions times.
+		    		double FN = (repetitions * testCountsOfClass.get(s)) - TP;  // The number of false negatives is the number of observations from the class  - the number of true positives.
+		    		double recall = (TP / (TP + FN));
+		    		testGMean *= recall;
+				}
+				Math.pow(testGMean, (1.0 / testConfusionMatrix.size()));
+			}
+			else
+			{
+				// If you are not averaging the g means, then simply sum up all the predictions for one big g mean calculation.
+				for (String s : testConfusionMatrix.keySet())
+				{
+					Double oldTruePos = testConfusionMatrix.get(s).get("TruePositive");
+	    			Double newTruePos = oldTruePos + confusionMatrix.get(s).get("TruePositive");
+	    			confusionMatrix.get(s).put("TruePositive", newTruePos);
+	    			Double oldFalsePos = testConfusionMatrix.get(s).get("FalsePositive");
+	    			Double newFalsePos = oldFalsePos + confusionMatrix.get(s).get("FalsePositive");
+	    			confusionMatrix.get(s).put("FalsePositive", newFalsePos);
+	    			countsOfClass.put(s, countsOfClass.get(s) + testCountsOfClass.get(s));  // As you are aggregating the confusion matrices you need to add in the counts of the classes in the test set.
+				}
+			}
+		}
 
 		// Aggregate prediction results over all the repetitions.
 		double totalPredictions = 0.0;
