@@ -51,7 +51,7 @@ public class WeightAndMtryOptimisation
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int numberOfForestsToCreate = 1;  // The number of forests to create for each weight/mtry combination.
+		int numberOfForestsToCreate = 100;  // The number of forests to create for each weight/mtry combination.
 		int cvFoldsToUse = 10;  // The number of cross validation folds to use if cross validation is being used.
 		Integer[] mtryToUse = {5, 10, 15, 20, 25, 30};  // The different values of mtry to test.
 		Integer[] trainingObsToUse = {};  // The observations in the training set that will be used in growing the forests.
@@ -60,7 +60,7 @@ public class WeightAndMtryOptimisation
 		// any class that will not have its weight varied.
 		Map<String, Double[]> varyingClassWeightMapping = new HashMap<String, Double[]>();  // A mapping from class names to the weights that will be tested for the class.
 		varyingClassWeightMapping.put("Positive", new Double[]{1.0, 2.0, 3.0});
-		varyingClassWeightMapping.put("PossiblePositive", new Double[]{10.0, 20.0, 30.0});
+		varyingClassWeightMapping.put("PossiblePositive", new Double[]{1.0, 2.0, 3.0});
 		Map<String, Double> constantClassWeightMapping = new HashMap<String, Double>();  // A mapping from class names to the weight that will be used for the class.
 		constantClassWeightMapping.put("Unlabelled", 1.0);
 
