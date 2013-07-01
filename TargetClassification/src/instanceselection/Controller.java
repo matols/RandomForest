@@ -54,18 +54,18 @@ public class Controller
 		//===================================================================
 		TreeGrowthControl ctrl = new TreeGrowthControl();
 		ctrl.isReplacementUsed = true;
-		ctrl.numberOfTreesToGrow = 5;
+		ctrl.numberOfTreesToGrow = 500;
 		ctrl.mtry = 10;
 		ctrl.isStratifiedBootstrapUsed = true;
-		ctrl.isCalculateOOB = false;
+		ctrl.isCalculateOOB = true;
 
 		Map<String, Double> weights = new HashMap<String, Double>();
 		weights.put("Unlabelled", 1.0);
 		weights.put("Positive", 1.0);
 
 		Map<String, Integer> fractionsToSelect = new HashMap<String, Integer>();
-		fractionsToSelect.put("Unlabelled", 5);
-		fractionsToSelect.put("Positive", 5);
+		fractionsToSelect.put("Unlabelled", 100);
+		fractionsToSelect.put("Positive", 100);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
