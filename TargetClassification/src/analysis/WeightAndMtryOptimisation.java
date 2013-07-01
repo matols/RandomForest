@@ -148,13 +148,16 @@ public class WeightAndMtryOptimisation
 			}
 			else
 			{
-				parameterOutputWriter.write("Test set used, and G mean averaging is ");
+				parameterOutputWriter.write("Test set is used.");
+				parameterOutputWriter.newLine();
+				parameterOutputWriter.write("\tG mean averaging is ");
 				if (!isPredictionAveragingUsed)
 				{
 					parameterOutputWriter.write("not ");
 				}
 				parameterOutputWriter.write("used");
 			}
+			parameterOutputWriter.newLine();
 			if (ctrl.isCalculateOOB)
 			{
 				parameterOutputWriter.write("CV not used");
@@ -170,10 +173,12 @@ public class WeightAndMtryOptimisation
 			for (String s : constantClassWeightMapping.keySet())
 			{
 				parameterOutputWriter.write("\t" + s + " - " + Double.toString(constantClassWeightMapping.get(s)));
+				parameterOutputWriter.newLine();
 			}
 			for (String s : varyingClassWeightMapping.keySet())
 			{
 				parameterOutputWriter.write("\t" + s + " - " + Arrays.toString(varyingClassWeightMapping.get(s)));
+				parameterOutputWriter.newLine();
 			}
 			parameterOutputWriter.write("Mtry used - " + Arrays.toString(mtryToUse));
 			parameterOutputWriter.newLine();
@@ -283,7 +288,7 @@ public class WeightAndMtryOptimisation
 						if (isPredictionAveragingUsed)
 						{
 							Map<String, Double> oobStats = calculateStats(confusionMatrix, numberOfForestsToCreate, inputFile);
-							Map<String, Double> testStats = calculateStats(testConfusionMatrix, numberOfForestsToCreate, inputFile);
+							Map<String, Double> testStats = calculateStats(testConfusionMatrix, numberOfForestsToCreate, testFileLocation);
 
 							// Average the statistics.
 							for (String s : oobStats.keySet())
@@ -303,7 +308,7 @@ public class WeightAndMtryOptimisation
 									confusionMatrix.get(s).put(p, oobValue + testValue);
 								}
 							}
-							statistics = calculateStats(confusionMatrix, numberOfForestsToCreate, inputFile);
+							statistics = calculateStats(confusionMatrix, numberOfForestsToCreate, inputFile, testFileLocation);
 						}
 					}
 					else
@@ -373,12 +378,22 @@ public class WeightAndMtryOptimisation
 	/**
 	 * Calculate statistics from a confusion matrix.
 	 * 
+	 * Supplying a test dataset in addition to the input (training) dataset should only be used when the predictions from the input dataset have been combined
+	 * with the predictions from the input dataset.
+	 * 
 	 * @param confusionMatrix - The confusion matrix for the predictions from which the statistics should be calculated.
 	 * @param numberOfForestsToCreate - The number of forests created.
-	 * @param inputFile - The location of the input dataset.
+	 * @param inputFile - The location of the input (training) dataset.
+	 * @param testSetLocation - The file containing the test set used.
 	 * @return - A map containing the names of the statistics calculated along with their values.
 	 */
 	public static Map<String, Double> calculateStats(Map<String, Map<String, Double>> confusionMatrix, int numberOfForestsToCreate, String inputFile)
+	{
+		return calculateStats(confusionMatrix, numberOfForestsToCreate, inputFile, null);
+	}
+
+	public static Map<String, Double> calculateStats(Map<String, Map<String, Double>> confusionMatrix, int numberOfForestsToCreate, String inputFile,
+			String testSetLocation)
 	{
 		// Process the input dataset, and determine the number of observations from each class in the dataset.
 		ProcessDataForGrowing processedInputFile = new ProcessDataForGrowing(inputFile, new TreeGrowthControl());
@@ -386,6 +401,17 @@ public class WeightAndMtryOptimisation
 		for (String s : new HashSet<String>(processedInputFile.responseData))
 		{
 			countsOfClass.put(s, Collections.frequency(processedInputFile.responseData, s));
+		}
+
+		// Process the test set dataset (if one was supplied), and add the counts of the classes in the test set to the counts in the input dataset.
+		if (testSetLocation != null)
+		{
+			ProcessDataForGrowing processedTestSet = new ProcessDataForGrowing(testSetLocation, new TreeGrowthControl());
+			for (String s : countsOfClass.keySet())
+			{
+				Integer trainingSetCounts = countsOfClass.get(s);
+				countsOfClass.put(s, Collections.frequency(processedTestSet.responseData, s) + trainingSetCounts);
+			}
 		}
 
 		double totalPredictions = 0.0;  // The total number of predictions made.
