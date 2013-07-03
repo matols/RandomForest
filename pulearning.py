@@ -1,6 +1,5 @@
 import os
 import shutil
-import subprocess
 import sys
 
 def main(args):
@@ -148,33 +147,6 @@ def generate_dataset(datasetDict, positivesToOutput, unlabelledsToOutput, variab
         writeDataset.write('\t'.join(dataRow))
         writeDataset.write('\n')
     writeDataset.close()
-
-def generate_nonredundant_proteins(fastaDict, inputProteins, fastaOutputLoc, leafLocation, leafOutputLoc):
-    # Create the fasta file of the input proteins.
-    writeFasta = open(fastaOutputLoc, 'w')
-    for i in fastaDict:
-        if i in inputProteins:
-            writeFasta.write(fastaDict[i])
-    writeFasta.close()
-
-    # Run Leaf on the input proteins.
-    leafArgs = []
-    leafArgs.append('python')
-    leafArgs.append(leafLocation)
-    leafArgs.append(fastaOutputLoc)
-#    leafArgs.append('-v')
-    leafArgs.append('-o')
-    leafArgs.append(leafOutputLoc)
-    subprocess.call(leafArgs)
-
-    # Calculate the non-redundant proteins.
-    keptProteins = leafOutputLoc + '/KeptList.txt'
-    nonredundantProteins = []
-    readKept = open(keptProteins, 'r')
-    readKept.readline()
-    for line in readKept:
-        nonredundantProteins.append((line.strip()).split('\t')[0])
-    readKept.close()
 
     return nonredundantProteins
 
