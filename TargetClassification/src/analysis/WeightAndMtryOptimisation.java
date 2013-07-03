@@ -3,6 +3,8 @@ package analysis;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -266,7 +268,10 @@ public class WeightAndMtryOptimisation
 					weights.put(s, classWeight);
 					System.out.print(s + "-" + Double.toString(classWeight) + "\t");
 				}
-				System.out.println();
+				DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+			    Date startTime = new Date();
+			    String strDate = sdfDate.format(startTime);
+			    System.out.format("at %s.\n", strDate);
 
 				isJustStarted = false;
 
