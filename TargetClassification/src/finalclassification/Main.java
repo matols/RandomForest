@@ -196,15 +196,34 @@ public class Main
 		}
 
 		// Write out the protein accessions and their predictions.
-		String proteinPredictionLocation = resultsDirLocation + "/ProteinPredictions.txt";
+		String nonRedundantProteinPredictionLocation = resultsDirLocation + "/NonRedundantProteinPredictions.txt";
+		String redundantProteinPredictionLocation = resultsDirLocation + "/RedundantProteinPredictions.txt";
+		String allProteinPredictionLocation = resultsDirLocation + "/AllProteinPredictions.txt";
 		try
 		{
-			FileWriter proteinPredictionFile = new FileWriter(proteinPredictionLocation);
+			FileWriter nrProteinPredictionFile = new FileWriter(nonRedundantProteinPredictionLocation);
+			FileWriter rProteinPredictionFile = new FileWriter(redundantProteinPredictionLocation);
+			FileWriter proteinPredictionFile = new FileWriter(allProteinPredictionLocation);
+			BufferedWriter nrProteinPredictionWriter = new BufferedWriter(nrProteinPredictionFile);
+			BufferedWriter rProteinPredictionWriter = new BufferedWriter(rProteinPredictionFile);
 			BufferedWriter proteinPredictionWriter = new BufferedWriter(proteinPredictionFile);
+			nrProteinPredictionWriter.write("UPAccession\tPositiveWeight\tUnlabelledWeight\tOriginalClass");
+			nrProteinPredictionWriter.newLine();
+			rProteinPredictionWriter.write("UPAccession\tPositiveWeight\tUnlabelledWeight\tOriginalClass");
+			rProteinPredictionWriter.newLine();
 			proteinPredictionWriter.write("UPAccession\tPositiveWeight\tUnlabelledWeight\tOriginalClass");
 			proteinPredictionWriter.newLine();
 			for (Integer i : nonredundantPredictions.keySet())
 			{
+				nrProteinPredictionWriter.write(nonRedundantProteins.get(i));
+				nrProteinPredictionWriter.write("\t");
+				nrProteinPredictionWriter.write(Double.toString(nonredundantPredictions.get(i).get("Positive")));
+				nrProteinPredictionWriter.write("\t");
+				nrProteinPredictionWriter.write(Double.toString(nonredundantPredictions.get(i).get("Unlabelled")));
+				nrProteinPredictionWriter.write("\t");
+				nrProteinPredictionWriter.write(nonRedundantProteinClasses.get(i));
+				nrProteinPredictionWriter.newLine();
+
 				proteinPredictionWriter.write(nonRedundantProteins.get(i));
 				proteinPredictionWriter.write("\t");
 				proteinPredictionWriter.write(Double.toString(nonredundantPredictions.get(i).get("Positive")));
@@ -216,6 +235,15 @@ public class Main
 			}
 			for (Integer i : predictedConfusionMatrix.keySet())
 			{
+				rProteinPredictionWriter.write(redundantProteins.get(i));
+				rProteinPredictionWriter.write("\t");
+				rProteinPredictionWriter.write(Double.toString(predictedConfusionMatrix.get(i).get("Positive")));
+				rProteinPredictionWriter.write("\t");
+				rProteinPredictionWriter.write(Double.toString(predictedConfusionMatrix.get(i).get("Unlabelled")));
+				rProteinPredictionWriter.write("\t");
+				rProteinPredictionWriter.write(redundantProteinClasses.get(i));
+				rProteinPredictionWriter.newLine();
+
 				proteinPredictionWriter.write(redundantProteins.get(i));
 				proteinPredictionWriter.write("\t");
 				proteinPredictionWriter.write(Double.toString(predictedConfusionMatrix.get(i).get("Positive")));
@@ -225,6 +253,8 @@ public class Main
 				proteinPredictionWriter.write(redundantProteinClasses.get(i));
 				proteinPredictionWriter.newLine();
 			}
+			nrProteinPredictionWriter.close();
+			rProteinPredictionWriter.close();
 			proteinPredictionWriter.close();
 		}
 		catch (Exception e)
