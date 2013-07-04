@@ -149,6 +149,12 @@ public class FeatureSelection
 	        System.out.println("At least one of -g, -e, -t or -c must be given, otherwise there are no stopping criteria.");
 	        System.exit(0);
 		}
+		if (isTestSetAveraged && testSet == null)
+		{
+			// If test set averaging is used, but there is no test set supplied.
+			System.out.println("If test set averaging is used, then a test set must be provided (using -q).");
+	        System.exit(0);
+		}
 
 		ProcessDataForGrowing processedTestSet = new ProcessDataForGrowing();
 		if (testSet != null)
@@ -216,9 +222,11 @@ public class FeatureSelection
 
 		// Setup the generation stats files and write out the class weights being used.
 		String genStatsOutputLocation = outputLocation + "/GenerationStatistics.txt";
+		String oobGMeanOutputLocation = outputLocation + "/OOBGMean.txt";
+		String testGMeanOutputLocation = outputLocation + "/TestGMean.txt";
 		String convergenOutputLocation = outputLocation + "/BestConvergenceIndividuals.txt";
 		String weightOutputLocation = outputLocation + "/Weights.txt";
-		Map<String, String> classGMeanOutputLocations = new HashMap<String, String>();
+		Map<String, String> classRecallOutputLocations = new HashMap<String, String>();
 		try
 		{
 			FileWriter genStatsOutputFile = new FileWriter(genStatsOutputLocation);
@@ -247,13 +255,24 @@ public class FeatureSelection
 			for (String s : classCounts.keySet())
 			{
 				String classOutputLoc = outputLocation + "/" + s + "Recall.txt";
-				classGMeanOutputLocations.put(s, classOutputLoc);
+				classRecallOutputLocations.put(s, classOutputLoc);
 				FileWriter classStatsOutputFile = new FileWriter(classOutputLoc);
 				BufferedWriter classStatsOutputWriter = new BufferedWriter(classStatsOutputFile);
-				classStatsOutputWriter.write("Generation\tBestMemberGMean\tMeanGMean\tMedianGMean\tStdDevGMean");
+				classStatsOutputWriter.write("Generation\tBestMemberRecal\tMeanRecall\tMedianRecall\tStdDevRecall");
 				classStatsOutputWriter.newLine();
 				classStatsOutputWriter.close();
 			}
+
+			FileWriter oobStatsOutputFile = new FileWriter(oobGMeanOutputLocation);
+			FileWriter testStatsOutputFile = new FileWriter(testGMeanOutputLocation);
+			BufferedWriter oobStatsOutputWriter = new BufferedWriter(oobStatsOutputFile);
+			BufferedWriter testStatsOutputWriter = new BufferedWriter(testStatsOutputFile);
+			oobStatsOutputWriter.write("Generation\tBestMemberGMean\tMeanGMean\tMedianGMean\tStdDevGMean");
+			testStatsOutputWriter.write("Generation\tBestMemberGMean\tMeanGMean\tMedianGMean\tStdDevGMean");
+			oobStatsOutputWriter.newLine();
+			testStatsOutputWriter.newLine();
+			oobStatsOutputWriter.close();
+			testStatsOutputWriter.close();
 		}
 		catch (Exception e)
 		{
@@ -326,6 +345,8 @@ public class FeatureSelection
 	    // Calculate the fitness of the initial population.
 	    List<Double> fitness = new ArrayList<Double>();
 	    Map<String, List<Double>> classRecalls = new HashMap<String, List<Double>>();
+	    List<Double> oobGMeans = new ArrayList<Double>();
+	    List<Double> testGMeans = new ArrayList<Double>();
 	    for (String s : classCounts.keySet())
 	    {
 	    	classRecalls.put(s, new ArrayList<Double>());
@@ -360,6 +381,8 @@ public class FeatureSelection
 		    		classRecalls.get(s).add(recall);
 		    	}
 	    		gMean = Math.pow(gMean, (1.0 / classCounts.size()));
+	    		oobGMeans.add(gMean);
+	    		testGMeans.add(gMean);
 	    	}
 	    	else
 	    	{
@@ -374,6 +397,7 @@ public class FeatureSelection
 		    		oobRecalls.put(s, recall);
 		    	}
 	    		oobGMean = Math.pow(oobGMean, (1.0 / classCounts.size()));
+	    		oobGMeans.add(oobGMean);
 
 	    		Map<String, Double> testSetRecalls = new HashMap<String, Double>();
 	    		double testGMean = 1.0;
@@ -386,6 +410,7 @@ public class FeatureSelection
 		    		testSetRecalls.put(s, recall);
 		    	}
 	    		testGMean = Math.pow(testGMean, (1.0 / classCountsTestSet.size()));
+	    		testGMeans.add(testGMean);
 
 	    		gMean = (oobGMean + testGMean) / 2.0;
 	    		for (String s : classRecalls.keySet())
@@ -483,6 +508,8 @@ public class FeatureSelection
 	    		    		classRecalls.get(s).add(recall);
 	    		    	}
 	    	    		gMean = Math.pow(gMean, (1.0 / classCounts.size()));
+	    	    		oobGMeans.add(gMean);
+	    	    		testGMeans.add(gMean);
 	    	    	}
 	    	    	else
 	    	    	{
@@ -497,6 +524,7 @@ public class FeatureSelection
 	    		    		oobRecalls.put(s, recall);
 	    		    	}
 	    	    		oobGMean = Math.pow(oobGMean, (1.0 / classCounts.size()));
+	    	    		oobGMeans.add(oobGMean);
 
 	    	    		Map<String, Double> testSetRecalls = new HashMap<String, Double>();
 	    	    		double testGMean = 1.0;
@@ -509,6 +537,7 @@ public class FeatureSelection
 	    		    		testSetRecalls.put(s, recall);
 	    		    	}
 	    	    		testGMean = Math.pow(testGMean, (1.0 / classCountsTestSet.size()));
+	    	    		testGMeans.add(testGMean);
 
 	    	    		gMean = (oobGMean + testGMean) / 2.0;
 	    	    		for (String s : classRecalls.keySet())
@@ -528,13 +557,15 @@ public class FeatureSelection
 		    {
 		    	sortedPopulation.add(new IndexedDoubleData(fitness.get(j), j));
 		    }
-		    Collections.sort(sortedPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by F score.
+		    Collections.sort(sortedPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by g mean.
 		    List<List<String>> newPopulation = new ArrayList<List<String>>();
 		    List<Double> newFitness = new ArrayList<Double>();
-		    Map<String, List<Double>> newClassFMeasures = new HashMap<String, List<Double>>();
+		    List<Double> newOobGMeans = new ArrayList<Double>();
+		    List<Double> newTestGMeans = new ArrayList<Double>();
+		    Map<String, List<Double>> newClassRecalls = new HashMap<String, List<Double>>();
 		    for (String s : classCounts.keySet())
 		    {
-		    	newClassFMeasures.put(s, new ArrayList<Double>());
+		    	newClassRecalls.put(s, new ArrayList<Double>());
 		    }
 		    boolean isPopulationStagnant = true;
 		    for (int j = 0; j < populationSize; j ++)
@@ -543,9 +574,11 @@ public class FeatureSelection
 		    	int indexToAddFrom = sortedPopulation.get(j).getIndex();
 		    	newPopulation.add(population.get(indexToAddFrom));
 		    	newFitness.add(fitness.get(indexToAddFrom));
+		    	newOobGMeans.add(oobGMeans.get(indexToAddFrom));
+		    	newTestGMeans.add(testGMeans.get(indexToAddFrom));
 		    	for (String s : classCounts.keySet())
 		    	{
-		    		newClassFMeasures.get(s).add(classRecalls.get(s).get(indexToAddFrom));
+		    		newClassRecalls.get(s).add(classRecalls.get(s).get(indexToAddFrom));
 		    	}
 		    	if (indexToAddFrom > populationSize)
 		    	{
@@ -563,11 +596,14 @@ public class FeatureSelection
 		    }
 		    population = newPopulation;
 		    fitness = newFitness;
-		    classRecalls = newClassFMeasures;
+		    classRecalls = newClassRecalls;
+		    oobGMeans = newOobGMeans;
+		    testGMeans = newTestGMeans;
 
 		    // Write out the statistics of the population.
 	    	writeOutStatus(fitnessDirectoryLocation, fitness, populationDirectoryLocation, population, currentGeneration,
-	    			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classRecalls, classGMeanOutputLocations);
+	    			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classRecalls, classRecallOutputLocations,
+	    			oobGMeans, testGMeans, oobGMeanOutputLocation, testGMeanOutputLocation);
 
 	    	if (fitness.get(0) > this.currentBestFitness)
 	    	{
@@ -674,6 +710,8 @@ public class FeatureSelection
 	    			    		classRecalls.get(s).add(recall);
 	    			    	}
 	    		    		gMean = Math.pow(gMean, (1.0 / classCounts.size()));
+	    		    		oobGMeans.add(gMean);
+	    		    		testGMeans.add(gMean);
 	    		    	}
 	    		    	else
 	    		    	{
@@ -688,6 +726,7 @@ public class FeatureSelection
 	    			    		oobRecalls.put(s, recall);
 	    			    	}
 	    		    		oobGMean = Math.pow(oobGMean, (1.0 / classCounts.size()));
+	    		    		oobGMeans.add(oobGMean);
 
 	    		    		Map<String, Double> testSetRecalls = new HashMap<String, Double>();
 	    		    		double testGMean = 1.0;
@@ -700,6 +739,7 @@ public class FeatureSelection
 	    			    		testSetRecalls.put(s, recall);
 	    			    	}
 	    		    		testGMean = Math.pow(testGMean, (1.0 / classCountsTestSet.size()));
+	    		    		testGMeans.add(testGMean);
 
 	    		    		gMean = (oobGMean + testGMean) / 2.0;
 	    		    		for (String s : classRecalls.keySet())
@@ -741,7 +781,8 @@ public class FeatureSelection
 
 	    // Write out the statistics of the final population.
     	writeOutStatus(fitnessDirectoryLocation, fitness, populationDirectoryLocation, population, currentGeneration,
-    			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classRecalls, classGMeanOutputLocations);
+    			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classRecalls, classRecallOutputLocations,
+    			oobGMeans, testGMeans, oobGMeanOutputLocation, testGMeanOutputLocation);
 
 	    // Write out the best member(s) of the population.
 	    try
@@ -761,6 +802,44 @@ public class FeatureSelection
 			System.exit(0);
 		}
 
+	}
+
+	Map<String, Double> calculateStats(List<Double> values)
+	{
+		int numberOfValues = values.size();
+
+		double meanValue = 0.0;
+		double medianValue = 0.0;
+		double stdDev = 0.0;
+		for (Double d : values)
+		{
+			meanValue += d;
+		}
+		meanValue /= numberOfValues;
+		if (numberOfValues % 2 == 0)
+		{
+			// If the size of the population is even.
+			int midPointOne = numberOfValues / 2;
+			int midPointTwo = midPointOne - 1;
+			medianValue = (values.get(midPointOne) + values.get(midPointTwo)) / 2.0;
+		}
+		else
+		{
+			medianValue = values.get(numberOfValues / 2);  // Works as integer division causes this to be rounded down.
+		}
+		double squaredDiffWithMean = 0.0;
+		for (Double d :values)
+		{
+			squaredDiffWithMean += Math.pow(d - meanValue, 2);
+		}
+		stdDev = Math.pow(squaredDiffWithMean / numberOfValues, 0.5);
+
+		Map<String, Double> results = new HashMap<String, Double>();
+		results.put("Best", values.get(0));
+		results.put("Mean", meanValue);
+		results.put("Median", medianValue);
+		results.put("StdDev", stdDev);
+		return results;
 	}
 
 	List<List<String>> hammingDistance(List<String> parentOne, List<String> parentTwo)
@@ -839,9 +918,35 @@ public class FeatureSelection
 	    return isGenNotStopping && isEvalNotStopping && isTimeNotStopping && isConvergenceNotStopping;
 	}
 
+	void recordStats(Map<String, Double> stats, int currentGeneration, String outputLocation)
+	{
+		try
+		{
+		FileWriter statsOutputFile = new FileWriter(outputLocation, true);
+		BufferedWriter statsOutputWriter = new BufferedWriter(statsOutputFile);
+		statsOutputWriter.write(Integer.toString(currentGeneration));
+		statsOutputWriter.write("\t");
+		statsOutputWriter.write(Double.toString(stats.get("Best")));
+		statsOutputWriter.write("\t");
+		statsOutputWriter.write(Double.toString(stats.get("Mean")));
+		statsOutputWriter.write("\t");
+		statsOutputWriter.write(Double.toString(stats.get("Median")));
+		statsOutputWriter.write("\t");
+		statsOutputWriter.write(Double.toString(stats.get("StdDev")));
+		statsOutputWriter.newLine();
+		statsOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+	}
+
 	void writeOutStatus(String fitnessDirectoryLocation, List<Double> fitness, String populationDirectoryLocation,
 			List<List<String>> population, int currentGeneration, String genStatsOutputLocation, int populationSize,
-			int threshold, int numberEvaluations, Map<String, List<Double>> classRecalls, Map<String, String> classGMeanOutputLocations)
+			int threshold, int numberEvaluations, Map<String, List<Double>> classRecalls, Map<String, String> classRecallOutputLocations,
+			List<Double> oobGMeans, List<Double> testGMeans, String oobGMeanOutputLocation, String testGMeanOutputLocation)
 	{
 		// Write out the fitness info for the current generation.
 		String fitnessOutputLocation = fitnessDirectoryLocation + "/" + Integer.toString(currentGeneration) + ".txt";
@@ -884,70 +989,16 @@ public class FeatureSelection
 		}
 		meanPopulationSize /= populationSize;
 
-		// Calculate the mean and median fitness for the current generation.
-		double meanErrorRate = 0.0;
-		double medianErrorRate = 0.0;
-		double stdDevErrorRate = 0.0;
-		for (Double d : fitness)
-		{
-			meanErrorRate += d;
-		}
-		meanErrorRate /= populationSize;
-		if (populationSize % 2 == 0)
-		{
-			// If the size of the population is even.
-			int midPointOne = populationSize / 2;
-			int midPointTwo = midPointOne - 1;
-			medianErrorRate = (fitness.get(midPointOne) + fitness.get(midPointTwo)) / 2.0;
-		}
-		else
-		{
-			medianErrorRate = fitness.get(populationSize / 2);  // Works as integer division causes this to be rounded down.
-		}
-		double squaredDiffWithMean = 0.0;
-		for (Double d : fitness)
-		{
-			squaredDiffWithMean += Math.pow(d - meanErrorRate, 2);
-		}
-		stdDevErrorRate = Math.pow(squaredDiffWithMean / populationSize, 0.5);
+		// Calculate and record the stats for the current generation.
+		Map<String, Double> fitnessStats = calculateStats(fitness);
 
-		Map<String, List<Double>> classResults = new HashMap<String, List<Double>>();
 		for (String s : classRecalls.keySet())
 		{
-			// Calculate the mean and median fitness for the current generation.
-			double meanClassFMeasure = 0.0;
-			double medianClassFMeasure = 0.0;
-			double stdDevClassFMeasure = 0.0;
-			for (Double d : classRecalls.get(s))
-			{
-				meanClassFMeasure += d;
-			}
-			meanClassFMeasure /= populationSize;
-			if (populationSize % 2 == 0)
-			{
-				// If the size of the population is even.
-				int midPointOne = populationSize / 2;
-				int midPointTwo = midPointOne - 1;
-				medianClassFMeasure = (classRecalls.get(s).get(midPointOne) + classRecalls.get(s).get(midPointTwo)) / 2.0;
-			}
-			else
-			{
-				medianClassFMeasure = classRecalls.get(s).get(populationSize / 2);  // Works as integer division causes this to be rounded down.
-			}
-			squaredDiffWithMean = 0.0;
-			for (Double d : classRecalls.get(s))
-			{
-				squaredDiffWithMean += Math.pow(d - meanClassFMeasure, 2);
-			}
-			stdDevClassFMeasure = Math.pow(squaredDiffWithMean / populationSize, 0.5);
-
-			List<Double> resultsList = new ArrayList<Double>();
-			resultsList.add(classRecalls.get(s).get(0));
-			resultsList.add(meanClassFMeasure);
-			resultsList.add(medianClassFMeasure);
-			resultsList.add(stdDevClassFMeasure);
-			classResults.put(s, resultsList);
+			recordStats(calculateStats(classRecalls.get(s)), currentGeneration, classRecallOutputLocations.get(s));
 		}
+
+		recordStats(calculateStats(oobGMeans), currentGeneration, oobGMeanOutputLocation);
+		recordStats(calculateStats(testGMeans), currentGeneration, testGMeanOutputLocation);
 
 		// Write out the fitness statistics for the current generation.
 		try
@@ -956,13 +1007,13 @@ public class FeatureSelection
 			BufferedWriter genStatsOutputWriter = new BufferedWriter(genStatsOutputFile);
 			genStatsOutputWriter.write(Integer.toString(currentGeneration));
 			genStatsOutputWriter.write("\t");
-			genStatsOutputWriter.write(Double.toString(fitness.get(0)));
+			genStatsOutputWriter.write(Double.toString(fitnessStats.get("Best")));
 			genStatsOutputWriter.write("\t");
-			genStatsOutputWriter.write(Double.toString(meanErrorRate));
+			genStatsOutputWriter.write(Double.toString(fitnessStats.get("Mean")));
 			genStatsOutputWriter.write("\t");
-			genStatsOutputWriter.write(Double.toString(medianErrorRate));
+			genStatsOutputWriter.write(Double.toString(fitnessStats.get("Median")));
 			genStatsOutputWriter.write("\t");
-			genStatsOutputWriter.write(Double.toString(stdDevErrorRate));
+			genStatsOutputWriter.write(Double.toString(fitnessStats.get("StdDev")));
 			genStatsOutputWriter.write("\t");
 			genStatsOutputWriter.write(Integer.toString(population.get(0).size()));
 			genStatsOutputWriter.write("\t");
@@ -973,23 +1024,6 @@ public class FeatureSelection
 			genStatsOutputWriter.write(Integer.toString(numberEvaluations));
 			genStatsOutputWriter.newLine();
 			genStatsOutputWriter.close();
-
-			for (String s : classRecalls.keySet())
-			{
-				FileWriter classStatsOutputFile = new FileWriter(classGMeanOutputLocations.get(s), true);
-				BufferedWriter classStatsOutputWriter = new BufferedWriter(classStatsOutputFile);
-				classStatsOutputWriter.write(Integer.toString(currentGeneration));
-				classStatsOutputWriter.write("\t");
-				classStatsOutputWriter.write(Double.toString(classResults.get(s).get(0)));
-				classStatsOutputWriter.write("\t");
-				classStatsOutputWriter.write(Double.toString(classResults.get(s).get(1)));
-				classStatsOutputWriter.write("\t");
-				classStatsOutputWriter.write(Double.toString(classResults.get(s).get(2)));
-				classStatsOutputWriter.write("\t");
-				classStatsOutputWriter.write(Double.toString(classResults.get(s).get(3)));
-				classStatsOutputWriter.newLine();
-				classStatsOutputWriter.close();
-			}
 		}
 		catch (Exception e)
 		{
