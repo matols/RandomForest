@@ -86,6 +86,13 @@ public class VariableImportance {
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.write("Training observations used - " + Arrays.toString(trainingObsToUse));
 			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("Weights used");
+			parameterOutputWriter.newLine();
+			for (String s : weights.keySet())
+			{
+				parameterOutputWriter.write("\t" + s + " - " + Double.toString(weights.get(s)));
+				parameterOutputWriter.newLine();
+			}
 			parameterOutputWriter.close();
 		}
 		catch (Exception e)
