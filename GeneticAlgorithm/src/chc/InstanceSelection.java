@@ -77,6 +77,7 @@ public class InstanceSelection
 		long maxTimeAllowed = 0;  // What the maximum time allowed (in ms) for the run is. 0 indicates that timing is not used.
 		int maxConvergences = 0;  // The number of times the population is allowed to converge.
 		int maxStagnant = 5;  // The number of consecutive generations that can occur without any offspring being added to the population.
+		int userThreshold = 0;  // The threshold before the cataclysmic event (will default to sizeOfIndividual / 4).
 
 		// Read in the user input.
 		int argIndex = 2;
@@ -119,6 +120,11 @@ public class InstanceSelection
 				maxStagnant = Integer.parseInt(args[argIndex]);
 				argIndex += 1;
 				break;
+			case "-h":
+				argIndex += 1;
+				userThreshold = Integer.parseInt(args[argIndex]);
+				argIndex += 1;
+				break;
 			default:
 				System.out.format("Unexpeted argument : %s.\n", currentArg);
 				System.exit(0);
@@ -141,6 +147,8 @@ public class InstanceSelection
 			FileWriter parameterOutputFile = new FileWriter(parameterOutputLocation);
 			BufferedWriter parameterOutputWriter = new BufferedWriter(parameterOutputFile);
 		    parameterOutputWriter.write("Population Size:\t" + Integer.toString(populationSize));
+		    parameterOutputWriter.newLine();
+		    parameterOutputWriter.write("User Specified Threshold:\t" + Integer.toString(userThreshold));
 		    parameterOutputWriter.newLine();
 		    parameterOutputWriter.write("Number of Generations:\t" + Integer.toString(maxGenerations));
 		    parameterOutputWriter.newLine();
@@ -182,8 +190,6 @@ public class InstanceSelection
 
 		// Setup the generation stats files and write out the class weights being used.
 		String genStatsOutputLocation = outputLocation + "/GenerationStatistics.txt";
-		String oobGMeanOutputLocation = outputLocation + "/OOBGMean.txt";
-		String testGMeanOutputLocation = outputLocation + "/TestGMean.txt";
 		String convergenOutputLocation = outputLocation + "/BestConvergenceIndividuals.txt";
 		String weightOutputLocation = outputLocation + "/Weights.txt";
 		Map<String, String> classRecallOutputLocations = new HashMap<String, String>();
@@ -230,17 +236,6 @@ public class InstanceSelection
 				classStatsOutputWriter.newLine();
 				classStatsOutputWriter.close();
 			}
-
-			FileWriter oobStatsOutputFile = new FileWriter(oobGMeanOutputLocation);
-			FileWriter testStatsOutputFile = new FileWriter(testGMeanOutputLocation);
-			BufferedWriter oobStatsOutputWriter = new BufferedWriter(oobStatsOutputFile);
-			BufferedWriter testStatsOutputWriter = new BufferedWriter(testStatsOutputFile);
-			oobStatsOutputWriter.write("Generation\tBestMemberGMean\tMeanGMean\tMedianGMean\tStdDevGMean");
-			testStatsOutputWriter.write("Generation\tBestMemberGMean\tMeanGMean\tMedianGMean\tStdDevGMean");
-			oobStatsOutputWriter.newLine();
-			testStatsOutputWriter.newLine();
-			oobStatsOutputWriter.close();
-			testStatsOutputWriter.close();
 		}
 		catch (Exception e)
 		{
@@ -289,17 +284,25 @@ public class InstanceSelection
 		}
 
 		// Determine the threshold used.
-		if (!observations.keySet().containsAll(fractionsToSelect.keySet()))
-		{
-			System.out.println("You specified a class to select a certain number of observations from, but this class does not exist.");
-			System.exit(0);
-		}
+		int threshold;
 		int initialSetSize = 0;
-		for (String s : fractionsToSelect.keySet())
+		if (userThreshold == 0)
 		{
-			initialSetSize += fractionsToSelect.get(s);
+			if (!observations.keySet().containsAll(fractionsToSelect.keySet()))
+			{
+				System.out.println("You specified a class to select a certain number of observations from, but this class does not exist.");
+				System.exit(0);
+			}
+			for (String s : fractionsToSelect.keySet())
+			{
+				initialSetSize += fractionsToSelect.get(s);
+			}
+			threshold = initialSetSize / 4;
 		}
-		int threshold = initialSetSize / 4;
+		else
+		{
+			threshold = userThreshold;
+		}
 
 		//----------------------
 		// Begin the GA.
@@ -351,8 +354,6 @@ public class InstanceSelection
 	    // Calculate the fitness of the initial population.
 	    List<Double> fitness = new ArrayList<Double>();
 	    Map<String, List<Double>> classRecalls = new HashMap<String, List<Double>>();
-	    List<Double> oobGMeans = new ArrayList<Double>();
-	    List<Double> testGMeans = new ArrayList<Double>();
 	    for (String s : observations.keySet())
 	    {
 	    	classRecalls.put(s, new ArrayList<Double>());
@@ -368,58 +369,25 @@ public class InstanceSelection
 	    	testObs.removeAll(geneSet);
 	    	Map<String, Map<String, Double>> predictedConfusionMatrix = forest.predict(processedInputFile, testObs).second;
 
-	    	// Determine the number of training observations in each class.
-	    	Map<String, Integer> trainingSetClasses = new HashMap<String, Integer>();
-	    	for (String s : observations.keySet())
-	    	{
-	    		int numberInTrainingSet = 0;
-	    		List<Integer> observationsInClass = observations.get(s);
-	    		for (Integer i : geneSet)
-	    		{
-	    			if (observationsInClass.contains(i))
-	    			{
-	    				numberInTrainingSet++;
-	    			}
-	    		}
-	    		trainingSetClasses.put(s, numberInTrainingSet);
-	    	}
-
 	    	// Determine the g mean for the training observations.
 	    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
-	    	Map<String, Double> oobRecalls = new HashMap<String, Double>();
-	    	double trainingGMean = 1.0;
-	    	for (String s : oobConfusionMatrix.keySet())
+	    	double gMean = 1.0;
+    		for (String s : oobConfusionMatrix.keySet())
 	    	{
-	    		double TP = oobConfusionMatrix.get(s).get("TruePositive");
-	    		double FN = trainingSetClasses.get(s) - TP;
-	    		double recall = TP / (TP + FN);
-	    		trainingGMean *= recall;
-	    		oobRecalls.put(s, recall);
+    			for (String p : oobConfusionMatrix.get(s).keySet())
+    			{
+    				// Combine the predictions.
+    				oobConfusionMatrix.get(s).put(p, oobConfusionMatrix.get(s).get(p) + predictedConfusionMatrix.get(s).get(p));
+    			}
+    			double TP = oobConfusionMatrix.get(s).get("TruePositive");
+    			double FN = observations.get(s).size() - TP;
+    			double recall = TP / (TP + FN);
+    			gMean *= recall;
+	    		classRecalls.get(s).add(recall);
 	    	}
-	    	trainingGMean = Math.pow(trainingGMean, (1.0 / observations.size()));
-	    	oobGMeans.add(trainingGMean);
-
-	    	// Determine the g mean for the test set observations.
-	    	Map<String, Double> testSetRecalls = new HashMap<String, Double>();
-	    	double testSetGMean = 1.0;
-	    	for (String s : predictedConfusionMatrix.keySet())
-	    	{
-	    		double TP = predictedConfusionMatrix.get(s).get("TruePositive");
-	    		double FN = (observations.get(s).size() - trainingSetClasses.get(s)) - TP;
-	    		double recall = TP / (TP + FN);
-	    		testSetGMean *= recall;
-	    		testSetRecalls.put(s, recall);
-	    	}
-	    	testSetGMean = Math.pow(testSetGMean, (1.0 / observations.size()));
-	    	testGMeans.add(testSetGMean);
-
-	    	for (String s : classRecalls.keySet())
-	    	{
-	    		double averageClassRecall = (oobRecalls.get(s) + testSetRecalls.get(s)) / 2;
-	    		classRecalls.get(s).add(averageClassRecall);
-	    	}
+    		gMean = Math.pow(gMean, (1.0 / observations.size()));
 	    	numberEvaluations += 1;
-	    	fitness.add((trainingGMean + testSetGMean) / 2.0);
+	    	fitness.add(gMean);
 	    }
 
 	    while (loopTermination(currentGeneration, maxGenerations, numberEvaluations, maxEvaluations, gaStartTime, maxTimeAllowed, convergencesOccurred, maxConvergences))
@@ -487,58 +455,25 @@ public class InstanceSelection
 			    	testObs.removeAll(geneSet);
 			    	Map<String, Map<String, Double>> predictedConfusionMatrix = forest.predict(processedInputFile, testObs).second;
 
-			    	// Determine the number of training observations in each class.
-			    	Map<String, Integer> trainingSetClasses = new HashMap<String, Integer>();
-			    	for (String s : observations.keySet())
-			    	{
-			    		int numberInTrainingSet = 0;
-			    		List<Integer> observationsInClass = observations.get(s);
-			    		for (Integer i : geneSet)
-			    		{
-			    			if (observationsInClass.contains(i))
-			    			{
-			    				numberInTrainingSet++;
-			    			}
-			    		}
-			    		trainingSetClasses.put(s, numberInTrainingSet);
-			    	}
-
 			    	// Determine the g mean for the training observations.
 			    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
-			    	Map<String, Double> oobRecalls = new HashMap<String, Double>();
-			    	double trainingGMean = 1.0;
-			    	for (String s : oobConfusionMatrix.keySet())
+			    	double gMean = 1.0;
+		    		for (String s : oobConfusionMatrix.keySet())
 			    	{
-			    		double TP = oobConfusionMatrix.get(s).get("TruePositive");
-			    		double FN = trainingSetClasses.get(s) - TP;
-			    		double recall = TP / (TP + FN);
-			    		trainingGMean *= recall;
-			    		oobRecalls.put(s, recall);
+		    			for (String p : oobConfusionMatrix.get(s).keySet())
+		    			{
+		    				// Combine the predictions.
+		    				oobConfusionMatrix.get(s).put(p, oobConfusionMatrix.get(s).get(p) + predictedConfusionMatrix.get(s).get(p));
+		    			}
+		    			double TP = oobConfusionMatrix.get(s).get("TruePositive");
+		    			double FN = observations.get(s).size() - TP;
+		    			double recall = TP / (TP + FN);
+		    			gMean *= recall;
+			    		classRecalls.get(s).add(recall);
 			    	}
-			    	trainingGMean = Math.pow(trainingGMean, (1.0 / observations.size()));
-			    	oobGMeans.add(trainingGMean);
-
-			    	// Determine the g mean for the test set observations.
-			    	Map<String, Double> testSetRecalls = new HashMap<String, Double>();
-			    	double testSetGMean = 1.0;
-			    	for (String s : predictedConfusionMatrix.keySet())
-			    	{
-			    		double TP = predictedConfusionMatrix.get(s).get("TruePositive");
-			    		double FN = (observations.get(s).size() - trainingSetClasses.get(s)) - TP;
-			    		double recall = TP / (TP + FN);
-			    		testSetGMean *= recall;
-			    		testSetRecalls.put(s, recall);
-			    	}
-			    	testSetGMean = Math.pow(testSetGMean, (1.0 / observations.size()));
-			    	testGMeans.add(testSetGMean);
-
-			    	for (String s : classRecalls.keySet())
-			    	{
-			    		double averageClassRecall = (oobRecalls.get(s) + testSetRecalls.get(s)) / 2;
-			    		classRecalls.get(s).add(averageClassRecall);
-			    	}
+		    		gMean = Math.pow(gMean, (1.0 / observations.size()));
 			    	numberEvaluations += 1;
-			    	fitness.add((trainingGMean + testSetGMean) / 2.0);
+			    	fitness.add(gMean);
 			    }
 	    	}
 
@@ -552,8 +487,6 @@ public class InstanceSelection
 		    List<List<Integer>> newPopulation = new ArrayList<List<Integer>>();
 		    List<Double> newFitness = new ArrayList<Double>();
 		    Map<String, List<Double>> newClassRecalls = new HashMap<String, List<Double>>();
-		    List<Double> newOobGMeans = new ArrayList<Double>();
-		    List<Double> newTestSetGMeans = new ArrayList<Double>();
 		    for (String s : observations.keySet())
 		    {
 		    	newClassRecalls.put(s, new ArrayList<Double>());
@@ -565,8 +498,6 @@ public class InstanceSelection
 		    	int indexToAddFrom = sortedPopulation.get(j).getIndex();
 		    	newPopulation.add(population.get(indexToAddFrom));
 		    	newFitness.add(fitness.get(indexToAddFrom));
-		    	newOobGMeans.add(oobGMeans.get(indexToAddFrom));
-		    	newTestSetGMeans.add(testGMeans.get(indexToAddFrom));
 		    	for (String s : observations.keySet())
 		    	{
 		    		newClassRecalls.get(s).add(classRecalls.get(s).get(indexToAddFrom));
@@ -588,13 +519,10 @@ public class InstanceSelection
 		    population = newPopulation;
 		    fitness = newFitness;
 		    classRecalls = newClassRecalls;
-		    oobGMeans = newOobGMeans;
-		    testGMeans = newTestSetGMeans;
 
 		    // Write out the statistics of the population.
 	    	writeOutStatus(fitnessDirectoryLocation, fitness, populationDirectoryLocation, population, currentGeneration,
-	    			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classRecalls, classRecallOutputLocations,
-	    			oobGMeans, testGMeans, oobGMeanOutputLocation, testGMeanOutputLocation);
+	    			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classRecalls, classRecallOutputLocations);
 
 	    	if (fitness.get(0) > this.currentBestFitness)
 	    	{
@@ -636,7 +564,16 @@ public class InstanceSelection
 	    			// Generate the new growth seed.
 	    			seedForThisConvergence = random.nextLong();
 
-	    			threshold = initialSetSize / 4;
+	    			// Re-initialise the threshold.
+	    			if (userThreshold == 0)
+	    			{
+	    				threshold = initialSetSize / 4;
+	    			}
+	    			else
+	    			{
+	    				threshold = userThreshold;
+	    			}
+
 	    			// Generate the new population by randomly instantiating the population.
 	    			population = new ArrayList<List<Integer>>();
 	    			for (int i = 0; i < populationSize; i++)
@@ -676,58 +613,25 @@ public class InstanceSelection
 	    		    	testObs.removeAll(geneSet);
 	    		    	Map<String, Map<String, Double>> predictedConfusionMatrix = forest.predict(processedInputFile, testObs).second;
 
-	    		    	// Determine the number of training observations in each class.
-	    		    	Map<String, Integer> trainingSetClasses = new HashMap<String, Integer>();
-	    		    	for (String s : observations.keySet())
-	    		    	{
-	    		    		int numberInTrainingSet = 0;
-	    		    		List<Integer> observationsInClass = observations.get(s);
-	    		    		for (Integer i : geneSet)
-	    		    		{
-	    		    			if (observationsInClass.contains(i))
-	    		    			{
-	    		    				numberInTrainingSet++;
-	    		    			}
-	    		    		}
-	    		    		trainingSetClasses.put(s, numberInTrainingSet);
-	    		    	}
-
 	    		    	// Determine the g mean for the training observations.
 	    		    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
-	    		    	Map<String, Double> oobRecalls = new HashMap<String, Double>();
-	    		    	double trainingGMean = 1.0;
-	    		    	for (String s : oobConfusionMatrix.keySet())
+	    		    	double gMean = 1.0;
+	    	    		for (String s : oobConfusionMatrix.keySet())
 	    		    	{
-	    		    		double TP = oobConfusionMatrix.get(s).get("TruePositive");
-	    		    		double FN = trainingSetClasses.get(s) - TP;
-	    		    		double recall = TP / (TP + FN);
-	    		    		trainingGMean *= recall;
-	    		    		oobRecalls.put(s, recall);
+	    	    			for (String p : oobConfusionMatrix.get(s).keySet())
+	    	    			{
+	    	    				// Combine the predictions.
+	    	    				oobConfusionMatrix.get(s).put(p, oobConfusionMatrix.get(s).get(p) + predictedConfusionMatrix.get(s).get(p));
+	    	    			}
+	    	    			double TP = oobConfusionMatrix.get(s).get("TruePositive");
+	    	    			double FN = observations.get(s).size() - TP;
+	    	    			double recall = TP / (TP + FN);
+	    	    			gMean *= recall;
+	    		    		classRecalls.get(s).add(recall);
 	    		    	}
-	    		    	trainingGMean = Math.pow(trainingGMean, (1.0 / observations.size()));
-	    		    	oobGMeans.add(trainingGMean);
-
-	    		    	// Determine the g mean for the test set observations.
-	    		    	Map<String, Double> testSetRecalls = new HashMap<String, Double>();
-	    		    	double testSetGMean = 1.0;
-	    		    	for (String s : predictedConfusionMatrix.keySet())
-	    		    	{
-	    		    		double TP = predictedConfusionMatrix.get(s).get("TruePositive");
-	    		    		double FN = (observations.get(s).size() - trainingSetClasses.get(s)) - TP;
-	    		    		double recall = TP / (TP + FN);
-	    		    		testSetGMean *= recall;
-	    		    		testSetRecalls.put(s, recall);
-	    		    	}
-	    		    	testSetGMean = Math.pow(testSetGMean, (1.0 / observations.size()));
-	    		    	testGMeans.add(testSetGMean);
-
-	    		    	for (String s : classRecalls.keySet())
-	    		    	{
-	    		    		double averageClassRecall = (oobRecalls.get(s) + testSetRecalls.get(s)) / 2;
-	    		    		classRecalls.get(s).add(averageClassRecall);
-	    		    	}
+	    	    		gMean = Math.pow(gMean, (1.0 / observations.size()));
 	    		    	numberEvaluations += 1;
-	    		    	fitness.add((trainingGMean + testSetGMean) / 2.0);
+	    		    	fitness.add(gMean);
 	    		    }
 	    		}
 	    	}
@@ -759,8 +663,7 @@ public class InstanceSelection
 
 	    // Write out the statistics of the final population.
     	writeOutStatus(fitnessDirectoryLocation, fitness, populationDirectoryLocation, population, currentGeneration,
-    			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classRecalls, classRecallOutputLocations,
-    			oobGMeans, testGMeans, oobGMeanOutputLocation, testGMeanOutputLocation);
+    			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classRecalls, classRecallOutputLocations);
 
 	    // Write out the best member of the population.
 	    try
@@ -923,8 +826,7 @@ public class InstanceSelection
 
 	void writeOutStatus(String fitnessDirectoryLocation, List<Double> fitness, String populationDirectoryLocation,
 			List<List<Integer>> population, int currentGeneration, String genStatsOutputLocation, int populationSize,
-			int threshold, int numberEvaluations, Map<String, List<Double>> classRecalls, Map<String, String> classRecallOutputLocations,
-			List<Double> oobGMeans, List<Double> testGMeans, String oobGMeanOutputLocation, String testGMeanOutputLocation)
+			int threshold, int numberEvaluations, Map<String, List<Double>> classRecalls, Map<String, String> classRecallOutputLocations)
 	{
 		// Write out the fitness info for the current generation.
 		String fitnessOutputLocation = fitnessDirectoryLocation + "/" + Integer.toString(currentGeneration) + ".txt";
@@ -947,7 +849,7 @@ public class InstanceSelection
 
 		// Write out the population information for the current generation.
 		String populationOutputLocation = populationDirectoryLocation + "/" + Integer.toString(currentGeneration) + ".txt";
-		double meanPopulationSize = 0.0;
+		double meanIndividualSize = 0.0;
 		try
 		{
 			FileWriter populationOutputFile = new FileWriter(populationOutputLocation);
@@ -956,7 +858,7 @@ public class InstanceSelection
 			{
 				populationOutputWriter.write(p.toString());
 				populationOutputWriter.newLine();
-				meanPopulationSize += p.size();
+				meanIndividualSize += p.size();
 			}
 			populationOutputWriter.close();
 		}
@@ -965,7 +867,7 @@ public class InstanceSelection
 			e.printStackTrace();
 			System.exit(0);
 		}
-		meanPopulationSize /= populationSize;
+		meanIndividualSize /= populationSize;
 
 		// Calculate and record the stats for the current generation.
 		Map<String, Double> fitnessStats = calculateStats(fitness);
@@ -974,9 +876,6 @@ public class InstanceSelection
 		{
 			recordStats(calculateStats(classRecalls.get(s)), currentGeneration, classRecallOutputLocations.get(s));
 		}
-
-		recordStats(calculateStats(oobGMeans), currentGeneration, oobGMeanOutputLocation);
-		recordStats(calculateStats(testGMeans), currentGeneration, testGMeanOutputLocation);
 
 		// Write out the fitness statistics for the current generation.
 		try
@@ -995,7 +894,7 @@ public class InstanceSelection
 			genStatsOutputWriter.write("\t");
 			genStatsOutputWriter.write(Integer.toString(population.get(0).size()));
 			genStatsOutputWriter.write("\t");
-			genStatsOutputWriter.write(Double.toString(meanPopulationSize));
+			genStatsOutputWriter.write(Double.toString(meanIndividualSize));
 			genStatsOutputWriter.write("\t");
 			genStatsOutputWriter.write(Integer.toString(threshold));
 			genStatsOutputWriter.write("\t");
