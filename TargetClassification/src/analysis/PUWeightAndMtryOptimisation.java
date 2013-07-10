@@ -124,8 +124,8 @@ public class PUWeightAndMtryOptimisation
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
 		int numberOfForestsToCreate = 100;  // The number of forests to create for each weight/mtry combination.
-		Integer[] mtryToUse = {5, 10, 15, 20, 25, 30};  // The different values of mtry to test.
-		Double[] posFracLimitsToUse = {0.5, 0.6, 0.7, 0.75, 0.8};  // The different values of positiveFractionTerminalCutoff to use.
+		Integer[] mtryToUse = {10};  // The different values of mtry to test.
+		Double[] posFracLimitsToUse = {0.75};  // The different values of positiveFractionTerminalCutoff to use.
 		Integer[] trainingObsToUse = {};  // The observations in the training set that will be used in growing the forests.
 
 		// varyingClassWeightMapping can be used when the weights for a class should be varied, while constantClassWeightMapping can be used to assign a weight to
