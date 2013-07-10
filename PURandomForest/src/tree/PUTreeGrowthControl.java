@@ -5,7 +5,7 @@ import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TreeGrowthControl
+public class PUTreeGrowthControl
 {
 	//===================================================================
 	//============== Input Data Parsing Control Attributes ==============
@@ -67,15 +67,22 @@ public class TreeGrowthControl
 	 */
 	public int maxTreeDepth = Integer.MAX_VALUE;
 
+	/**
+	 * A terminal node will be created when there are no two unlabelled observations in a node such that one has a positive discount
+	 * greater than this and the other has a positive discount less than or equal to this.
+	 * The value for this attribute should be between 0 and 1. A value closer to 1 will cause fewer unlabelled observations to be grouped
+	 * with the positive observations.
+	 */
+	public double positiveFractionTerminalCutoff = 0.5;
 
 	//===================================================================
 	//======================== Class Constructor ========================
 	//===================================================================
-	public TreeGrowthControl()
+	public PUTreeGrowthControl()
 	{
 	}
 
-	public TreeGrowthControl(TreeGrowthControl ctrl)
+	public PUTreeGrowthControl(PUTreeGrowthControl ctrl)
 	{
 		// Copy constructor.
 		this.variablesToIgnore = new ArrayList<String>(ctrl.variablesToIgnore);
@@ -85,6 +92,7 @@ public class TreeGrowthControl
 		this.mtry = ctrl.mtry;
 		this.numberOfTreesToGrow = ctrl.numberOfTreesToGrow;
 		this.maxTreeDepth = ctrl.maxTreeDepth;
+		this.positiveFractionTerminalCutoff = ctrl.positiveFractionTerminalCutoff;
 	}
 
 

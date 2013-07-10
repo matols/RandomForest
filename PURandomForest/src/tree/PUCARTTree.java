@@ -17,42 +17,42 @@ import java.util.Set;
  * @version		1.0
  * @since		2013-01-31
  */
-public class CARTTree
+public class PUCARTTree
 {
 
 	/**
 	 * The tree that has been grown.
 	 */
-	Node cartTree = null;
+	PUNode cartTree = null;
 
 	/**
 	 * The object recording the control parameters for the tree.
 	 */
-	TreeGrowthControl ctrl;
+	PUTreeGrowthControl ctrl;
 
 	/**
 	 * 
 	 */
-	ProcessDataForGrowing processedData;
+	PUProcessDataForGrowing processedData;
 
 	long seed;
 
-	public CARTTree(ProcessDataForGrowing processedData)
+	public PUCARTTree(PUProcessDataForGrowing processedData)
 	{
-		TreeGrowthControl ctrl = new TreeGrowthControl();
+		PUTreeGrowthControl ctrl = new PUTreeGrowthControl();
 		this.ctrl = ctrl;
 		this.processedData = processedData;
 		this.seed = System.currentTimeMillis();
 	}
 
-	public CARTTree(ProcessDataForGrowing processedData, TreeGrowthControl ctrl)
+	public PUCARTTree(PUProcessDataForGrowing processedData, PUTreeGrowthControl ctrl)
 	{
 		this.ctrl = ctrl;
 		this.processedData = processedData;
 		this.seed = System.currentTimeMillis();
 	}
 
-	public CARTTree(ProcessDataForGrowing processedData, TreeGrowthControl ctrl, long seed)
+	public PUCARTTree(PUProcessDataForGrowing processedData, PUTreeGrowthControl ctrl, long seed)
 	{
 		this.ctrl = ctrl;
 		this.processedData = processedData;
@@ -63,10 +63,10 @@ public class CARTTree
 	/**
 	 * Controls the growth of the tree.
 	 */
-	public void growTree(Map<String, Map<Integer, Double>> weights, List<Integer> observationsUsed)
+	public void growTree(Map<String, Double> classWeights, Map<String, Map<Integer, Double>> discounts, List<Integer> observationsUsed)
 	{
 		// Grow the tree.
-		this.cartTree = controlTreeGrowth(observationsUsed, weights, 1);
+		this.cartTree = controlTreeGrowth(observationsUsed, classWeights, discounts, 1);
 	}
 
 
@@ -79,18 +79,22 @@ public class CARTTree
 	}
 
 
-	Node controlTreeGrowth(List<Integer> observationsInNode, Map<String, Map<Integer, Double>> weights, int currentDepth)
+	PUNode controlTreeGrowth(List<Integer> observationsInNode, Map<String, Double> classWeights, Map<String, Map<Integer, Double>> discounts,
+			int currentDepth)
 	{
 		// Determine the weight of each class in the current node, and determine the classes present in the node.
 		Map<String, Double> classWeightsInNode = new HashMap<String, Double>();
 		Set<String> classesPresentInNode = new HashSet<String>();
+		Map<String, Map<Integer, Double>> observationWeights = new HashMap<String, Map<Integer, Double>>();
+		observationWeights.put("Positive", new HashMap<Integer, Double>());
+		observationWeights.put("Unlabelled", new HashMap<Integer, Double>());
 		double positiveWeight = 0.0;
 		double unlabelledWeight = 0.0;
 		for (Integer i : observationsInNode)
 		{
-			double obsPosWeight = weights.get("Positive").get(i);
-			double obsUnlabelledWeight = weights.get("Unlabelled").get(i);
-			if (obsPosWeight > obsUnlabelledWeight)
+			double obsPositiveDiscount = discounts.get("Positive").get(i);
+			double obsUnlabelledDiscount = discounts.get("Unlabelled").get(i);
+			if (obsPositiveDiscount > this.ctrl.positiveFractionTerminalCutoff)
 			{
 				classesPresentInNode.add("Positive");
 			}
@@ -98,8 +102,13 @@ public class CARTTree
 			{
 				classesPresentInNode.add("Unlabelled");
 			}
-			positiveWeight += obsPosWeight;
-			unlabelledWeight += obsUnlabelledWeight;
+
+			double obsPositiveWeight = obsPositiveDiscount * classWeights.get("Positive");
+			double obseUnlabelledWeight = obsUnlabelledDiscount * classWeights.get("Unlabelled");
+			observationWeights.get("Positive").put(i, obsPositiveWeight);
+			observationWeights.get("Unlabelled").put(i, obseUnlabelledWeight);
+			positiveWeight += (obsPositiveWeight);
+			unlabelledWeight += (obseUnlabelledWeight);
 		}
 		classWeightsInNode.put("Positive", positiveWeight);
 		classWeightsInNode.put("Unlabelled", unlabelledWeight);
@@ -111,13 +120,13 @@ public class CARTTree
 		{
 			// There are too few classes present in the observations in the node to warrant a split.
 			// A terminal node must therefore be created.
-			return new NodeTerminal(classWeightsInNode, currentDepth);
+			return new PUNodeTerminal(classWeightsInNode, currentDepth);
 		}
 		if (currentDepth >= ctrl.maxTreeDepth)
 		{
 			// The depth of the tree has reached the maximum permissible.
 			// A terminal node must therefore be created.
-			return new NodeTerminal(classWeightsInNode, currentDepth);
+			return new PUNodeTerminal(classWeightsInNode, currentDepth);
 		}
 		
 
@@ -137,9 +146,9 @@ public class CARTTree
 		double splitValue;
 		String covarToSplitOn;
 
-		DetermineSplit splitCalculator = new DetermineSplit();
+		PUDetermineSplit splitCalculator = new PUDetermineSplit();
 		ImmutableThreeValues<Boolean, Double, String> splitResult = splitCalculator.findBestSplit(this.processedData.covariableData,
-				this.processedData.responseData, observationsInNode, variablesToSplitOn, weights, this.ctrl, classWeightsInNode);
+				this.processedData.responseData, observationsInNode, variablesToSplitOn, observationWeights, this.ctrl, classWeightsInNode);
 		isSplitFound = splitResult.first;
 		splitValue = splitResult.second;
 		covarToSplitOn = splitResult.third;
@@ -162,19 +171,19 @@ public class CARTTree
 					leftObserations.add(i);
 				}
 			}
-			Node leftChild = controlTreeGrowth(leftObserations, weights, currentDepth + 1);
-			Node rightChild = controlTreeGrowth(rightObservations, weights, currentDepth + 1);
-			return new NodeNonTerminal(currentDepth, covarToSplitOn, splitValue, leftChild, rightChild);
+			PUNode leftChild = controlTreeGrowth(leftObserations, classWeights, discounts, currentDepth + 1);
+			PUNode rightChild = controlTreeGrowth(rightObservations, classWeights, discounts, currentDepth + 1);
+			return new PUNodeNonTerminal(currentDepth, covarToSplitOn, splitValue, leftChild, rightChild);
 		}
 		else
 		{
 			// If there was no valid split found, then return a terminal node.
-			return new NodeTerminal(classWeightsInNode, currentDepth);
+			return new PUNodeTerminal(classWeightsInNode, currentDepth);
 		}
 
 	}
 
-	Map<Integer, Map<String, Double>> predict(ProcessDataForGrowing predData)
+	Map<Integer, Map<String, Double>> predict(PUProcessDataForGrowing predData)
 	{
 		List<Integer> observationsToPredict = new ArrayList<Integer>();
 		for (int i = 0; i < predData.numberObservations; i++)
@@ -184,7 +193,7 @@ public class CARTTree
 		return predict(predData, observationsToPredict);
 	}
 
-	Map<Integer, Map<String, Double>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
+	Map<Integer, Map<String, Double>> predict(PUProcessDataForGrowing predData, List<Integer> observationsToPredict)
 	{
 		if (this.cartTree == null)
 		{

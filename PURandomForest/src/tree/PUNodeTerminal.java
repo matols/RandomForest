@@ -11,12 +11,12 @@ import java.util.Map;
  * @author Simon Bull
  *
  */
-public class NodeTerminal extends Node
+public class PUNodeTerminal extends PUNode
 {
 	int numberOfObservationsInNode;
 	Map<String, Double> classWeightsInNode = new HashMap<String, Double>();
 
-	NodeTerminal(Map<String, Double> classWeightsInNode, int currentDepth)
+	PUNodeTerminal(Map<String, Double> classWeightsInNode, int currentDepth)
 	{
 		this.classWeightsInNode = classWeightsInNode;
 		this.nodeDepth = currentDepth;
@@ -36,7 +36,7 @@ public class NodeTerminal extends Node
 		return outputString;
 	}
 
-	Map<Integer, Map<String, Double>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
+	Map<Integer, Map<String, Double>> predict(PUProcessDataForGrowing predData, List<Integer> observationsToPredict)
 	{
 		Map<Integer, Map<String, Double>> predictedValues = new HashMap<Integer, Map<String, Double>>();
 		for (Integer i : observationsToPredict)

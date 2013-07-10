@@ -13,11 +13,11 @@ import java.util.Map;
  * @author Simon Bull
  *
  */
-public class DetermineSplit
+public class PUDetermineSplit
 {
 
 	ImmutableThreeValues<Boolean, Double, String> findBestSplit(Map<String, List<Double>> covariableData, List<String> responseData,
-			List<Integer> observationsInNode, List<String> variablesToSplitOn, Map<String, Map<Integer, Double>> weights, TreeGrowthControl ctrl,
+			List<Integer> observationsInNode, List<String> variablesToSplitOn, Map<String, Map<Integer, Double>> weights, PUTreeGrowthControl ctrl,
 			Map<String, Double> classWeightsInParentNode)
 	{
 		double maxSumDaughterNodeGini = 1.0;

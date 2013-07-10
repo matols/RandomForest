@@ -21,7 +21,7 @@ import java.util.Set;
  * @author Simon Bull
  *
  */
-public class ProcessDataForGrowing
+public class PUProcessDataForGrowing
 {
 
 	/**
@@ -44,7 +44,7 @@ public class ProcessDataForGrowing
 	 */
 	public List<String> responseData = new ArrayList<String>();
 
-	public ProcessDataForGrowing()
+	public PUProcessDataForGrowing()
 	{
 	}
 
@@ -53,7 +53,7 @@ public class ProcessDataForGrowing
 	 * 
 	 * @param toCopy
 	 */
-	public ProcessDataForGrowing(ProcessDataForGrowing toCopy)
+	public PUProcessDataForGrowing(PUProcessDataForGrowing toCopy)
 	{
 		this.dataFileGrownFrom = toCopy.dataFileGrownFrom;
 		this.covariableData = new HashMap<String, List<Double>>();
@@ -71,7 +71,7 @@ public class ProcessDataForGrowing
 	 *
 	 * @return A class containing the mapping of covariable names to lists of their observed values, classifications to lists of their occurrences and the number of observations.
 	 */
-	public ProcessDataForGrowing(String data, TreeGrowthControl ctrl)
+	public PUProcessDataForGrowing(String data, PUTreeGrowthControl ctrl)
 	{
 
 		if (!ctrl.variablesToIgnore.isEmpty() && !ctrl.variablesToUse.isEmpty())

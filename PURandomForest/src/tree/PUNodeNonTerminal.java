@@ -12,13 +12,13 @@ import java.util.Map;
  * @author Simon Bull
  *
  */
-public class NodeNonTerminal extends Node
+public class PUNodeNonTerminal extends PUNode
 {
 
 	double splitValue;
 	String covariable;
 
-	public NodeNonTerminal(int nodeDepth, String covariable, double splitValue, Node leftChild, Node rightChild)
+	public PUNodeNonTerminal(int nodeDepth, String covariable, double splitValue, PUNode leftChild, PUNode rightChild)
 	{
 		this.nodeDepth = nodeDepth;
 		this.splitValue = splitValue;
@@ -40,7 +40,7 @@ public class NodeNonTerminal extends Node
 		return outputString;
 	}
 
-	Map<Integer, Map<String, Double>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
+	Map<Integer, Map<String, Double>> predict(PUProcessDataForGrowing predData, List<Integer> observationsToPredict)
 	{
 		Map<Integer, Map<String, Double>> predictedValues = new HashMap<Integer, Map<String, Double>>();
 		if (!observationsToPredict.isEmpty())

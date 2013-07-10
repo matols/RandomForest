@@ -10,18 +10,18 @@ import java.util.Map;
  * @author Simon Bull
  *
  */
-public abstract class Node
+public abstract class PUNode
 {
 
 	int nodeDepth;
-	Node[] children = new Node[2];
+	PUNode[] children = new PUNode[2];
 
 	String display()
 	{
 		return null;
 	}
 
-	Map<Integer, Map<String, Double>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
+	Map<Integer, Map<String, Double>> predict(PUProcessDataForGrowing predData, List<Integer> observationsToPredict)
 	{
 		return null;
 	}

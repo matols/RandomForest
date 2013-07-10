@@ -16,13 +16,13 @@ import java.util.Set;
  * @author Simon Bull
  *
  */
-public class Forest
+public class PUForest
 {
 
 	/**
 	 * A list of the trees in the forest.
 	 */
-	public List<CARTTree> forest = new ArrayList<CARTTree>();
+	public List<PUCARTTree> forest = new ArrayList<PUCARTTree>();
 
 	/**
 	 * A list where the ith element corresponds to the ith tree. The ith element of the list records
@@ -53,69 +53,85 @@ public class Forest
 	/**
 	 * The object recording the control parameters for the forest and its trees.
 	 */
-	public TreeGrowthControl ctrl;
+	public PUTreeGrowthControl ctrl;
 
 	/**
 	 * 
 	 */
-	public ProcessDataForGrowing processedData;
+	public PUProcessDataForGrowing processedData;
 
-	public Map<String, Map<Integer, Double>> weights = new HashMap<String, Map<Integer, Double>>();
+	public Map<String, Map<Integer, Double>> discounts = new HashMap<String, Map<Integer, Double>>();
+
+	public Map<String, Double> classWeights = new HashMap<String, Double>();
 
 	public long seed;
 
 
-	public Forest(String dataForGrowing)
+	public PUForest(String dataForGrowing)
 	{
-		this.ctrl = new TreeGrowthControl();
+		this.ctrl = new PUTreeGrowthControl();
 		this.seed = System.currentTimeMillis();
 		this.dataFileGrownFrom = dataForGrowing;
-		this.processedData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
+		this.processedData = new PUProcessDataForGrowing(dataForGrowing, this.ctrl);
 	}
 
-	public Forest(String dataForGrowing, TreeGrowthControl ctrl)
+	public PUForest(String dataForGrowing, PUTreeGrowthControl ctrl)
 	{
-		this.ctrl = new TreeGrowthControl(ctrl);
+		this.ctrl = new PUTreeGrowthControl(ctrl);
 		this.seed = System.currentTimeMillis();
 		this.dataFileGrownFrom = dataForGrowing;
-		this.processedData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
+		this.processedData = new PUProcessDataForGrowing(dataForGrowing, this.ctrl);
 	}
 
-	public Forest(String dataForGrowing, TreeGrowthControl ctrl, Long seed)
+	public PUForest(String dataForGrowing, PUTreeGrowthControl ctrl, Long seed)
 	{
-		this.ctrl = new TreeGrowthControl(ctrl);
+		this.ctrl = new PUTreeGrowthControl(ctrl);
 		this.seed = seed;
 		this.dataFileGrownFrom = dataForGrowing;
-		this.processedData = new ProcessDataForGrowing(dataForGrowing, this.ctrl);
+		this.processedData = new PUProcessDataForGrowing(dataForGrowing, this.ctrl);
 	}
 
-	public Forest(ProcessDataForGrowing procData)
+	public PUForest(PUProcessDataForGrowing procData)
 	{
-		this.ctrl = new TreeGrowthControl();
+		this.ctrl = new PUTreeGrowthControl();
 		this.seed = System.currentTimeMillis();
 		this.processedData = procData;
 		this.dataFileGrownFrom = procData.dataFileGrownFrom;
 	}
 
-	public Forest(ProcessDataForGrowing procData, TreeGrowthControl ctrl)
+	public PUForest(PUProcessDataForGrowing procData, PUTreeGrowthControl ctrl)
 	{
-		this.ctrl = new TreeGrowthControl(ctrl);
+		this.ctrl = new PUTreeGrowthControl(ctrl);
 		this.seed = System.currentTimeMillis();
 		this.processedData = procData;
 		this.dataFileGrownFrom = procData.dataFileGrownFrom;
 	}
 
-	public Forest(ProcessDataForGrowing procData, TreeGrowthControl ctrl, Long seed)
+	public PUForest(PUProcessDataForGrowing procData, PUTreeGrowthControl ctrl, Long seed)
 	{
-		this.ctrl = new TreeGrowthControl(ctrl);
+		this.ctrl = new PUTreeGrowthControl(ctrl);
 		this.seed = seed;
 		this.processedData = procData;
 		this.dataFileGrownFrom = procData.dataFileGrownFrom;
 	}
 
 
-	// Unlabelled obs should have a positive weight and if you leave out an obs (for instance a positive obs) then it gets a weight of 
-	public void setPositiveWeights(Map<Integer, Double> discounts, Double posWeight)
+	public void setClassWeights(Map<String, Double> weights)
+	{
+		for (String s : new HashSet<String>(this.processedData.responseData))
+		{
+			if (!weights.containsKey(s))
+			{
+				this.classWeights.put(s, 1.0);
+			}
+			else
+			{
+				this.classWeights.put(s, weights.get(s));
+			}
+		}
+	}
+
+	public void setPositiveDiscounts(Map<Integer, Double> discounts)
 	{
 		Map<Integer, Double> newWeightings = new HashMap<Integer, Double>();
 		for (int i = 0; i < this.processedData.numberObservations; i++)
@@ -123,18 +139,18 @@ public class Forest
 			if (!discounts.containsKey(i))
 			{
 				// If there is no weight for the observation, then set it to 1.0.
-				newWeightings.put(i, posWeight);
+				newWeightings.put(i, 1.0);
 			}
 			else
 			{
-				newWeightings.put(i, discounts.get(i) * posWeight);
+				newWeightings.put(i, discounts.get(i));
 			}
 		}
 
-		this.weights.put("Positive", newWeightings);
+		this.discounts.put("Positive", newWeightings);
 	}
 
-	public void setUnlabelledWeights(Map<Integer, Double> discounts, Double unlabelledWeight)
+	public void setUnlabelledDiscounts(Map<Integer, Double> discounts)
 	{
 		Map<Integer, Double> newWeightings = new HashMap<Integer, Double>();
 		for (int i = 0; i < this.processedData.numberObservations; i++)
@@ -146,11 +162,11 @@ public class Forest
 			}
 			else
 			{
-				newWeightings.put(i, discounts.get(i) * unlabelledWeight);
+				newWeightings.put(i, discounts.get(i));
 			}
 		}
 
-		this.weights.put("Unlabelled", newWeightings);
+		this.discounts.put("Unlabelled", newWeightings);
 	}
 
 
@@ -163,14 +179,9 @@ public class Forest
 		Set<String> responseClasses = new HashSet<String>(this.processedData.responseData);
 
 		// Ensure all classes are weighted.
-		if (!weights.keySet().contains("Positive"))
-		{
-			setPositiveWeights(new HashMap<Integer, Double>(), 1.0);
-		}
-		if (!weights.keySet().contains("Unlabelled"))
-		{
-			setUnlabelledWeights(new HashMap<Integer, Double>(), 1.0);
-		}
+		setClassWeights(this.classWeights);
+		setPositiveDiscounts(this.discounts.get("Positive"));
+		setUnlabelledDiscounts(this.discounts.get("Unlabelled"));
 
 		// Set up the mapping of trees that each observation is OOB on.
 		for (int i = 0; i < this.processedData.numberObservations; i++)
@@ -232,8 +243,8 @@ public class Forest
 
 			// Grow this tree from the chosen observations.
 			long seedForTree = randGenerator.nextLong();
-			CARTTree newTree = new CARTTree(this.processedData, this.ctrl, seedForTree);
-			newTree.growTree(this.weights, observationsForTheTree);
+			PUCARTTree newTree = new PUCARTTree(this.processedData, this.ctrl, seedForTree);
+			newTree.growTree(this.classWeights, this.discounts, observationsForTheTree);
 			this.forest.add(newTree);
 		}
 
@@ -274,7 +285,7 @@ public class Forest
 	}
 
 
-	public ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predict(ProcessDataForGrowing predData)
+	public ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predict(PUProcessDataForGrowing predData)
 	{
 		List<Integer> observationsToPredict = new ArrayList<Integer>();
 		for (int i = 0; i < predData.numberObservations; i++)
@@ -289,7 +300,7 @@ public class Forest
 		return predict(predData, observationsToPredict, treesToUseForPrediction);
 	}
 
-	public ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
+	public ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predict(PUProcessDataForGrowing predData, List<Integer> observationsToPredict)
 	{
 		List<Integer> treesToUseForPrediction = new ArrayList<Integer>();
 		for (int i = 0; i < forest.size(); i++)
@@ -299,7 +310,7 @@ public class Forest
 		return predict(predData, observationsToPredict, treesToUseForPrediction);
 	}
 
-	public ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict, List<Integer> treesToUseForPrediction)
+	public ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predict(PUProcessDataForGrowing predData, List<Integer> observationsToPredict, List<Integer> treesToUseForPrediction)
 	{
 		Double errorRate = 0.0;
 
@@ -383,7 +394,7 @@ public class Forest
 	}
 
 
-	public Map<Integer, Map<String, Double>> predictRaw(ProcessDataForGrowing predData)
+	public Map<Integer, Map<String, Double>> predictRaw(PUProcessDataForGrowing predData)
 	{
 		List<Integer> observationsToPredict = new ArrayList<Integer>();
 		for (int i = 0; i < predData.numberObservations; i++)
@@ -398,7 +409,7 @@ public class Forest
 		return predictRaw(predData, observationsToPredict, treesToUseForPrediction);
 	}
 
-	public Map<Integer, Map<String, Double>> predictRaw(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
+	public Map<Integer, Map<String, Double>> predictRaw(PUProcessDataForGrowing predData, List<Integer> observationsToPredict)
 	{
 		List<Integer> treesToUseForPrediction = new ArrayList<Integer>();
 		for (int i = 0; i < forest.size(); i++)
@@ -408,7 +419,7 @@ public class Forest
 		return predictRaw(predData, observationsToPredict, treesToUseForPrediction);
 	}
 
-	public Map<Integer, Map<String, Double>> predictRaw(ProcessDataForGrowing predData, List<Integer> observationsToPredict, List<Integer> treesToUseForPrediction)
+	public Map<Integer, Map<String, Double>> predictRaw(PUProcessDataForGrowing predData, List<Integer> observationsToPredict, List<Integer> treesToUseForPrediction)
 	{
 		Set<String> classNames = new HashSet<String>(this.processedData.responseData);  // A set containing the names of all the classes in the dataset used for training.
 
@@ -504,7 +515,7 @@ public class Forest
 				Collections.shuffle(permutedOobOnThisTree);
 
 				// Create the permuted copy of the data.
-				ProcessDataForGrowing permData = new ProcessDataForGrowing(this.processedData);
+				PUProcessDataForGrowing permData = new PUProcessDataForGrowing(this.processedData);
 				for (int j = 0; j < permutedOobOnThisTree.size(); j++)
 				{
 					int obsIndex = oobOnThisTree.get(j);  // Index of the observation that is being changed to a different value for the covariable s.
