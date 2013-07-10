@@ -200,11 +200,13 @@ public class PUForest
 			observationsInEachClass.get(this.processedData.responseData.get(i)).add(i);
 		}
 
-		// Determine the number of observations from each class to sample.
-		Map<String, Integer> numberOfObsToSample = new HashMap<String, Integer>();
-		for (String s : responseClasses)
+		// Determine the total discount for each class.
+		double totalPositiveDiscount = 0.0;
+		double totalUnlabelledDiscount = 0.0;
+		for (int i = 0; i < this.processedData.numberObservations; i++)
 		{
-			numberOfObsToSample.put(s, observationsInEachClass.get(s).size());
+			totalPositiveDiscount += this.discounts.get("Positive").get(i);
+			totalUnlabelledDiscount += this.discounts.get("Unlabelled").get(i);
 		}
 
 		// Setup the observation selection variables.
@@ -219,17 +221,27 @@ public class PUForest
 		{
 			// Randomly determine the observations used for growing this tree.
 			List<Integer> observationsForTheTree = new ArrayList<Integer>();
-			for (String s : responseClasses)
+			double totalPositiveDiscountSelected = 0.0;
+			double totalUnlabelledDiscountSelected = 0.0;
+			List<Integer> unlabelledObservations = new ArrayList<Integer>(observationsInEachClass.get("Unlabelled"));
+			int numberUnlabelledObservations = unlabelledObservations.size();
+			while (totalUnlabelledDiscountSelected < totalUnlabelledDiscount)
 			{
-				int observationsToSelect = numberOfObsToSample.get(s);
-				List<Integer> thisClassObservations = new ArrayList<Integer>(observationsInEachClass.get(s));
-				int numberOfObservationsInThisClass = thisClassObservations.size();
-				int selectedObservation;
-				for (int j = 0; j < observationsToSelect; j++)
-				{
-					selectedObservation = randGenerator.nextInt(numberOfObservationsInThisClass);
-					observationsForTheTree.add(thisClassObservations.get(selectedObservation));
-				}
+				// Keep selecting unlabelled observations.
+				int selectedObservation = unlabelledObservations.get(randGenerator.nextInt(numberUnlabelledObservations));
+				observationsForTheTree.add(selectedObservation);
+				totalPositiveDiscountSelected += this.discounts.get("Positive").get(selectedObservation);
+				totalUnlabelledDiscountSelected += this.discounts.get("Unlabelled").get(selectedObservation);
+			}
+			List<Integer> positiveObservations = new ArrayList<Integer>(observationsInEachClass.get("Positive"));
+			int numberPositiveObservations = positiveObservations.size();
+			while (totalPositiveDiscountSelected < totalPositiveDiscount)
+			{
+				// Keep selecting positive observations.
+				int selectedObservation = positiveObservations.get(randGenerator.nextInt(numberPositiveObservations));
+				observationsForTheTree.add(selectedObservation);
+				totalPositiveDiscountSelected += this.discounts.get("Positive").get(selectedObservation);
+				totalUnlabelledDiscountSelected += this.discounts.get("Unlabelled").get(selectedObservation);
 			}
 
 			// Update the list of which observations are OOB on this tree.

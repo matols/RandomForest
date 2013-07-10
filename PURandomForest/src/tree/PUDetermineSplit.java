@@ -56,18 +56,15 @@ public class PUDetermineSplit
 				IndexedDoubleData currentCovariableInstance = sortedCovariableValues.get(i);
 				double covariableValue = currentCovariableInstance.getData();
 				int observationIndex = currentCovariableInstance.getIndex();
-				String covariableClass = responseData.get(observationIndex);
 				double positiveObsWeight = weights.get("Positive").get(observationIndex);
 				double unlabelledObsWeight = weights.get("Unlabelled").get(observationIndex);
 
 				// Update the child node weighted observations counts.
-				double oldRightChildCount = rightChildWeghtedCounts.get(covariableClass);
-				rightChildWeghtedCounts.put("Positive", oldRightChildCount - positiveObsWeight);
-				rightChildWeghtedCounts.put("Unlabelled", oldRightChildCount - unlabelledObsWeight);
+				rightChildWeghtedCounts.put("Positive", rightChildWeghtedCounts.get("Positive") - positiveObsWeight);
+				rightChildWeghtedCounts.put("Unlabelled", rightChildWeghtedCounts.get("Unlabelled") - unlabelledObsWeight);
 				totalRightChildWeight = totalRightChildWeight - positiveObsWeight - unlabelledObsWeight;
-				double oldLeftChildCount = leftChildWeghtedCounts.get(covariableClass);
-				leftChildWeghtedCounts.put("Positive", oldLeftChildCount + positiveObsWeight);
-				leftChildWeghtedCounts.put("Unlabelled", oldLeftChildCount + unlabelledObsWeight);
+				leftChildWeghtedCounts.put("Positive", leftChildWeghtedCounts.get("Positive") + positiveObsWeight);
+				leftChildWeghtedCounts.put("Unlabelled", leftChildWeghtedCounts.get("Unlabelled") + unlabelledObsWeight);
 				totalLeftChildWeight = totalLeftChildWeight + positiveObsWeight + unlabelledObsWeight;
 
 				double leftGini = 1.0;
