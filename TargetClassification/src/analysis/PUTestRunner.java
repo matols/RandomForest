@@ -11,6 +11,8 @@ import java.util.Map;
 import tree.PUForest;
 import tree.PUProcessDataForGrowing;
 import tree.PUTreeGrowthControl;
+import tree.ProcessDataForGrowing;
+import tree.TreeGrowthControl;
 
 public class PUTestRunner
 {
@@ -187,7 +189,7 @@ public class PUTestRunner
 	public Map<String, List<Double>> calculateStats()
 	{
 		// Process the input dataset, and determine the number of observations from each class in the dataset.
-		PUProcessDataForGrowing processedInputFile = new PUProcessDataForGrowing(this.trainingDataset, new PUTreeGrowthControl());
+		ProcessDataForGrowing processedInputFile = new ProcessDataForGrowing(this.trainingDataset, new TreeGrowthControl());
 		Map<String, Integer> countsOfClass = new HashMap<String, Integer>();
 		for (String s : new HashSet<String>(processedInputFile.responseData))
 		{
@@ -197,7 +199,7 @@ public class PUTestRunner
 		// Process the test set dataset (if one was supplied), and add the counts of the classes in the test set to the counts in the input dataset.
 		if (this.testDataset != null)
 		{
-			PUProcessDataForGrowing processedTestSet = new PUProcessDataForGrowing(this.testDataset, new PUTreeGrowthControl());
+			ProcessDataForGrowing processedTestSet = new ProcessDataForGrowing(this.testDataset, new TreeGrowthControl());
 			for (String s : countsOfClass.keySet())
 			{
 				Integer trainingSetCounts = countsOfClass.get(s);
