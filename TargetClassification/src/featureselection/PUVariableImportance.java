@@ -4,8 +4,10 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -18,11 +20,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import tree.Forest;
+import tree.PUForest;
 import tree.ImmutableTwoValues;
-import tree.TreeGrowthControl;
+import tree.PUTreeGrowthControl;
 
-public class VariableImportance
+public class PUVariableImportance
 {
 
 	/**
@@ -54,6 +56,69 @@ public class VariableImportance
 			System.out.println("The second argument must be a valid directory location or location where a directory can be created.");
 			System.exit(0);
 		}
+		String discountLoc = args[2];  // The location of a dataset containing the information to sue for the discounting.
+		Map<String, Map<Integer, Double>> discounts = new HashMap<String, Map<Integer, Double>>();
+		discounts.put("Positive", new HashMap<Integer, Double>());
+		discounts.put("Unlabelled", new HashMap<Integer, Double>());
+		Map<String, Integer> indexMapping = new HashMap<String, Integer>();
+		Path dataPath = Paths.get(inputLocation);
+		try (BufferedReader reader = Files.newBufferedReader(dataPath, StandardCharsets.UTF_8))
+		{
+			String line = null;
+			line = reader.readLine();
+			line = reader.readLine();
+			line = reader.readLine();
+			int index = 0;
+			while ((line = reader.readLine()) != null)
+			{
+				if (line.trim().length() == 0)
+				{
+					// If the line is made up of all whitespace, then ignore the line.
+					continue;
+				}
+				line = line.trim();
+				String[] splitLine = line.split("\t");
+				String acc = splitLine[0];
+				indexMapping.put(acc, index);
+				index++;
+			}
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+
+		dataPath = Paths.get(discountLoc);
+		try (BufferedReader reader = Files.newBufferedReader(dataPath, StandardCharsets.UTF_8))
+		{
+			String line = null;
+			line = reader.readLine();
+			while ((line = reader.readLine()) != null)
+			{
+				if (line.trim().length() == 0)
+				{
+					// If the line is made up of all whitespace, then ignore the line.
+					continue;
+				}
+				line = line.trim();
+				String[] splitLine = line.split("\t");
+				if (splitLine[3].equals("Unlabelled"))
+				{
+					String acc = splitLine[0];
+					double posWeight = Double.parseDouble(splitLine[1]);
+					double unlabWeight = Double.parseDouble(splitLine[2]);
+					double posFrac = posWeight / (posWeight + unlabWeight);
+					discounts.get("Positive").put(indexMapping.get(acc), posFrac);
+					discounts.get("Unlabelled").put(indexMapping.get(acc), 1 - posFrac);
+				}
+			}
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
 
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
@@ -61,9 +126,7 @@ public class VariableImportance
 		int repetitions = 200;
 		Integer[] trainingObsToUse = {};
 
-		TreeGrowthControl ctrl = new TreeGrowthControl();;
-		ctrl.isReplacementUsed = true;
-		ctrl.isStratifiedBootstrapUsed = true;
+		PUTreeGrowthControl ctrl = new PUTreeGrowthControl();
 		ctrl.numberOfTreesToGrow = 5000;
 		ctrl.mtry = 10;
 		ctrl.minNodeSize = 1;
@@ -192,8 +255,10 @@ public class VariableImportance
 			}
 			seedsUsed.add(seedToUse);
 
-			Forest forest = new Forest(inputLocation, ctrl, seedToUse);
-			forest.setWeightsByClass(weights);
+			PUForest forest = new PUForest(inputLocation, ctrl, seedToUse);
+			forest.setClassWeights(weights);
+			forest.setPositiveDiscounts(discounts.get("Positive"));
+			forest.setUnlabelledDiscounts(discounts.get("Unlabelled"));
 			forest.growForest();
 			System.out.println("\tNow determining variable importances.");
 			ImmutableTwoValues<Map<String,Double>, Map<String,Double>> varImp = forest.variableImportance();
