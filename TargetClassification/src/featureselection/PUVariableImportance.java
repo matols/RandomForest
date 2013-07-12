@@ -130,6 +130,7 @@ public class PUVariableImportance
 		ctrl.numberOfTreesToGrow = 5000;
 		ctrl.mtry = 10;
 		ctrl.minNodeSize = 1;
+		ctrl.positiveFractionTerminalCutoff = 0.5;
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 
 		Map<String, Double> weights = new HashMap<String, Double>();

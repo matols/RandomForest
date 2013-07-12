@@ -141,6 +141,7 @@ public class PUForestSizeOptimisation
 		PUTreeGrowthControl ctrl = new PUTreeGrowthControl();
 		ctrl.minNodeSize = 1;
 		ctrl.mtry = 10;
+		ctrl.positiveFractionTerminalCutoff = 0.5;
 		ctrl.trainingObservations = Arrays.asList(trainingObsToUse);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
