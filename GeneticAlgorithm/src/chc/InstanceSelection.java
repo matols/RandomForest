@@ -11,6 +11,7 @@ import java.io.FileWriter;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -576,7 +577,8 @@ public class InstanceSelection
 
 	    			// Generate the new population by randomly instantiating the population.
 	    			population = new ArrayList<List<Integer>>();
-	    			for (int i = 0; i < populationSize; i++)
+	    			population.add(this.bestPopulationMember);
+	    			for (int i = 0; i < populationSize - 1; i++)
 	    			{
 	    				List<Integer> newPopMember = new ArrayList<Integer>();
 	    				for (String s : observations.keySet())

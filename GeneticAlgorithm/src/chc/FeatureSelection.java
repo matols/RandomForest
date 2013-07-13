@@ -530,8 +530,9 @@ public class FeatureSelection
 
 	    			// Generate the new population by generating populationSize mutated copies of the fittest individual ever found.
 	    			population = new ArrayList<List<String>>();
+	    			population.add(this.bestPopulationMember);
 	    			featuresAvailableForSelection = new ArrayList<String>(Arrays.asList(featureNames));
-	    			for (int i = 0; i < populationSize; i++)
+	    			for (int i = 0; i < populationSize - 1; i++)
 	    			{
 	    				List<String> newPopMember = new ArrayList<String>();
 	    				for (int j = 0; j < (numberFeatures / 2.0); j++)
