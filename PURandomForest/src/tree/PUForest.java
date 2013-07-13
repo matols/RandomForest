@@ -406,6 +406,67 @@ public class PUForest
 	}
 
 
+	public ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predictDiscount(PUProcessDataForGrowing predData, List<Integer> observationsToPredict, List<Integer> treesToUseForPrediction)
+	{
+		Set<String> classNames = new HashSet<String>(this.processedData.responseData);  // A set containing the names of all the classes in the dataset used for training.
+
+		// Set up the mapping from observation index to predictions. The key is the index of the observation in the dataset, the Map contains
+		// a mapping from each class to the weighted vote for it from the forest.
+		Map<Integer, Map<String, Double>> predictions = predictRaw(predData, observationsToPredict, treesToUseForPrediction);
+
+		// Set up the confusion matrix.
+		Map<String, Map<String, Double>> confusionMatrix = new HashMap<String, Map<String, Double>>();
+		for (String s : classNames)
+		{
+			Map<String, Double> classEntry = new HashMap<String, Double>();
+			classEntry.put("TruePositive", 0.0);
+			classEntry.put("FalsePositive", 0.0);
+			confusionMatrix.put(s, classEntry);
+		}
+
+		// Make sense of the prediction for each observation.
+		for (Integer i : predictions.keySet())
+		{
+			// Determine the majority classification for the observation.
+			Map.Entry<String, Double> maxEntry = null;
+
+			for (Map.Entry<String, Double> entry : predictions.get(i).entrySet())
+			{
+			    if (maxEntry == null || entry.getValue().compareTo(maxEntry.getValue()) > 0)
+			    {
+			        maxEntry = entry;
+			    }
+			}
+			String predictedClass = maxEntry.getKey();
+
+			double positiveDiscount = this.discounts.get("Positive").get(i);
+			double unlabelledDiscount = this.discounts.get("Unlabelled").get(i);
+
+			if (predictedClass.equals("Positive"))
+			{
+				// If the observation is predicted to be Positive.
+				Double currentTruePos = confusionMatrix.get("Positive").get("TruePositive");
+				Double currentFalsePos = confusionMatrix.get("Positive").get("FalsePositive");
+				confusionMatrix.get("Positive").put("TruePositive", currentTruePos + positiveDiscount);
+				confusionMatrix.get("Positive").put("FalsePositive", currentFalsePos + unlabelledDiscount);
+			}
+			else
+			{
+				// If the observation is predicted to be Unlabelled.
+				Double currentTruePos = confusionMatrix.get("Unlabelled").get("TruePositive");
+				Double currentFalsePos = confusionMatrix.get("Unlabelled").get("FalsePositive");
+				confusionMatrix.get("Unlabelled").put("TruePositive", currentTruePos + unlabelledDiscount);
+				confusionMatrix.get("Unlabelled").put("FalsePositive", currentFalsePos + positiveDiscount);
+			}
+		}
+
+		// The error rate is the correct predictions over the number made.
+		Double errorRate = (confusionMatrix.get("Positive").get("FalsePositive") + confusionMatrix.get("Unlabelled").get("FalsePositive")) / predictions.size();
+
+		return new ImmutableTwoValues<Double, Map<String,Map<String,Double>>>(errorRate, confusionMatrix);
+	}
+
+
 	public Map<Integer, Map<String, Double>> predictRaw(PUProcessDataForGrowing predData)
 	{
 		List<Integer> observationsToPredict = new ArrayList<Integer>();
