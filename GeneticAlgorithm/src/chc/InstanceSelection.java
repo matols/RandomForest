@@ -532,9 +532,9 @@ public class InstanceSelection
 	    		this.bestPopulationMember = new ArrayList<Integer>(population.get(0));  // Add the new fittest individual.
 	    	}
 
-		    if (populationLastChanged == maxStagnant)
+	    	if (populationLastChanged >= maxStagnant)
 	    	{
-	    		populationLastChanged = 0;
+	    		// If you reach the maximum number of stagnant generations, then the threshold drops until it reaches 0 or there is a change in the population;.
 	    		threshold -= 1;
 
 	    		if (threshold < 1)

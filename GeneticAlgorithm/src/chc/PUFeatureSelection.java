@@ -148,7 +148,6 @@ public class PUFeatureSelection
 		long maxTimeAllowed = 0;  // What the maximum time allowed (in ms) for the run is. 0 indicates that timing is not used.
 		int maxConvergences = 0;  // The number of times the population is allowed to converge.
 		int maxStagnant = 5;  // The number of consecutive generations that can occur without any offspring being added to the population.
-		double mutationRate = 0.35;  // The mutation rate for altering the best individual when convergence has occurred.
 		String testSet = null;  // The location of the test set to be used (or null if no test set is being used).
 
 		// Read in the user input.
@@ -190,11 +189,6 @@ public class PUFeatureSelection
 			case "-s":
 				argIndex += 1;
 				maxStagnant = Integer.parseInt(args[argIndex]);
-				argIndex += 1;
-				break;
-			case "-m":
-				argIndex += 1;
-				mutationRate = Double.parseDouble(args[argIndex]);
 				argIndex += 1;
 				break;
 			case "-q":
@@ -573,9 +567,9 @@ public class PUFeatureSelection
 	    		this.bestPopulationMember = new ArrayList<String>(population.get(0));  // Add the new fittest individual.
 	    	}
 
-	    	if (populationLastChanged == maxStagnant)
+	    	if (populationLastChanged >= maxStagnant)
 	    	{
-	    		populationLastChanged = 0;
+	    		// If you reach the maximum number of stagnant generations, then the threshold drops until it reaches 0 or there is a change in the population;.
 	    		threshold -= 1;
 
 	    		if (threshold < 1)
@@ -609,26 +603,19 @@ public class PUFeatureSelection
 
 	    			// Generate the new population by generating populationSize mutated copies of the fittest individual ever found.
 	    			population = new ArrayList<List<String>>();
+	    			featuresAvailableForSelection = new ArrayList<String>(Arrays.asList(featureNames));
 	    			for (int i = 0; i < populationSize; i++)
 	    			{
 	    				List<String> newPopMember = new ArrayList<String>();
-	    				for (String s : featureNames)
+	    				for (int j = 0; j < (numberFeatures / 2.0); j++)
 	    				{
-	    					if (random.nextDouble() < mutationRate)
+	    					// Select a random available observation from class s.
+	    					String chosenFeature = featuresAvailableForSelection.get(random.nextInt(featuresAvailableForSelection.size()));
+	    					newPopMember.add(chosenFeature);
+	    					featuresAvailableForSelection.remove(chosenFeature);
+	    					if (featuresAvailableForSelection.isEmpty())
 	    					{
-	    						// Mutation should occur.
-	    						if (!this.bestPopulationMember.contains(s))
-	    						{
-	    							newPopMember.add(s);
-	    						}
-	    					}
-	    					else
-	    					{
-	    						// Mutation should not occur.
-	    						if (this.bestPopulationMember.contains(s))
-	    						{
-	    							newPopMember.add(s);
-	    						}
+	    						featuresAvailableForSelection = new ArrayList<String>(Arrays.asList(featureNames));
 	    					}
 	    				}
 	    				population.add(newPopMember);
