@@ -9,24 +9,27 @@ def main(args):
     """
 
     nrProteinPredictions = args[0]  # The file containing the protein predictions for only the non-redundant proteins.
-    rProteinPredictions = args[0]  # The file containing the protein predictions for only the redundant proteins.
-    allProteinPredictions = args[0]  # The file containing the protein predictions for all proteins.
+    rProteinPredictions = args[1]  # The file containing the protein predictions for only the redundant proteins.
+    allProteinPredictions = args[2]  # The file containing the protein predictions for all proteins.
     outputDirectory = args[3]  # The location of the directory where the results should be written.
     if os.path.exists(outputDirectory):
         shutil.rmtree(outputDirectory)
     os.mkdir(outputDirectory)
 
     # Generate the predictions and graph for the non-redudnant proteins.
-    os.mkdir(outputDirectory + '/Non-Redundant')
-    parse_input(nrProteinPredictions, outputDirectory)
+    nonRedundantDirectory = outputDirectory + '/Non-Redundant'
+    os.mkdir(nonRedundantDirectory)
+    parse_input(nrProteinPredictions, nonRedundantDirectory)
 
     # Generate the predictions and graph for the redudnant proteins.
-    os.mkdir(outputDirectory + '/Redundant')
-    parse_input(rProteinPredictions, outputDirectory)
+    redundantDirectory = outputDirectory + '/Redundant'
+    os.mkdir(redundantDirectory)
+    parse_input(rProteinPredictions, redundantDirectory)
 
     # Generate the predictions and graph for all proteins.
-    os.mkdir(outputDirectory + '/All')
-    parse_input(allProteinPredictions, outputDirectory)
+    allDirectory = outputDirectory + '/All'
+    os.mkdir(allDirectory)
+    parse_input(allProteinPredictions, allDirectory)
 
 def parse_input(proteinPredictions, outputDirectory, numberOfBins=30):
     """
@@ -80,7 +83,7 @@ def parse_input(proteinPredictions, outputDirectory, numberOfBins=30):
     writeUnlabelleds.close()
 
     # Write ou statistics about the confusion matrix.
-    writeConfusion = open(outputDirectory + '/ConfusionMatrix.txt')
+    writeConfusion = open(outputDirectory + '/ConfusionMatrix.txt', 'w')
     writeConfusion.write('PAsP\tUAsP\tUAsU\tPAsU\n')
     writeConfusion.write(str(len(positivePosWeightFraction) - len(positivePredictedUnlabelled)))  # The number of positive proteins predicted as positive (TPs).
     writeConfusion.write('\t')
