@@ -104,6 +104,8 @@ def generate_graph(unlabelledPosWeightFraction, positivePosWeightFraction, saveL
     Control legend placement
     set colors of the bars          facecolor=['#FF0000', '#000000'] (red for U and black for P)
     set edge colors of the bars     edgecolor=['#FF0000', '#000000'] (red for U and black for P)
+    maybe put the number of occurences on top of each bar (so like blue bar from 0 to 10 has a 10 on top of it and then the green stack from 10 to 12 has a 2 on top of it)
+    make only one 0 where the axes meet
     """
 
     # Create the figure
