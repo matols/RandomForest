@@ -68,22 +68,24 @@ public class DetermineSplit
 				leftChildWeghtedCounts.put(covariableClass, oldLeftChildCount + observationWeight);
 				totalLeftChildWeight += observationWeight;
 
-				double leftGini = 1.0;
-				for (String p : leftChildWeghtedCounts.keySet())
-				{
-					leftGini -= Math.pow(leftChildWeghtedCounts.get(p) / totalLeftChildWeight, 2);
-				}
-				double rightGini = 1.0;
-				for (String p : leftChildWeghtedCounts.keySet())
-				{
-					rightGini -= Math.pow(rightChildWeghtedCounts.get(p) / totalRightChildWeight, 2);
-				}
-
 				if ((i + 1) < ctrl.minNodeSize || (observationsInNode.size() - (i + 1)) < ctrl.minNodeSize)
 				{
 					// Can't split if the children would be too small.
 					// (i + 1) observations down left branch and (observationsInNode.size() - (i + 1)) down right.
 					continue;
+				}
+
+				double leftGini = 1.0;
+				for (String p : leftChildWeghtedCounts.keySet())
+				{
+					leftGini -= (leftChildWeghtedCounts.get(p) / totalLeftChildWeight) * (leftChildWeghtedCounts.get(p) / totalLeftChildWeight);
+//					leftGini -= Math.pow(leftChildWeghtedCounts.get(p) / totalLeftChildWeight, 2);
+				}
+				double rightGini = 1.0;
+				for (String p : leftChildWeghtedCounts.keySet())
+				{
+					rightGini -= (rightChildWeghtedCounts.get(p) / totalRightChildWeight) * (rightChildWeghtedCounts.get(p) / totalRightChildWeight);
+//					rightGini -= Math.pow(rightChildWeghtedCounts.get(p) / totalRightChildWeight, 2);
 				}
 
 				double nextValue = sortedCovariableValues.get(i + 1).getData();

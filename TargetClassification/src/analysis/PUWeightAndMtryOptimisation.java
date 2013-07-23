@@ -124,16 +124,16 @@ public class PUWeightAndMtryOptimisation
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
 		int numberOfForestsToCreate = 100;  // The number of forests to create for each weight/mtry combination.
-		Integer[] mtryToUse = {10};  // The different values of mtry to test.
-		Double[] posFracLimitsToUse = {0.75};  // The different values of positiveFractionTerminalCutoff to use.
+		Integer[] mtryToUse = {5, 10, 15, 20, 25, 30};  // The different values of mtry to test.
+		Double[] posFracLimitsToUse = {0.5, 0.6, 0.7, 0.75, 0.8, 0.9, 1.0};  // The different values of positiveFractionTerminalCutoff to use.
 		Integer[] trainingObsToUse = {};  // The observations in the training set that will be used in growing the forests.
 
 		// varyingClassWeightMapping can be used when the weights for a class should be varied, while constantClassWeightMapping can be used to assign a weight to
 		// any class that will not have its weight varied.
 		Map<String, Double[]> varyingClassWeightMapping = new HashMap<String, Double[]>();  // A mapping from class names to the weights that will be tested for the class.
-		varyingClassWeightMapping.put("Unlabelled", new Double[]{1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0});
+		varyingClassWeightMapping.put("Positive", new Double[]{1.0, 2.0, 3.0});
 		Map<String, Double> constantClassWeightMapping = new HashMap<String, Double>();  // A mapping from class names to the weight that will be used for the class.
-		constantClassWeightMapping.put("Positive", 1.0);
+		constantClassWeightMapping.put("Unlabelled", 1.0);
 
 		// Default parameters for the tree growth and input dataset processing controller object.
 		PUTreeGrowthControl ctrl = new PUTreeGrowthControl();

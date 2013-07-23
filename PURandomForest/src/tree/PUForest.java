@@ -200,11 +200,13 @@ public class PUForest
 			observationsInEachClass.get(this.processedData.responseData.get(i)).add(i);
 		}
 
-		// Determine the number of observations from each class to sample.
-		Map<String, Integer> numberOfObsToSample = new HashMap<String, Integer>();
-		for (String s : responseClasses)
+		// Determine the total discount for each class.
+		double totalPositiveDiscount = 0.0;
+		double totalUnlabelledDiscount = 0.0;
+		for (int i = 0; i < this.processedData.numberObservations; i++)
 		{
-			numberOfObsToSample.put(s, observationsInEachClass.get(s).size());
+			totalPositiveDiscount += this.discounts.get("Positive").get(i);
+			totalUnlabelledDiscount += this.discounts.get("Unlabelled").get(i);
 		}
 
 		// Setup the observation selection variables.
@@ -219,17 +221,27 @@ public class PUForest
 		{
 			// Randomly determine the observations used for growing this tree.
 			List<Integer> observationsForTheTree = new ArrayList<Integer>();
-			for (String s : responseClasses)
+			double totalPositiveDiscountSelected = 0.0;
+			double totalUnlabelledDiscountSelected = 0.0;
+			List<Integer> unlabelledObservations = new ArrayList<Integer>(observationsInEachClass.get("Unlabelled"));
+			int numberUnlabelledObservations = unlabelledObservations.size();
+			while (totalUnlabelledDiscountSelected < totalUnlabelledDiscount)
 			{
-				int observationsToSelect = numberOfObsToSample.get(s);
-				List<Integer> thisClassObservations = new ArrayList<Integer>(observationsInEachClass.get(s));
-				int numberOfObservationsInThisClass = thisClassObservations.size();
-				int selectedObservation;
-				for (int j = 0; j < observationsToSelect; j++)
-				{
-					selectedObservation = randGenerator.nextInt(numberOfObservationsInThisClass);
-					observationsForTheTree.add(thisClassObservations.get(selectedObservation));
-				}
+				// Keep selecting unlabelled observations.
+				int selectedObservation = unlabelledObservations.get(randGenerator.nextInt(numberUnlabelledObservations));
+				observationsForTheTree.add(selectedObservation);
+				totalPositiveDiscountSelected += this.discounts.get("Positive").get(selectedObservation);
+				totalUnlabelledDiscountSelected += this.discounts.get("Unlabelled").get(selectedObservation);
+			}
+			List<Integer> positiveObservations = new ArrayList<Integer>(observationsInEachClass.get("Positive"));
+			int numberPositiveObservations = positiveObservations.size();
+			while (totalPositiveDiscountSelected < totalPositiveDiscount)
+			{
+				// Keep selecting positive observations.
+				int selectedObservation = positiveObservations.get(randGenerator.nextInt(numberPositiveObservations));
+				observationsForTheTree.add(selectedObservation);
+				totalPositiveDiscountSelected += this.discounts.get("Positive").get(selectedObservation);
+				totalUnlabelledDiscountSelected += this.discounts.get("Unlabelled").get(selectedObservation);
 			}
 
 			// Update the list of which observations are OOB on this tree.
@@ -389,6 +401,67 @@ public class PUForest
 		// Divide the number of observations predicted incorrectly by the total number of observations predicted in order to get the
 		// overall error rate of the set of observations provided on the set of trees provided.
 		errorRate = errorRate / predictions.size();
+
+		return new ImmutableTwoValues<Double, Map<String,Map<String,Double>>>(errorRate, confusionMatrix);
+	}
+
+
+	public ImmutableTwoValues<Double, Map<String, Map<String, Double>>> predictDiscount(PUProcessDataForGrowing predData, List<Integer> observationsToPredict, List<Integer> treesToUseForPrediction)
+	{
+		Set<String> classNames = new HashSet<String>(this.processedData.responseData);  // A set containing the names of all the classes in the dataset used for training.
+
+		// Set up the mapping from observation index to predictions. The key is the index of the observation in the dataset, the Map contains
+		// a mapping from each class to the weighted vote for it from the forest.
+		Map<Integer, Map<String, Double>> predictions = predictRaw(predData, observationsToPredict, treesToUseForPrediction);
+
+		// Set up the confusion matrix.
+		Map<String, Map<String, Double>> confusionMatrix = new HashMap<String, Map<String, Double>>();
+		for (String s : classNames)
+		{
+			Map<String, Double> classEntry = new HashMap<String, Double>();
+			classEntry.put("TruePositive", 0.0);
+			classEntry.put("FalsePositive", 0.0);
+			confusionMatrix.put(s, classEntry);
+		}
+
+		// Make sense of the prediction for each observation.
+		for (Integer i : predictions.keySet())
+		{
+			// Determine the majority classification for the observation.
+			Map.Entry<String, Double> maxEntry = null;
+
+			for (Map.Entry<String, Double> entry : predictions.get(i).entrySet())
+			{
+			    if (maxEntry == null || entry.getValue().compareTo(maxEntry.getValue()) > 0)
+			    {
+			        maxEntry = entry;
+			    }
+			}
+			String predictedClass = maxEntry.getKey();
+
+			double positiveDiscount = this.discounts.get("Positive").get(i);
+			double unlabelledDiscount = this.discounts.get("Unlabelled").get(i);
+
+			if (predictedClass.equals("Positive"))
+			{
+				// If the observation is predicted to be Positive.
+				Double currentTruePos = confusionMatrix.get("Positive").get("TruePositive");
+				Double currentFalsePos = confusionMatrix.get("Positive").get("FalsePositive");
+				confusionMatrix.get("Positive").put("TruePositive", currentTruePos + positiveDiscount);
+				confusionMatrix.get("Positive").put("FalsePositive", currentFalsePos + unlabelledDiscount);
+			}
+			else
+			{
+				// If the observation is predicted to be Unlabelled.
+				Double currentTruePos = confusionMatrix.get("Unlabelled").get("TruePositive");
+				Double currentFalsePos = confusionMatrix.get("Unlabelled").get("FalsePositive");
+				confusionMatrix.get("Unlabelled").put("TruePositive", currentTruePos + unlabelledDiscount);
+				confusionMatrix.get("Unlabelled").put("FalsePositive", currentFalsePos + positiveDiscount);
+			}
+		}
+
+		// The error rate is the correct predictions over the number made.
+		Double errorRate = (confusionMatrix.get("Positive").get("FalsePositive") + confusionMatrix.get("Unlabelled").get("FalsePositive")) / predictions.size();
 
 		return new ImmutableTwoValues<Double, Map<String,Map<String,Double>>>(errorRate, confusionMatrix);
 	}

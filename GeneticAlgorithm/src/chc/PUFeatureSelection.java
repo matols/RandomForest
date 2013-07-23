@@ -8,6 +8,11 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -15,20 +20,21 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import tree.Forest;
+import tree.PUForest;
 import tree.IndexedDoubleData;
-import tree.ProcessDataForGrowing;
-import tree.TreeGrowthControl;
+import tree.PUProcessDataForGrowing;
+import tree.PUTreeGrowthControl;
 
 /**
  * @author Simon Bull
  *
  */
-public class InstanceSelection
+public class PUFeatureSelection
 {
 
 	/**
@@ -39,14 +45,14 @@ public class InstanceSelection
 	/**
 	 * A list of the individuals that have the best fitness found.
 	 */
-	public List<Integer> bestPopulationMember = new ArrayList<Integer>();
+	public List<String> bestPopulationMember = new ArrayList<String>();
 
 
-	public InstanceSelection(String[] args, TreeGrowthControl inputCtrl, Map<String, Double> weights, Map<String, Integer> fractionsToSelect)
+	public PUFeatureSelection(String[] args, PUTreeGrowthControl ctrl, Map<String, Double> weights)
 	{
 		// Required inputs.
-		String datasetLocation = args[0];  // The location of the file containing the entire dataset.
-		File datasetFile = new File(datasetLocation);
+		String inputLocation = args[0];  // The location of the file containing the entire dataset.
+		File datasetFile = new File(inputLocation);
 		if (!datasetFile.isFile())
 		{
 			System.out.println("The first argument must be a valid file location, and must contain the entire dataset.");
@@ -70,6 +76,70 @@ public class InstanceSelection
 			System.exit(0);
 		}
 
+		String discountLoc = args[2];  // The location of a dataset containing the information to sue for the discounting.
+		Map<String, Map<Integer, Double>> discounts = new HashMap<String, Map<Integer, Double>>();
+		discounts.put("Positive", new HashMap<Integer, Double>());
+		discounts.put("Unlabelled", new HashMap<Integer, Double>());
+		Map<String, Integer> indexMapping = new HashMap<String, Integer>();
+		Path dataPath = Paths.get(inputLocation);
+		try (BufferedReader reader = Files.newBufferedReader(dataPath, StandardCharsets.UTF_8))
+		{
+			String line = null;
+			line = reader.readLine();
+			line = reader.readLine();
+			line = reader.readLine();
+			int index = 0;
+			while ((line = reader.readLine()) != null)
+			{
+				if (line.trim().length() == 0)
+				{
+					// If the line is made up of all whitespace, then ignore the line.
+					continue;
+				}
+				line = line.trim();
+				String[] splitLine = line.split("\t");
+				String acc = splitLine[0];
+				indexMapping.put(acc, index);
+				index++;
+			}
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+
+		dataPath = Paths.get(discountLoc);
+		try (BufferedReader reader = Files.newBufferedReader(dataPath, StandardCharsets.UTF_8))
+		{
+			String line = null;
+			line = reader.readLine();
+			while ((line = reader.readLine()) != null)
+			{
+				if (line.trim().length() == 0)
+				{
+					// If the line is made up of all whitespace, then ignore the line.
+					continue;
+				}
+				line = line.trim();
+				String[] splitLine = line.split("\t");
+				if (splitLine[3].equals("Unlabelled"))
+				{
+					String acc = splitLine[0];
+					double posWeight = Double.parseDouble(splitLine[1]);
+					double unlabWeight = Double.parseDouble(splitLine[2]);
+					double posFrac = posWeight / (posWeight + unlabWeight);
+					discounts.get("Positive").put(indexMapping.get(acc), posFrac);
+					discounts.get("Unlabelled").put(indexMapping.get(acc), 1 - posFrac);
+				}
+			}
+		}
+		catch (IOException e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+
 		// Optional inputs.
 		int populationSize = 50;  // The size of the population to use for the GA.
 		int maxGenerations = 100;  // The number of generations to run the GA for.
@@ -78,10 +148,10 @@ public class InstanceSelection
 		long maxTimeAllowed = 0;  // What the maximum time allowed (in ms) for the run is. 0 indicates that timing is not used.
 		int maxConvergences = 0;  // The number of times the population is allowed to converge.
 		int maxStagnant = 5;  // The number of consecutive generations that can occur without any offspring being added to the population.
-		int userThreshold = 0;  // The threshold before the cataclysmic event (will default to sizeOfIndividual / 4).
+		String testSet = null;  // The location of the test set to be used (or null if no test set is being used).
 
 		// Read in the user input.
-		int argIndex = 2;
+		int argIndex = 3;
 		while (argIndex < args.length)
 		{
 			String currentArg = args[argIndex];
@@ -121,9 +191,9 @@ public class InstanceSelection
 				maxStagnant = Integer.parseInt(args[argIndex]);
 				argIndex += 1;
 				break;
-			case "-h":
+			case "-q":
 				argIndex += 1;
-				userThreshold = Integer.parseInt(args[argIndex]);
+				testSet = args[argIndex];
 				argIndex += 1;
 				break;
 			default:
@@ -138,8 +208,12 @@ public class InstanceSelection
 	        System.exit(0);
 		}
 
-		// Create a copy of the original controller object.
-	    TreeGrowthControl ctrl = new TreeGrowthControl(inputCtrl);
+		PUProcessDataForGrowing processedTestSet = new PUProcessDataForGrowing();
+		if (testSet != null)
+		{
+			// There is a test dataset provided as well.
+			processedTestSet = new PUProcessDataForGrowing(testSet, ctrl);
+		}
 
 		// Write out the parameters used for the GA.
 		String parameterOutputLocation = outputLocation + "/Parameters.txt";
@@ -149,13 +223,13 @@ public class InstanceSelection
 			BufferedWriter parameterOutputWriter = new BufferedWriter(parameterOutputFile);
 		    parameterOutputWriter.write("Population Size:\t" + Integer.toString(populationSize));
 		    parameterOutputWriter.newLine();
-		    parameterOutputWriter.write("User Specified Threshold:\t" + Integer.toString(userThreshold));
-		    parameterOutputWriter.newLine();
 		    parameterOutputWriter.write("Number of Generations:\t" + Integer.toString(maxGenerations));
 		    parameterOutputWriter.newLine();
 		    parameterOutputWriter.write("Number of Evaluations:\t" + Integer.toString(maxEvaluations));
 		    parameterOutputWriter.newLine();
 		    parameterOutputWriter.write("Length of time allowed (ms):\t" + Long.toString(maxTimeAllowed));
+		    parameterOutputWriter.newLine();
+		    parameterOutputWriter.write("Number of Convergences:\t" + Integer.toString(maxConvergences));
 		    parameterOutputWriter.newLine();
 		    DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 		    Date now = new Date();
@@ -189,6 +263,15 @@ public class InstanceSelection
 			System.exit(0);
 		}
 
+		PUProcessDataForGrowing processedInputData = new PUProcessDataForGrowing(inputLocation, ctrl);
+		Map<String, Integer> classCounts = new HashMap<String, Integer>();
+		Map<String, Integer> classCountsTestSet = new HashMap<String, Integer>();
+		for (String s : new HashSet<String>(processedInputData.responseData))
+		{
+			classCounts.put(s, Collections.frequency(processedInputData.responseData, s));
+			classCountsTestSet.put(s, Collections.frequency(processedTestSet.responseData, s));
+		}
+
 		// Setup the generation stats files and write out the class weights being used.
 		String genStatsOutputLocation = outputLocation + "/GenerationStatistics.txt";
 		String convergenOutputLocation = outputLocation + "/BestConvergenceIndividuals.txt";
@@ -204,7 +287,7 @@ public class InstanceSelection
 
 			FileWriter convergenceOutputFile = new FileWriter(convergenOutputLocation);
 			BufferedWriter convergenceOutputWriter = new BufferedWriter(convergenceOutputFile);
-			convergenceOutputWriter.write("Generation\tFitness\tIndividual");
+			convergenceOutputWriter.write("Generation\tSeedUsed\tFitness\tIndividual");
 			convergenceOutputWriter.newLine();
 			convergenceOutputWriter.close();
 
@@ -217,17 +300,9 @@ public class InstanceSelection
 				weightOutputWriter.write(s + "\t" + Double.toString(weights.get(s)));
 				weightOutputWriter.newLine();
 			}
-			weightOutputWriter.newLine();
-			weightOutputWriter.write("Number of Observations to Start With");
-			weightOutputWriter.newLine();
-			for (String s : fractionsToSelect.keySet())
-			{
-				weightOutputWriter.write(s + "\t" + Integer.toString(fractionsToSelect.get(s)));
-				weightOutputWriter.newLine();
-			}
 			weightOutputWriter.close();
 
-			for (String s : weights.keySet())
+			for (String s : classCounts.keySet())
 			{
 				String classOutputLoc = outputLocation + "/" + s + "Recall.txt";
 				classRecallOutputLocations.put(s, classOutputLoc);
@@ -245,37 +320,15 @@ public class InstanceSelection
 		}
 
 		// Determine the number of genes/features in the dataset.
-		int numberOfObservations = 0;
-		ProcessDataForGrowing processedInputFile = new ProcessDataForGrowing(datasetLocation, ctrl);
-		List<Integer> observationIndices = new ArrayList<Integer>();
-		Map<String, List<Integer>> observations = new HashMap<String, List<Integer>>();
-		Map<Integer, String> observationsToClass = new HashMap<Integer, String>();
+		int numberFeatures = 0;
+		String[] featureNames = null;
 		try
 		{
-			BufferedReader geneReader = new BufferedReader(new FileReader(datasetFile));
+			BufferedReader geneReader = new BufferedReader(new FileReader(inputLocation));
 			String header = geneReader.readLine();
-			int indexOfClassification = header.split("\t").length - 1;
-			header = geneReader.readLine();
-			header = geneReader.readLine();
-			String line;
-			while ((line = geneReader.readLine()) != null)
-			{
-				if (line.trim().length() == 0)
-				{
-					// If the line is made up of all whitespace, then ignore the line.
-					continue;
-				}
-				String[] splitLine = (line.trim()).split("\t");
-				String classification = splitLine[indexOfClassification];
-				if (!observations.containsKey(classification))
-				{
-					observations.put(classification, new ArrayList<Integer>());
-				}
-				observations.get(classification).add(numberOfObservations);
-				observationsToClass.put(numberOfObservations, classification);
-				observationIndices.add(numberOfObservations);
-				numberOfObservations += 1;
-			}
+			featureNames = header.split("\t");
+			numberFeatures = featureNames.length - 1;  // Subtract one for the class column in the dataset.
+			featureNames = Arrays.copyOf(featureNames, numberFeatures);
 			geneReader.close();
 		}
 		catch (Exception e)
@@ -283,33 +336,12 @@ public class InstanceSelection
 			e.printStackTrace();
 			System.exit(0);
 		}
-
-		// Determine the threshold used.
-		int threshold;
-		int initialSetSize = 0;
-		if (userThreshold == 0)
-		{
-			if (!observations.keySet().containsAll(fractionsToSelect.keySet()))
-			{
-				System.out.println("You specified a class to select a certain number of observations from, but this class does not exist.");
-				System.exit(0);
-			}
-			for (String s : fractionsToSelect.keySet())
-			{
-				initialSetSize += fractionsToSelect.get(s);
-			}
-			threshold = initialSetSize / 4;
-		}
-		else
-		{
-			threshold = userThreshold;
-		}
+		int threshold = numberFeatures / 4;
 
 		//----------------------
 		// Begin the GA.
 		//----------------------
 		Date gaStartTime = new Date();
-		Random observationSelector = new Random();
 
 		// Initialise the random number generator.
 		Random random = new Random();
@@ -328,24 +360,21 @@ public class InstanceSelection
 	    {
 	    	System.out.println("Now generating the initial population");
 	    }
-		List<List<Integer>> population = new ArrayList<List<Integer>>();
+		List<List<String>> population = new ArrayList<List<String>>();
 		List<Integer> parentSelector = new ArrayList<Integer>();
+		List<String> featuresAvailableForSelection = new ArrayList<String>(Arrays.asList(featureNames));
 		for (int i = 0; i < populationSize; i++)
 		{
-			List<Integer> newPopMember = new ArrayList<Integer>();
-			for (String s : observations.keySet())
+			List<String> newPopMember = new ArrayList<String>();
+			for (int j = 0; j < (numberFeatures / 2.0); j++)
 			{
-				List<Integer> availableForSelection = new ArrayList<Integer>(observations.get(s));
-				for (int j = 0; j < fractionsToSelect.get(s); j++)
+				// Select a random available observation from class s.
+				String chosenFeature = featuresAvailableForSelection.get(random.nextInt(featuresAvailableForSelection.size()));
+				newPopMember.add(chosenFeature);
+				featuresAvailableForSelection.remove(chosenFeature);
+				if (featuresAvailableForSelection.isEmpty())
 				{
-					// Select a random available observation from class s.
-					Integer chosenObservation = availableForSelection.get(observationSelector.nextInt(availableForSelection.size()));
-					newPopMember.add(chosenObservation);
-					availableForSelection.remove(chosenObservation);
-					if (availableForSelection.isEmpty())
-					{
-						availableForSelection = new ArrayList<Integer>(observations.get(s));
-					}
+					featuresAvailableForSelection = new ArrayList<String>(Arrays.asList(featureNames));
 				}
 			}
 			population.add(newPopMember);
@@ -355,22 +384,24 @@ public class InstanceSelection
 	    // Calculate the fitness of the initial population.
 	    List<Double> fitness = new ArrayList<Double>();
 	    Map<String, List<Double>> classRecalls = new HashMap<String, List<Double>>();
-	    for (String s : observations.keySet())
+	    for (String s : classCounts.keySet())
 	    {
 	    	classRecalls.put(s, new ArrayList<Double>());
 	    }
-	    for (List<Integer> geneSet : population)
+	    for (List<String> geneSet : population)
 	    {
-	    	// Train and test the subsasmples.
-    		ctrl.trainingObservations = geneSet;
-	    	Forest forest = new Forest(datasetLocation, ctrl, seedForThisConvergence);
-	    	forest.setWeightsByClass(weights);
+	    	// Train and test the feature set.
+	    	ctrl.variablesToUse = geneSet;
+	    	PUForest forest = new PUForest(inputLocation, ctrl, seedForThisConvergence);
+	    	forest.setClassWeights(weights);
+	    	forest.setPositiveDiscounts(discounts.get("Positive"));
+	    	forest.setUnlabelledDiscounts(discounts.get("Unlabelled"));
 	    	forest.growForest();
-	    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
-	    	testObs.removeAll(geneSet);
-	    	Map<String, Map<String, Double>> predictedConfusionMatrix = forest.predict(processedInputFile, testObs).second;
 
-	    	// Determine the g mean for the training observations.
+	    	// Predict the test set (if it was provided)
+	    	Map<String, Map<String, Double>> testConfMatrix = forest.predict(processedTestSet).second;
+
+	    	// Determine the G mean for this individual.
 	    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
 	    	double gMean = 1.0;
     		for (String s : oobConfusionMatrix.keySet())
@@ -378,15 +409,15 @@ public class InstanceSelection
     			for (String p : oobConfusionMatrix.get(s).keySet())
     			{
     				// Combine the predictions.
-    				oobConfusionMatrix.get(s).put(p, oobConfusionMatrix.get(s).get(p) + predictedConfusionMatrix.get(s).get(p));
+    				oobConfusionMatrix.get(s).put(p, oobConfusionMatrix.get(s).get(p) + testConfMatrix.get(s).get(p));
     			}
     			double TP = oobConfusionMatrix.get(s).get("TruePositive");
-    			double FN = observations.get(s).size() - TP;
+    			double FN = (classCounts.get(s) + classCountsTestSet.get(s)) - TP;
     			double recall = TP / (TP + FN);
     			gMean *= recall;
 	    		classRecalls.get(s).add(recall);
 	    	}
-    		gMean = Math.pow(gMean, (1.0 / observations.size()));
+    		gMean = Math.pow(gMean, (1.0 / classCounts.size()));
 	    	numberEvaluations += 1;
 	    	fitness.add(gMean);
 	    }
@@ -403,37 +434,37 @@ public class InstanceSelection
 	    	}
 
 	    	// Generate mutants for possible inclusion in the next generation.
-	    	List<List<Integer>> mutants = new ArrayList<List<Integer>>();
+	    	List<List<String>> mutants = new ArrayList<List<String>>();
 	    	boolean isOffspringCreated = false;
 	    	for (int i = 0; i < populationSize / 2; i++)
 	    	{
 	    		// Select the parents (no preference given to fitter parents).
 	    		Collections.shuffle(parentSelector);
-	    		List<Integer> parentOne = population.get(parentSelector.get(0));
-	    		List<Integer> parentTwo = population.get(parentSelector.get(1));
+	    		List<String> parentOne = population.get(parentSelector.get(0));
+	    		List<String> parentTwo = population.get(parentSelector.get(1));
 
 	    		// Determine if the selected parents can undergo combination.
-	    		List<List<Integer>> nonMatchingObs = hammingDistance(parentOne, parentTwo);
+	    		List<List<String>> nonMatchingObs = hammingDistance(parentOne, parentTwo);
 	    		int distanceBetweenParents = nonMatchingObs.size();
 	    		if (distanceBetweenParents > threshold)
 	    		{
 	    			isOffspringCreated = true;
 	    			Collections.shuffle(nonMatchingObs);
-	    			List<List<Integer>> toCrossover = new ArrayList<List<Integer>>(nonMatchingObs.subList(0, distanceBetweenParents / 2));
-	    			List<Integer> childOne = new ArrayList<Integer>(parentOne);
-	    			List<Integer> childTwo = new ArrayList<Integer>(parentTwo);
-	    			for (List<Integer> l : toCrossover)
+	    			List<List<String>> toCrossover = new ArrayList<List<String>>(nonMatchingObs.subList(0, distanceBetweenParents / 2));
+	    			List<String> childOne = new ArrayList<String>(parentOne);
+	    			List<String> childTwo = new ArrayList<String>(parentTwo);
+	    			for (List<String> l : toCrossover)
 	    			{
-	    				Integer obs = l.get(1);
-	    				if (l.get(0) == 1)
+	    				String feature = l.get(1);
+	    				if (l.get(0).equals("1"))
 	    				{
-	    					childOne.remove(obs);
-	    					childTwo.add(obs);
+	    					childOne.remove(feature);
+	    					childTwo.add(feature);
 	    				}
 	    				else
 	    				{
-	    					childTwo.remove(obs);
-	    					childOne.add(obs);
+	    					childTwo.remove(feature);
+	    					childOne.add(feature);
 	    				}
 	    			}
 	    			mutants.add(childOne);
@@ -444,37 +475,40 @@ public class InstanceSelection
 	    	if (isOffspringCreated)
 	    	{
 	    		// Calculate the fitness of the offspring.
-		    	for (List<Integer> geneSet : mutants)
+	    		for (List<String> geneSet : mutants)
 		 	    {
 		    		population.add(geneSet);
-		    		// Train and test the subsamples.
-		    		ctrl.trainingObservations = geneSet;
-		    		Forest forest = new Forest(datasetLocation, ctrl, seedForThisConvergence);
-			    	forest.setWeightsByClass(weights);
-    		    	forest.growForest();
-			    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
-			    	testObs.removeAll(geneSet);
-			    	Map<String, Map<String, Double>> predictedConfusionMatrix = forest.predict(processedInputFile, testObs).second;
 
-			    	// Determine the g mean for the training observations.
-			    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
-			    	double gMean = 1.0;
-		    		for (String s : oobConfusionMatrix.keySet())
-			    	{
-		    			for (String p : oobConfusionMatrix.get(s).keySet())
-		    			{
-		    				// Combine the predictions.
-		    				oobConfusionMatrix.get(s).put(p, oobConfusionMatrix.get(s).get(p) + predictedConfusionMatrix.get(s).get(p));
-		    			}
-		    			double TP = oobConfusionMatrix.get(s).get("TruePositive");
-		    			double FN = observations.get(s).size() - TP;
-		    			double recall = TP / (TP + FN);
-		    			gMean *= recall;
-			    		classRecalls.get(s).add(recall);
-			    	}
-		    		gMean = Math.pow(gMean, (1.0 / observations.size()));
-			    	numberEvaluations += 1;
-			    	fitness.add(gMean);
+		    		// Train and test the feature set.
+		    		ctrl.variablesToUse = geneSet;
+		    		PUForest forest = new PUForest(inputLocation, ctrl, seedForThisConvergence);
+			    	forest.setClassWeights(weights);
+			    	forest.setPositiveDiscounts(discounts.get("Positive"));
+			    	forest.setUnlabelledDiscounts(discounts.get("Unlabelled"));
+	    	    	forest.growForest();
+
+	    	    	// Predict the test set (if it was provided)
+	    	    	Map<String, Map<String, Double>> testConfMatrix = forest.predict(processedTestSet).second;
+
+	    	    	// Determine the G mean for this individual.
+	    	    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
+	    	    	double gMean = 1.0;
+    	    		for (String s : oobConfusionMatrix.keySet())
+    		    	{
+    	    			for (String p : oobConfusionMatrix.get(s).keySet())
+    	    			{
+    	    				// Combine the predictions.
+    	    				oobConfusionMatrix.get(s).put(p, oobConfusionMatrix.get(s).get(p) + testConfMatrix.get(s).get(p));
+    	    			}
+    	    			double TP = oobConfusionMatrix.get(s).get("TruePositive");
+    	    			double FN = (classCounts.get(s) + classCountsTestSet.get(s)) - TP;
+    	    			double recall = TP / (TP + FN);
+    	    			gMean *= recall;
+    		    		classRecalls.get(s).add(recall);
+    		    	}
+    	    		gMean = Math.pow(gMean, (1.0 / classCounts.size()));
+	    	    	numberEvaluations += 1;
+	    	    	fitness.add(gMean);
 			    }
 	    	}
 
@@ -485,21 +519,21 @@ public class InstanceSelection
 		    	sortedPopulation.add(new IndexedDoubleData(fitness.get(j), j));
 		    }
 		    Collections.sort(sortedPopulation, Collections.reverseOrder());  // Sort the indices of the list in descending order by g mean.
-		    List<List<Integer>> newPopulation = new ArrayList<List<Integer>>();
+		    List<List<String>> newPopulation = new ArrayList<List<String>>();
 		    List<Double> newFitness = new ArrayList<Double>();
 		    Map<String, List<Double>> newClassRecalls = new HashMap<String, List<Double>>();
-		    for (String s : observations.keySet())
+		    for (String s : classCounts.keySet())
 		    {
 		    	newClassRecalls.put(s, new ArrayList<Double>());
 		    }
 		    boolean isPopulationStagnant = true;
 		    for (int j = 0; j < populationSize; j ++)
 		    {
-		    	// Add the first populationSize population members with the greatest g means.
+		    	// Add the first populationSize population members with the lowest error rates.
 		    	int indexToAddFrom = sortedPopulation.get(j).getIndex();
 		    	newPopulation.add(population.get(indexToAddFrom));
 		    	newFitness.add(fitness.get(indexToAddFrom));
-		    	for (String s : observations.keySet())
+		    	for (String s : classCounts.keySet())
 		    	{
 		    		newClassRecalls.get(s).add(classRecalls.get(s).get(indexToAddFrom));
 		    	}
@@ -530,7 +564,7 @@ public class InstanceSelection
 	    		// If the fitness has improved during this generation. The fitness of the most fit individual can not get worse, so if it
 	    		// is not the same then it must have improved.
 	    		this.currentBestFitness = fitness.get(0);
-	    		this.bestPopulationMember = new ArrayList<Integer>(population.get(0));  // Add the new fittest individual.
+	    		this.bestPopulationMember = new ArrayList<String>(population.get(0));  // Add the new fittest individual.
 	    	}
 
 	    	if (populationLastChanged >= maxStagnant)
@@ -547,6 +581,8 @@ public class InstanceSelection
 		    			BufferedWriter convergenceOutputWriter = new BufferedWriter(convergenceOutputFile);
 		    			convergenceOutputWriter.write(Integer.toString(currentGeneration));
 		    			convergenceOutputWriter.write("\t");
+		    			convergenceOutputWriter.write(Long.toString(seedForThisConvergence));
+		    			convergenceOutputWriter.write("\t");
 		    			convergenceOutputWriter.write(Double.toString(fitness.get(0)));
 		    			convergenceOutputWriter.write("\t");
 		    			convergenceOutputWriter.write(population.get(0).toString());
@@ -562,76 +598,66 @@ public class InstanceSelection
 	    			// Record the fact that a convergence has occurred.
 	    			convergencesOccurred++;
 
-	    			// Generate the new growth seed.
+	    			threshold = numberFeatures / 4;
 	    			seedForThisConvergence = random.nextLong();
 
-	    			// Re-initialise the threshold.
-	    			if (userThreshold == 0)
-	    			{
-	    				threshold = initialSetSize / 4;
-	    			}
-	    			else
-	    			{
-	    				threshold = userThreshold;
-	    			}
-
-	    			// Generate the new population by randomly instantiating the population.
-	    			population = new ArrayList<List<Integer>>();
+	    			// Generate the new population by generating populationSize mutated copies of the fittest individual ever found.
+	    			population = new ArrayList<List<String>>();
 	    			population.add(this.bestPopulationMember);
+	    			featuresAvailableForSelection = new ArrayList<String>(Arrays.asList(featureNames));
 	    			for (int i = 0; i < populationSize - 1; i++)
 	    			{
-	    				List<Integer> newPopMember = new ArrayList<Integer>();
-	    				for (String s : observations.keySet())
+	    				List<String> newPopMember = new ArrayList<String>();
+	    				for (int j = 0; j < (numberFeatures / 2.0); j++)
 	    				{
-	    					List<Integer> availableForSelection = new ArrayList<Integer>(observations.get(s));
-	    					for (int j = 0; j < fractionsToSelect.get(s); j++)
+	    					// Select a random available observation from class s.
+	    					String chosenFeature = featuresAvailableForSelection.get(random.nextInt(featuresAvailableForSelection.size()));
+	    					newPopMember.add(chosenFeature);
+	    					featuresAvailableForSelection.remove(chosenFeature);
+	    					if (featuresAvailableForSelection.isEmpty())
 	    					{
-	    						// Select a random available observation from class s.
-	    						Integer chosenObservation = availableForSelection.get(observationSelector.nextInt(availableForSelection.size()));
-	    						newPopMember.add(chosenObservation);
-	    						availableForSelection.remove(chosenObservation);
-	    						if (availableForSelection.isEmpty())
-	    						{
-	    							availableForSelection = new ArrayList<Integer>(observations.get(s));
-	    						}
+	    						featuresAvailableForSelection = new ArrayList<String>(Arrays.asList(featureNames));
 	    					}
 	    				}
 	    				population.add(newPopMember);
 	    			}
 	    			// Calculate the fitness of the new population.
 	    		    fitness = new ArrayList<Double>();
-	    		    for (String s : observations.keySet())
+	    		    classRecalls = new HashMap<String, List<Double>>();
+	    		    for (String s : classCounts.keySet())
 	    		    {
 	    		    	classRecalls.put(s, new ArrayList<Double>());
 	    		    }
-	    		    for (List<Integer> geneSet : population)
+	    		    for (List<String> geneSet : population)
 	    		    {
-	    		    	// Train and test the subsamples.
-	    	    		ctrl.trainingObservations = geneSet;
-	    	    		Forest forest = new Forest(datasetLocation, ctrl, seedForThisConvergence);
-	    		    	forest.setWeightsByClass(weights);
+	    		    	// Train and test the feature set.
+	    		    	ctrl.variablesToUse = geneSet;
+	    		    	PUForest forest = new PUForest(inputLocation, ctrl, seedForThisConvergence);
+	    		    	forest.setClassWeights(weights);
+	    		    	forest.setPositiveDiscounts(discounts.get("Positive"));
+	    		    	forest.setUnlabelledDiscounts(discounts.get("Unlabelled"));
 	    		    	forest.growForest();
-	    		    	List<Integer> testObs = new ArrayList<Integer>(observationIndices);
-	    		    	testObs.removeAll(geneSet);
-	    		    	Map<String, Map<String, Double>> predictedConfusionMatrix = forest.predict(processedInputFile, testObs).second;
 
-	    		    	// Determine the g mean for the training observations.
+	    		    	// Predict the test set (if it was provided)
+	    		    	Map<String, Map<String, Double>> testConfMatrix = forest.predict(processedTestSet).second;
+
+	    		    	// Determine the G mean for this individual.
 	    		    	Map<String, Map<String, Double>> oobConfusionMatrix = forest.oobConfusionMatrix;
 	    		    	double gMean = 1.0;
-	    	    		for (String s : oobConfusionMatrix.keySet())
-	    		    	{
-	    	    			for (String p : oobConfusionMatrix.get(s).keySet())
-	    	    			{
-	    	    				// Combine the predictions.
-	    	    				oobConfusionMatrix.get(s).put(p, oobConfusionMatrix.get(s).get(p) + predictedConfusionMatrix.get(s).get(p));
-	    	    			}
-	    	    			double TP = oobConfusionMatrix.get(s).get("TruePositive");
-	    	    			double FN = observations.get(s).size() - TP;
-	    	    			double recall = TP / (TP + FN);
-	    	    			gMean *= recall;
-	    		    		classRecalls.get(s).add(recall);
-	    		    	}
-	    	    		gMean = Math.pow(gMean, (1.0 / observations.size()));
+    		    		for (String s : oobConfusionMatrix.keySet())
+    			    	{
+    		    			for (String p : oobConfusionMatrix.get(s).keySet())
+    		    			{
+    		    				// Combine the predictions.
+    		    				oobConfusionMatrix.get(s).put(p, oobConfusionMatrix.get(s).get(p) + testConfMatrix.get(s).get(p));
+    		    			}
+    		    			double TP = oobConfusionMatrix.get(s).get("TruePositive");
+    		    			double FN = (classCounts.get(s) + classCountsTestSet.get(s)) - TP;
+    		    			double recall = TP / (TP + FN);
+    		    			gMean *= recall;
+    			    		classRecalls.get(s).add(recall);
+    			    	}
+    		    		gMean = Math.pow(gMean, (1.0 / classCounts.size()));
 	    		    	numberEvaluations += 1;
 	    		    	fitness.add(gMean);
 	    		    }
@@ -667,7 +693,7 @@ public class InstanceSelection
     	writeOutStatus(fitnessDirectoryLocation, fitness, populationDirectoryLocation, population, currentGeneration,
     			genStatsOutputLocation, populationSize, threshold, numberEvaluations, classRecalls, classRecallOutputLocations);
 
-	    // Write out the best member of the population.
+	    // Write out the best member(s) of the population.
 	    try
 		{
 	    	String bestIndivOutputLocation = outputLocation + "/BestIndividuals.txt";
@@ -725,26 +751,26 @@ public class InstanceSelection
 		return results;
 	}
 
-	List<List<Integer>> hammingDistance(List<Integer> parentOne, List<Integer> parentTwo)
+	List<List<String>> hammingDistance(List<String> parentOne, List<String> parentTwo)
 	{
-		List<List<Integer>> nonMatchingObs = new ArrayList<List<Integer>>();
-		for (Integer i : parentOne)
+		List<List<String>> nonMatchingObs = new ArrayList<List<String>>();
+		for (String s : parentOne)
 		{
-			if (!parentTwo.contains(i))
+			if (!parentTwo.contains(s))
 			{
-				List<Integer> nonMatch = new ArrayList<Integer>();
-				nonMatch.add(1);
-				nonMatch.add(i);
+				List<String> nonMatch = new ArrayList<String>();
+				nonMatch.add("1");
+				nonMatch.add(s);
 				nonMatchingObs.add(nonMatch);
 			}
 		}
-		for (Integer i : parentTwo)
+		for (String s : parentTwo)
 		{
-			if (!parentOne.contains(i))
+			if (!parentOne.contains(s))
 			{
-				List<Integer> nonMatch = new ArrayList<Integer>();
-				nonMatch.add(2);
-				nonMatch.add(i);
+				List<String> nonMatch = new ArrayList<String>();
+				nonMatch.add("2");
+				nonMatch.add(s);
 				nonMatchingObs.add(nonMatch);
 			}
 		}
@@ -827,7 +853,7 @@ public class InstanceSelection
 	}
 
 	void writeOutStatus(String fitnessDirectoryLocation, List<Double> fitness, String populationDirectoryLocation,
-			List<List<Integer>> population, int currentGeneration, String genStatsOutputLocation, int populationSize,
+			List<List<String>> population, int currentGeneration, String genStatsOutputLocation, int populationSize,
 			int threshold, int numberEvaluations, Map<String, List<Double>> classRecalls, Map<String, String> classRecallOutputLocations)
 	{
 		// Write out the fitness info for the current generation.
@@ -851,16 +877,16 @@ public class InstanceSelection
 
 		// Write out the population information for the current generation.
 		String populationOutputLocation = populationDirectoryLocation + "/" + Integer.toString(currentGeneration) + ".txt";
-		double meanIndividualSize = 0.0;
+		double meanPopulationSize = 0.0;
 		try
 		{
 			FileWriter populationOutputFile = new FileWriter(populationOutputLocation);
 			BufferedWriter populationOutputWriter = new BufferedWriter(populationOutputFile);
-			for (List<Integer> p : population)
+			for (List<String> p : population)
 			{
 				populationOutputWriter.write(p.toString());
 				populationOutputWriter.newLine();
-				meanIndividualSize += p.size();
+				meanPopulationSize += p.size();
 			}
 			populationOutputWriter.close();
 		}
@@ -869,7 +895,7 @@ public class InstanceSelection
 			e.printStackTrace();
 			System.exit(0);
 		}
-		meanIndividualSize /= populationSize;
+		meanPopulationSize /= populationSize;
 
 		// Calculate and record the stats for the current generation.
 		Map<String, Double> fitnessStats = calculateStats(fitness);
@@ -896,7 +922,7 @@ public class InstanceSelection
 			genStatsOutputWriter.write("\t");
 			genStatsOutputWriter.write(Integer.toString(population.get(0).size()));
 			genStatsOutputWriter.write("\t");
-			genStatsOutputWriter.write(Double.toString(meanIndividualSize));
+			genStatsOutputWriter.write(Double.toString(meanPopulationSize));
 			genStatsOutputWriter.write("\t");
 			genStatsOutputWriter.write(Integer.toString(threshold));
 			genStatsOutputWriter.write("\t");
