@@ -1,15 +1,17 @@
 package randomjyrest;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+
+import utilities.ImmutableTwoValues;
 
 public class Forest
 {
@@ -18,13 +20,19 @@ public class Forest
 	 * The trees that make up the forest.
 	 */
 	public List<Tree> forest;
+	
+	/**
+	 * A list where the list at index i (this.oobObservations.get(i)) contains a list of the indices of the observations that
+	 * are OOB on the ith tree.
+	 */
+	public List<Set<Integer>> oobObservations;
 
 
 	public final void main(String dataset, int numberOfTrees, int mtry, List<String> featuresToRemove, double[] weights, int numberOfProcesses,
 			boolean isCalcualteOOB)
 	{
 		this.forest = new ArrayList<Tree>(numberOfTrees);
-		Map<String, Map<String, double[]>> processedData = ProcessDataset.main(dataset, featuresToRemove, weights);
+		ImmutableTwoValues<Map<String, List<Double>>, Map<String, double[]>> processedData = ProcessDataset.main(dataset, featuresToRemove, weights);
 		growForest(processedData, numberOfTrees, mtry, new Random(), numberOfProcesses, isCalcualteOOB);
 	}
 
@@ -32,35 +40,38 @@ public class Forest
 			int numberOfProcesses, boolean isCalcualteOOB)
 	{
 		this.forest = new ArrayList<Tree>(numberOfTrees);
-		Map<String, Map<String, double[]>> processedData = ProcessDataset.main(dataset, featuresToRemove, weights);
+		ImmutableTwoValues<Map<String, List<Double>>, Map<String, double[]>> processedData = ProcessDataset.main(dataset, featuresToRemove, weights);
 		growForest(processedData, numberOfTrees, mtry, new Random(seed), numberOfProcesses, isCalcualteOOB);
 	}
 
-	public final void main(Map<String, Map<String, double[]>> processedData, int numberOfTrees, int mtry, int numberOfProcesses,
-			boolean isCalcualteOOB)
+	public final void main(ImmutableTwoValues<Map<String, List<Double>>, Map<String, double[]>> processedData, int numberOfTrees,
+			int mtry, int numberOfProcesses, boolean isCalcualteOOB)
 	{
 		this.forest = new ArrayList<Tree>(numberOfTrees);
 		growForest(processedData, numberOfTrees, mtry, new Random(), numberOfProcesses, isCalcualteOOB);
 	}
 
-	public final void main(Map<String, Map<String, double[]>> processedData, int numberOfTrees, int mtry, long seed, int numberOfProcesses,
-			boolean isCalcualteOOB)
+	public final void main(ImmutableTwoValues<Map<String, List<Double>>, Map<String, double[]>> processedData, int numberOfTrees,
+			int mtry, long seed, int numberOfProcesses, boolean isCalcualteOOB)
 	{
 		this.forest = new ArrayList<Tree>(numberOfTrees);
 		growForest(processedData, numberOfTrees, mtry, new Random(seed), numberOfProcesses, isCalcualteOOB);
 	}
 	
 
-	private final void growForest(Map<String, Map<String, double[]>> processedData, int numberOfTrees, int mtry,
-			Random forestRNG, int numberOfProcesses, boolean isCalcualteOOB)
+	private final void growForest(ImmutableTwoValues<Map<String, List<Double>>, Map<String, double[]>> processedData, int numberOfTrees,
+			int mtry, Random forestRNG, int numberOfProcesses, boolean isCalcualteOOB)
 	{
+		Map<String, List<Double>> processedFeatureData = processedData.first;
+		Map<String, double[]> processedClassData = processedData.second;
+
 		// Determine the classes in the dataset, and the indices of the observations from each class.
-		List<String> classes = new ArrayList<String>(processedData.get("Classification").keySet());
-		int numberOfObservations = processedData.get("Classification").get(classes.get(0)).length;
+		List<String> classes = new ArrayList<String>(processedClassData.keySet());
+		int numberOfObservations = processedClassData.get(classes.get(0)).length;
 		Map<String, List<Integer>> observationsFromEachClass = new HashMap<String, List<Integer>>();
 		for (String s : classes)
 		{
-			double[] classWeights = processedData.get("Classification").get(s);
+			double[] classWeights = processedClassData.get(s);
 			List<Integer> observationsInClass = new ArrayList<Integer>();
 			for (int i = 0; i < numberOfObservations; i++)
 			{
@@ -92,18 +103,23 @@ public class Forest
 		
 		// Grow trees.
 		final ExecutorService treeGrowthPool = Executors.newFixedThreadPool(numberOfProcesses);
-		List<Future<Tree>> futureGrowers = new ArrayList<Future<Tree>>(numberOfTrees);
+		List<Future<ImmutableTwoValues<Set<Integer>, Tree>>> futureGrowers = new ArrayList<Future<ImmutableTwoValues<Set<Integer>, Tree>>>(numberOfTrees);
 		for (int i = 0; i < numberOfTrees; i++)
 		{
-			futureGrowers.add(treeGrowthPool.submit(new TreeGrower(processedData, inBagObservations.get(i), forestRNG.nextLong()))); 
+			futureGrowers.add(treeGrowthPool.submit(new TreeGrower(processedFeatureData, processedClassData, inBagObservations.get(i),
+					mtry, forestRNG.nextLong())));
 		}
+		inBagObservations = null;  // Deallocate the reference to the in bag observations.
 		
 		// Get the results of growing the trees.
+		this.oobObservations = new ArrayList<Set<Integer>>(numberOfTrees);
 		try
 		{
-			for (Future<Tree> t : futureGrowers)
+			for (Future<ImmutableTwoValues<Set<Integer>, Tree>> t : futureGrowers)
 			{
-				this.forest.add(t.get());
+				ImmutableTwoValues<Set<Integer>, Tree> growthReturn = t.get();
+				this.oobObservations.add(growthReturn.first);
+				this.forest.add(growthReturn.second);
 			}
 		}
 		catch (ExecutionException e)
@@ -127,14 +143,13 @@ public class Forest
 		// Make OOB predictions if required.
 		if (isCalcualteOOB)
 		{
-			//TODO process the data into the prediction format
 			final ExecutorService treePredictionPool = Executors.newFixedThreadPool(numberOfProcesses);
 			List<Future<Map<Integer, Map<String, Double>>>> futurePredictions = new ArrayList<Future<Map<Integer, Map<String, Double>>>>(numberOfTrees);
 			for (int i = 0; i < numberOfTrees; i++)
 			{
 				//TODO change the stuff so that it predicts from the right dataset (need to take only the oob observations).
-				//TODO not the processedData
-				futurePredictions.add(treePredictionPool.submit(new PredictionGenerator(processedData, this.forest.get(i)))); 
+				//TODO not the processedFeatureData
+				futurePredictions.add(treePredictionPool.submit(new PredictionGenerator(processedFeatureData, this.forest.get(i)))); 
 			}
 			
 			try
@@ -166,15 +181,19 @@ public class Forest
 	}
 	
 	
-	public final void predict(String datasetToPredict, int numberOfProcesses)
+	public final void predict(String datasetToPredict, List<String> featuresToRemove, double[] weights, int numberOfProcesses)
 	{
-		//TODO process the prediction data and make a prediction
+		ImmutableTwoValues<Map<String, List<Double>>, Map<String, double[]>> processedData = ProcessDataset.main(datasetToPredict,
+				featuresToRemove, weights);
+		Map<String, List<Double>> featureData = processedData.first;
+		Map<String, double[]> classData = processedData.second;
+		
 		int numberOfTrees = this.forest.size();
 		final ExecutorService treePredictionPool = Executors.newFixedThreadPool(numberOfProcesses);
 		List<Future<Map<Integer, Map<String, Double>>>> futurePredictions = new ArrayList<Future<Map<Integer, Map<String, Double>>>>(numberOfTrees);
 		for (Tree t : this.forest)
 		{
-//			futurePredictions.add(treePredictionPool.submit(new PredictionGenerator(processedData, t))); 
+			futurePredictions.add(treePredictionPool.submit(new PredictionGenerator(featureData, t))); 
 		}
 		
 		try
