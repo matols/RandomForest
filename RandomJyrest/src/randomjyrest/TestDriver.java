@@ -1,7 +1,9 @@
 package randomjyrest;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.Map;
+import java.util.Date;
 
 public class TestDriver {
 
@@ -10,14 +12,45 @@ public class TestDriver {
 	 */
 	public static void main(String[] args)
 	{
-		Map<String, Map<String, double[]>> processedData = ProcessDataset.main(args[0], Arrays.asList(new String[]{"UPAccession"}), new double[]{99.0});
-
-		int numberOfTrees = 1;
+		int numberOfTrees = 1000;
 		int mtry = 10;
 		int numberOfProcesses = 1;
 		boolean isCalculateOOB = true;
 		Forest forest = new Forest();
-		forest.main(processedData, numberOfTrees, mtry, numberOfProcesses, isCalculateOOB);
+		
+		DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	    Date startTime = new Date();
+	    String strDate = sdfDate.format(startTime);
+	    System.out.format("at %s.\n", strDate);
+		forest.main(args[0], numberOfTrees, mtry, Arrays.asList(new String[]{"UPAccession"}), new double[]{}, numberOfProcesses, isCalculateOOB);
+		sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	    startTime = new Date();
+	    strDate = sdfDate.format(startTime);
+	    System.out.format("at %s.\n", strDate);
+	    
+	    numberOfProcesses = 2;
+	    
+	    sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	    startTime = new Date();
+	    strDate = sdfDate.format(startTime);
+	    System.out.format("at %s.\n", strDate);
+		forest.main(args[0], numberOfTrees, mtry, Arrays.asList(new String[]{"UPAccession"}), new double[]{}, numberOfProcesses, isCalculateOOB);
+		sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	    startTime = new Date();
+	    strDate = sdfDate.format(startTime);
+	    System.out.format("at %s.\n", strDate);
+	    
+	    numberOfProcesses = 4;
+	    
+	    sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	    startTime = new Date();
+	    strDate = sdfDate.format(startTime);
+	    System.out.format("at %s.\n", strDate);
+		forest.main(args[0], numberOfTrees, mtry, Arrays.asList(new String[]{"UPAccession"}), new double[]{}, numberOfProcesses, isCalculateOOB);
+		sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+	    startTime = new Date();
+	    strDate = sdfDate.format(startTime);
+	    System.out.format("at %s.\n", strDate);
 	}
 
 }
