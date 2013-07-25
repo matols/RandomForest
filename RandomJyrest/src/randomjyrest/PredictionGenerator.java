@@ -1,26 +1,24 @@
 package randomjyrest;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
 public class PredictionGenerator implements Callable<Map<Integer, Map<String, Double>>>
 {
 	
-	Map<String, List<Double>> datasetToPredict = new HashMap<String, List<Double>>();
+	Map<Integer, Map<String, Double>> datasetToPredict = new HashMap<Integer, Map<String, Double>>();
 	
 	Tree treeToPredictFrom;
 	
-	public PredictionGenerator(Map<String, List<Double>> datasetToPredict, Tree treeToPredictFrom)
+	public PredictionGenerator(Tree treeToPredictFrom, Map<Integer, Map<String, Double>> datasetToPredict)
 	{
-		this.datasetToPredict = datasetToPredict;
 		this.treeToPredictFrom = treeToPredictFrom;
+		this.datasetToPredict = datasetToPredict;
 	}
 
 	public Map<Integer, Map<String, Double>> call()
 	{
-		//TODO make the predictions.
 		return this.treeToPredictFrom.predict(this.datasetToPredict);
 	}
 
