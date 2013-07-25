@@ -78,6 +78,7 @@ public class ProcessDataset
 				}
 				else if (!featuresToRemove.contains(feature))
 				{
+					// If the feature is not one to be removed from the dataset.
 					featureIndicesToUse.add(featureIndex);
 					processedFeatureData.put(feature, new ArrayList<Double>());
 				}
