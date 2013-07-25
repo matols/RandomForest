@@ -3,7 +3,6 @@
  */
 package randomjyrest;
 
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -13,7 +12,7 @@ import java.util.Map;
 public abstract class Node
 {
 
-	Map<Integer, Map<String, Double>> predict(Map<String, List<Double>> datasetToPredict)
+	public Map<Integer, Map<String, Double>> predict(Map<Integer, Map<String, Double>> datasetToPredict)
 	{
 		return null;
 	}

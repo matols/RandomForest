@@ -3,9 +3,7 @@
  */
 package randomjyrest;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -17,46 +15,46 @@ public class NodeNonTerminal extends Node
 
 	Node[] children = new Node[2];
 	double splitValue;
-	String covariable;
+	String featureSplitOn;
 
 
-	public NodeNonTerminal(int nodeDepth, String covariable, double splitValue, Node leftChild, Node rightChild)
+	public NodeNonTerminal(String featureSplitOn, double splitValue, Node leftChild, Node rightChild)
 	{
 		this.splitValue = splitValue;
 		this.children[0] = leftChild;
 		this.children[1] = rightChild;
-		this.covariable = covariable;
+		this.featureSplitOn = featureSplitOn;
 	}
 	
-	Map<Integer, Map<String, Double>> predict(Map<String, List<Double>> datasetToPredict)
+	public Map<Integer, Map<String, Double>> predict(Map<Integer, Map<String, Double>> datasetToPredict)
 	{
-		//TODO fill in prediction method
-		return null;
+		Map<Integer, Map<String, Double>> leftChildDataset = new HashMap<Integer, Map<String, Double>>();
+		Map<Integer, Map<String, Double>> rightChildDataset = new HashMap<Integer, Map<String, Double>>();
+		for (Map.Entry<Integer, Map<String, Double>> entry : datasetToPredict.entrySet())
+		{
+			Integer index = entry.getKey();
+			Map<String, Double> data = entry.getValue();
+			if (data.get(this.featureSplitOn) <= this.splitValue)
+			{
+				// Observation should go to the left hand child.
+				leftChildDataset.put(index, data);
+			}
+			else
+			{
+				// Observation should go to the right hand child.
+				rightChildDataset.put(index, data);
+			}
+		}
+		
+		// Have the child nodes make predictions.
+		Map<Integer, Map<String, Double>> leftHandChildPredictions = this.children[0].predict(leftChildDataset);
+		Map<Integer, Map<String, Double>> rightHandChildPredictions = this.children[1].predict(rightChildDataset);
+		
+		// Combine the predictions of the children.
+		Map<Integer, Map<String, Double>> thisNodePredictions = new HashMap<Integer, Map<String, Double>>();
+		thisNodePredictions.putAll(leftHandChildPredictions);
+		thisNodePredictions.putAll(rightHandChildPredictions);
+		return thisNodePredictions;
 	}
-
-//	Map<Integer, Map<String, Double>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
-//	{
-//		Map<Integer, Map<String, Double>> predictedValues = new HashMap<Integer, Map<String, Double>>();
-//		if (!observationsToPredict.isEmpty())
-//		{
-//			List<Integer> leftChildObservations = new ArrayList<Integer>();
-//			List<Integer> rightChildObservations = new ArrayList<Integer>();
-//			for (Integer i : observationsToPredict)
-//			{
-//				double valueOfObservedCovar = predData.covariableData.get(this.covariable).get(i);
-//				if (valueOfObservedCovar <= this.splitValue)
-//				{
-//					leftChildObservations.add(i);
-//				}
-//				else
-//				{
-//					rightChildObservations.add(i);
-//				}
-//			}
-//			predictedValues.putAll(this.children[0].predict(predData, leftChildObservations));
-//			predictedValues.putAll(this.children[1].predict(predData, rightChildObservations));
-//		}
-//		return predictedValues;
-//	}
 
 }

@@ -3,10 +3,9 @@
  */
 package randomjyrest;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Simon Bull
@@ -16,31 +15,29 @@ public class NodeTerminal extends Node
 {
 	Map<String, Double> classWeightsInNode = new HashMap<String, Double>();
 
-	NodeTerminal()
+	NodeTerminal(Map<String, double[]> classData, int[] observationsInNode)
 	{
-		//TODO determine how to initialise the node.
+		Set<String> classes = classData.keySet();
+		for (String s : classes)
+		{
+			double classWeight = 0.0;
+			double[] classWeights = classData.get(s);
+			for (double d : classWeights)
+			{
+				classWeight += d;
+			}
+			this.classWeightsInNode.put(s, classWeight);
+		}
 	}
 	
-	Map<Integer, Map<String, Double>> predict(Map<String, List<Double>> datasetToPredict)
+	public Map<Integer, Map<String, Double>> predict(Map<Integer, Map<String, Double>> datasetToPredict)
 	{
-		//TODO return the predictions
-		return null;
+		Map<Integer, Map<String, Double>> predictions = new HashMap<Integer, Map<String, Double>>();
+		for (Integer i : datasetToPredict.keySet())
+		{
+			predictions.put(i, this.classWeightsInNode);
+		}
+		return predictions;
 	}
-
-//	Map<Integer, Map<String, Double>> predict(ProcessDataForGrowing predData, List<Integer> observationsToPredict)
-//	{
-//		Map<Integer, Map<String, Double>> predictedValues = new HashMap<Integer, Map<String, Double>>();
-//		for (Integer i : observationsToPredict)
-//		{
-//			Map<String, Double> weightedVotes = new HashMap<String, Double>();
-//			for (String className : this.classWeightsInNode.keySet())
-//			{
-//				weightedVotes.put(className, this.classWeightsInNode.get(className));
-//			}
-//			predictedValues.put(i, weightedVotes);
-//		}
-//
-//		return predictedValues;
-//	}
 
 }
