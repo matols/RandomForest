@@ -15,18 +15,20 @@ public class NodeTerminal extends Node
 {
 	Map<String, Double> classWeightsInNode = new HashMap<String, Double>();
 
-	NodeTerminal(Map<String, double[]> classData, int[] observationsInNode)
-	{
-		Set<String> classes = classData.keySet();
-		for (String s : classes)
+	NodeTerminal(Map<String, double[]> classData, int[] inBagObservations)
+	{				
+		Set<String> allClasses = classData.keySet();
+		
+		int numberOfObservations = inBagObservations.length;
+		for (String s : allClasses)
 		{
-			double classWeight = 0.0;
 			double[] classWeights = classData.get(s);
-			for (double d : classWeights)
+			double totalClassWeight = 0.0;
+			for (int i = 0; i < numberOfObservations; i++)
 			{
-				classWeight += d;
+				totalClassWeight += (classWeights[i] * inBagObservations[i]);
 			}
-			this.classWeightsInNode.put(s, classWeight);
+			this.classWeightsInNode.put(s, totalClassWeight);
 		}
 	}
 	

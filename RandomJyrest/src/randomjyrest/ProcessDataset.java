@@ -8,13 +8,15 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import utilities.ImmutableTwoValues;
+import utilities.ImmutableThreeValues;
+import utilities.IndexedDoubleData;
 
 public class ProcessDataset
 {
@@ -23,9 +25,6 @@ public class ProcessDataset
 	 * Processes a file containing a dataset of observations.
 	 * 
 	 * Processes a tsv format file, while ensuring that only the desired features in the dataset are in the processed dataset.
-	 * 
-	 * The data file is expected to be tab separated with the first line containing the names of the features/columns.
-	 * Additionally, it is expected that the column containing the class is headed with Classification.
 	 * 
 	 * The values for the features in the dataset are all assumed to be numeric (e.g. integers or reals) rather than strings
 	 * representing categories. Any categorical data should therefore be mapped to a set of integers (or reals), and will then
@@ -39,20 +38,39 @@ public class ProcessDataset
 	 * is less than the number of observations, then the weight vector is padded with 1.0s to make it have one value for each
 	 * observation.
 	 * 
+	 * The data file is expected to be tab separated with the first line containing the names of the features/columns.
+	 * The restrictions on the naming of the features/columns are:
+	 *	1) The column containing the class should be headed with Classification.
+	 *	2) There should not be a feature/column named Weight.
+	 *
+	 * The processed data has the form:
+	 * 		featureName ->
+	 * 						"Data" 	- The array containing the values for the feature.
+	 * 						"Index" - The array containing the indices of the observations.
+	 * returnValue.get(featureName).get("Data") will contain the values of the feature sorted in ascending order. The values in
+	 * returnValue.get(featureName).get("Index") are also sorted, but the sorting is done based on the data values.
+	 * Example:
+	 * 		The values of a feature are		[4, 7, 2, 8, 3, 4]
+	 * 		The indices are					[0, 1, 2, 3, 4, 5]
+	 * 		The sorted values are			[2, 3, 4, 4, 7, 8]
+	 * 		The sorted indices are			[2, 4, 0, 5, 1, 3]
+	 * 		The value 8 is therefore the greatest data value, and comes from the observation with index 3 in the original data file.
+	 * 
 	 * @param dataset			The location of the file containing the data to be processed.
 	 * @param featuresToRemove	The features in the dataset that should be removed (not processed).
 	 * @param weights			The weights of the individual observations.
-	 * @return					A mapping from the feature names to the values of the feature for each observation (in the order that
-	 * 							the observations appear in the file), and a mapping from each class to an array of the weight for that
-	 * 							class for each observation.
+	 * @return					A mapping from the feature names to two arrays. One is the "Data" array. This contains the sorted
+	 * 							values for the feature. The other is the "Index" array. This contains the indices of the observations
+	 * 							sorted by the ordering in the "Data" array.
 	 */
-	public static final ImmutableTwoValues<Map<String, List<Double>>, Map<String, double[]>> main(String dataset, List<String> featuresToRemove, double[] weights)
+	public static final ImmutableThreeValues<Map<String, double[]>, Map<String, int[]>, Map<String, double[]>>
+		main(String dataset, List<String> featuresToRemove, double[] weights)
 	{
-		// Setup the mappings to hold the final processed feature data along with the class data.
-		Map<String, List<Double>> processedFeatureData = new HashMap<String, List<Double>>();
+		// Setup the mapping to hold the temporary and final processed data.
+		Map<String, List<Double>> temporaryData = new HashMap<String, List<Double>>();
+		Map<String, double[]> processedFeatureData = new HashMap<String, double[]>();
+		Map<String, int[]> processedIndexData = new HashMap<String, int[]>();
 		Map<String, double[]> processedClassData = new HashMap<String, double[]>();
-		
-		int numberOfObservations = 0;  // The number of observations in the dataset.
 
 		Path dataPath = Paths.get(dataset);
 		try (BufferedReader reader = Files.newBufferedReader(dataPath, StandardCharsets.UTF_8))
@@ -78,9 +96,8 @@ public class ProcessDataset
 				}
 				else if (!featuresToRemove.contains(feature))
 				{
-					// If the feature is not one to be removed from the dataset.
 					featureIndicesToUse.add(featureIndex);
-					processedFeatureData.put(feature, new ArrayList<Double>());
+					temporaryData.put(feature, new ArrayList<Double>());
 				}
 				featureIndex += 1;
 			}
@@ -110,7 +127,7 @@ public class ProcessDataset
 				{
 					String feature = featureNames[i];
 					double value = Double.parseDouble(chunks[i]);
-					processedFeatureData.get(feature).add(value);
+					temporaryData.get(feature).add(value);
 				}
 				
 				// Enter the class information for this observation.
@@ -130,7 +147,7 @@ public class ProcessDataset
 				}
 				weights = newWeightVector;
 			}
-			numberOfObservations = weights.length;
+			int numberOfObservations = weights.length;
 
 			// Setup the class information.
 			Set<String> classesInDataset = new HashSet<String>(classData);
@@ -159,8 +176,40 @@ public class ProcessDataset
 			e.printStackTrace();
 			System.exit(0);
 		}
+
+		// Generate the final processed data.
+		int numberOfObservations = weights.length;
+		for (Map.Entry<String, List<Double>> entry : temporaryData.entrySet())
+		{
+			String feature = entry.getKey();
+			List<Double> data = entry.getValue();
+			List<IndexedDoubleData> sortedData = new ArrayList<IndexedDoubleData>();
+			for (int i = 0; i < numberOfObservations; i++)
+			{
+				sortedData.add(new IndexedDoubleData(data.get(i).doubleValue(), i));
+			}
+			Collections.sort(sortedData);
+			
+			if (sortedData.get(0).getData() == sortedData.get(numberOfObservations - 1).getData())
+			{
+				// If the first and last data value are equal, then the feature contains only one value and is useless.
+				// Therefore, remove features where the first and last value are equal.
+				continue;
+			}
+			
+			double[] sortedFeatureData = new double[numberOfObservations];
+			int[] sortedFeatureIndices = new int[numberOfObservations];
+			for (int i = 0; i < numberOfObservations; i++)
+			{
+				sortedFeatureData[i] = sortedData.get(i).getData();
+				sortedFeatureIndices[i] = sortedData.get(i).getIndex();
+			}
+			
+			processedFeatureData.put(feature, sortedFeatureData);
+			processedIndexData.put(feature, sortedFeatureIndices);
+		}
 		
-		return new ImmutableTwoValues<Map<String, List<Double>>, Map<String, double[]>>(processedFeatureData, processedClassData);
+		return new ImmutableThreeValues<Map<String, double[]>, Map<String, int[]>, Map<String, double[]>>(processedFeatureData, processedIndexData, processedClassData);
 	}
 
 }

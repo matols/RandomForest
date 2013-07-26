@@ -1,111 +1,113 @@
 package randomjyrest;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import utilities.ArrayManipulation;
 import utilities.ImmutableTwoValues;
 
 public class FindBestSplit
 {
 
 	public static final ImmutableTwoValues<String, Double> main(Map<String, double[]> dataset, Map<String, int[]> dataIndices,
-			Map<String, double[]> classData, List<String> featuresToSplitOn)
+			Map<String, double[]> classData, int[] inBagObservations, List<String> featuresToSplitOn, int numberOfUniqueObservations)
 	{
 		String bestFeatureForSplit = null;
 		double splitValue = 0.0;
 		double lowestImpurity = 1.0;
-
-		// Determine the original indices of all the observations present in the node.
-		int[] originalIndicesOfObservationsPresent = dataIndices.get(featuresToSplitOn.get(0));
 		
-		// Determine the total weight of the observations of each class in the parent node along with the total weight of all observations
-		// in the parent node.
-		Map<String, Double> parentNodeClassWeights = new HashMap<String, Double>();
-		double totalParentNodeWeight = 0.0;
-		for (Map.Entry<String, double[]> entry : classData.entrySet())
-		{
-			String className = entry.getKey();
-			double[] allClassWeights = entry.getValue();
-			double classWeight = ArrayManipulation.sumArray(ArrayManipulation.selectSubset(allClassWeights, originalIndicesOfObservationsPresent));
-			parentNodeClassWeights.put(className, classWeight);
-			totalParentNodeWeight += classWeight;
-		}
+		List<String> allClasses = new ArrayList<String>(classData.keySet());
+		int numberOfClasses = allClasses.size();
+		int numberOfObservations = inBagObservations.length;
 		
 		for (String f : featuresToSplitOn)
 		{
 			double[] allFeatureData = dataset.get(f);
+			double[] subsetFeatureData = new double[numberOfUniqueObservations];
 			int[] featureIndices = dataIndices.get(f);
-			
-			// Determine the cumulative and total class weight when the observations are sorted in ascending ordering on feature f.
-			Map<String, double[]> leftChildCumulativeClassWeights = new HashMap<String, double[]>();
-			Map<String, double[]> rightChildCumulativeClassWeights = new HashMap<String, double[]>();
-			for (Map.Entry<String, double[]> entry : classData.entrySet())
+			int[] subsetFeatureIndices = new int[numberOfUniqueObservations];
+			int curretInsertionIndex = 0;
+			for (int i = 0; i < numberOfObservations; i++)
 			{
-				String className = entry.getKey();
-				double[] allClassWeights = entry.getValue();
-				double[] leftChildWeights = ArrayManipulation.cumulativeArray(allClassWeights, featureIndices);
-				leftChildCumulativeClassWeights.put(className, leftChildWeights);
-				
-				double parentWeightForClass = parentNodeClassWeights.get(className);
-				double[] rightChildWeights = new double[leftChildWeights.length];
-				int currentInsertionIndex = 0;
-				for (double d : leftChildWeights)
+				int originalIndex = featureIndices[i];
+				if (inBagObservations[originalIndex] != 0)
 				{
-					rightChildWeights[currentInsertionIndex] = parentWeightForClass - d;
-					currentInsertionIndex++;
+					// If the index is in the bag.
+					subsetFeatureData[curretInsertionIndex] = allFeatureData[i];
+					subsetFeatureIndices[curretInsertionIndex] = featureIndices[i];
+					curretInsertionIndex++;
 				}
-				rightChildCumulativeClassWeights.put(className, rightChildWeights);
 			}
 			
-			// Determine the unique values for this feature amongst the observation along with the last index in the array of sorted
-			// data values where the value occurs.
-			Map<Double, Integer> uniqueFeatureData = ArrayManipulation.unique(allFeatureData);
+			double totalParentNodeWeight = 0.0;
+			double[] parentNodeClassWeights = new double[numberOfClasses];
+			double[][] cumulativeClassWeights = new double[numberOfClasses][numberOfUniqueObservations];
 			
-			// Determine the Gini impurity for each unique data value.
-			for (Map.Entry<Double, Integer> entry : uniqueFeatureData.entrySet())
+			for (int i = 0; i < numberOfClasses; i++)
 			{
-				Integer dataIndex = entry.getValue();
-
-				// Determine the total weight in each child node across all classes.
-				double totalLeftChildWeight = 0.0;
-				Map<String, Double> leftChildClassWeights = new HashMap<String, Double>();
-				Map<String, Double> rightChildClassWeights = new HashMap<String, Double>();
-				double totalRightChildWeight = 0.0;
-				for (String s : classData.keySet())
+				String currentClass = allClasses.get(i);
+				double[] classWeights = classData.get(currentClass);
+				double[] classCumulativeWeights = new double[numberOfUniqueObservations];
+				double totalClassWeight = 0.0;
+				int currentInsertionIndex = 0;
+				for (int j : subsetFeatureIndices)
 				{
-					double leftChildWeight = leftChildCumulativeClassWeights.get(s)[dataIndex];
-					leftChildClassWeights.put(s, leftChildWeight);
-					totalLeftChildWeight += leftChildWeight;
+					double weightOfThisObs = classWeights[j] * inBagObservations[j];
+					totalClassWeight += weightOfThisObs;
+					classCumulativeWeights[currentInsertionIndex] = totalClassWeight;
+					currentInsertionIndex++;
+				}
+				parentNodeClassWeights[i] = totalClassWeight;
+				cumulativeClassWeights[i] = classCumulativeWeights;
+				totalParentNodeWeight += totalClassWeight;
+			}
+			
+			int observationsToCheck = numberOfUniqueObservations - 1;  // Check all except the last observation as at last one observation must go down the RHS.
+			for (int i = 0; i < observationsToCheck; i++)
+			{
+				double currentFeatureValue = subsetFeatureData[i];
+				double nextFeatureValue = subsetFeatureData[i + 1];
+				if (currentFeatureValue - nextFeatureValue != 0)
+				{
+					// Determine the total weight in each child node across all classes.
+					double totalLeftChildWeight = 0.0;
+					double[] leftChildClassWeights = new double[numberOfClasses];
+					double totalRightChildWeight = 0.0;
+					double[] rightChildClassWeights = new double[numberOfClasses];
+					for (int j = 0; j < numberOfClasses; j++)
+					{
+						double leftChildWeight = cumulativeClassWeights[j][i];
+						leftChildClassWeights[j] = leftChildWeight;
+						totalLeftChildWeight += leftChildWeight;
+						
+						double rightChildWeight = parentNodeClassWeights[j] - leftChildWeight;
+						rightChildClassWeights[j] = rightChildWeight;
+						totalRightChildWeight += rightChildWeight;
+					}
 					
-					double rightChildWeight = rightChildCumulativeClassWeights.get(s)[dataIndex];
-					rightChildClassWeights.put(s, rightChildWeight);
-					totalRightChildWeight += rightChildWeight;
-				}
-				
-				// Determine the Gini impurity of the child nodes.
-				double leftChildImpurity = 1.0;
-				double rightChildImpurity = 1.0;
-				for (String s : classData.keySet())
-				{
-					double fractionOfClassSInLeftChild = leftChildClassWeights.get(s) / totalLeftChildWeight;
-					leftChildImpurity = leftChildImpurity - (fractionOfClassSInLeftChild * fractionOfClassSInLeftChild);
+					// Determine the Gini impurity of the child nodes.
+					double leftChildImpurity = 1.0;
+					double rightChildImpurity = 1.0;
+					for (int j = 0; j < numberOfClasses; j++)
+					{
+						double fractionOfClassSInLeftChild = leftChildClassWeights[j] / totalLeftChildWeight;
+						leftChildImpurity = leftChildImpurity - (fractionOfClassSInLeftChild * fractionOfClassSInLeftChild);
 
-					double fractionOfClassSInRightChild = rightChildClassWeights.get(s) / totalRightChildWeight;
-					rightChildImpurity = rightChildImpurity - (fractionOfClassSInRightChild * fractionOfClassSInRightChild);
-				}
-				
-				// Determine the Gini impurity for the split.
-				double splitImpurity = ((totalLeftChildWeight / totalParentNodeWeight) * leftChildImpurity) +
-						((totalRightChildWeight / totalParentNodeWeight) * rightChildImpurity);
-				
-				// Check whether this is the best split found.
-				if (splitImpurity < lowestImpurity)
-				{
-					lowestImpurity = splitImpurity;
-					bestFeatureForSplit = f;
-					splitValue = (entry.getKey() + allFeatureData[dataIndex + 1]) / 2.0;
+						double fractionOfClassSInRightChild = rightChildClassWeights[j] / totalRightChildWeight;
+						rightChildImpurity = rightChildImpurity - (fractionOfClassSInRightChild * fractionOfClassSInRightChild);
+					}
+					
+					// Determine the Gini impurity for the split.
+					double splitImpurity = ((totalLeftChildWeight / totalParentNodeWeight) * leftChildImpurity) +
+							((totalRightChildWeight / totalParentNodeWeight) * rightChildImpurity);
+					
+					// Check whether this is the best split found.
+					if (splitImpurity < lowestImpurity)
+					{
+						lowestImpurity = splitImpurity;
+						bestFeatureForSplit = f;
+						splitValue = (currentFeatureValue + nextFeatureValue) / 2.0;
+					}
 				}
 			}
 		}
