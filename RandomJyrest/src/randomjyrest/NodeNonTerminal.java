@@ -4,7 +4,9 @@
 package randomjyrest;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Simon Bull
@@ -26,29 +28,29 @@ public class NodeNonTerminal extends Node
 		this.featureSplitOn = featureSplitOn;
 	}
 	
-	public Map<Integer, Map<String, Double>> predict(Map<Integer, Map<String, Double>> datasetToPredict)
+	public final Map<Integer, Map<String, Double>> predict(Map<String, double[]> datasetToPredict, Set<Integer> obsToPredict)
 	{
-		Map<Integer, Map<String, Double>> leftChildDataset = new HashMap<Integer, Map<String, Double>>();
-		Map<Integer, Map<String, Double>> rightChildDataset = new HashMap<Integer, Map<String, Double>>();
-		for (Map.Entry<Integer, Map<String, Double>> entry : datasetToPredict.entrySet())
+		double[] dataForSplitFeature = datasetToPredict.get(this.featureSplitOn);
+
+		Set<Integer> leftChildObs = new HashSet<Integer>();
+		Set<Integer> rightChildObs = new HashSet<Integer>();
+		for (Integer i : obsToPredict)
 		{
-			Integer index = entry.getKey();
-			Map<String, Double> data = entry.getValue();
-			if (data.get(this.featureSplitOn) <= this.splitValue)
+			if (dataForSplitFeature[i] <= this.splitValue)
 			{
 				// Observation should go to the left hand child.
-				leftChildDataset.put(index, data);
+				leftChildObs.add(i);
 			}
 			else
 			{
 				// Observation should go to the right hand child.
-				rightChildDataset.put(index, data);
+				rightChildObs.add(i);
 			}
 		}
 		
 		// Have the child nodes make predictions.
-		Map<Integer, Map<String, Double>> leftHandChildPredictions = this.children[0].predict(leftChildDataset);
-		Map<Integer, Map<String, Double>> rightHandChildPredictions = this.children[1].predict(rightChildDataset);
+		Map<Integer, Map<String, Double>> leftHandChildPredictions = this.children[0].predict(datasetToPredict, leftChildObs);
+		Map<Integer, Map<String, Double>> rightHandChildPredictions = this.children[1].predict(datasetToPredict, rightChildObs);
 		
 		// Combine the predictions of the children.
 		Map<Integer, Map<String, Double>> thisNodePredictions = new HashMap<Integer, Map<String, Double>>();

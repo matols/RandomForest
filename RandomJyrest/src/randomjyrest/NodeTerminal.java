@@ -13,14 +13,13 @@ import java.util.Set;
  */
 public class NodeTerminal extends Node
 {
-	Map<String, Double> classWeightsInNode = new HashMap<String, Double>();
+	private String classPresent;
+	private double weightInNode;
 
-	NodeTerminal(Map<String, double[]> classData, int[] inBagObservations)
-	{				
-		Set<String> allClasses = classData.keySet();
-		
+	public NodeTerminal(Set<String> classesPresent, Map<String, double[]> classData, int[] inBagObservations)
+	{
 		int numberOfObservations = inBagObservations.length;
-		for (String s : allClasses)
+		for (String s : classesPresent)
 		{
 			double[] classWeights = classData.get(s);
 			double totalClassWeight = 0.0;
@@ -28,16 +27,17 @@ public class NodeTerminal extends Node
 			{
 				totalClassWeight += (classWeights[i] * inBagObservations[i]);
 			}
-			this.classWeightsInNode.put(s, totalClassWeight);
+			this.classPresent = s;
+			this.weightInNode = totalClassWeight;
 		}
 	}
 	
-	public Map<Integer, Map<String, Double>> predict(Map<Integer, Map<String, Double>> datasetToPredict)
+	public final Map<Integer, Map<String, Double>> predict(Map<String, double[]> datasetToPredict, Set<Integer> obsToPredict)
 	{
 		Map<Integer, Map<String, Double>> predictions = new HashMap<Integer, Map<String, Double>>();
-		for (Integer i : datasetToPredict.keySet())
+		for (Integer i : obsToPredict)
 		{
-			predictions.put(i, this.classWeightsInNode);
+//			predictions.put(i, this.weightInNode);
 		}
 		return predictions;
 	}
