@@ -14,10 +14,13 @@ import java.util.Map;
 public class ProcessPredictionData
 {
 
-	public static final Map<Integer, Map<String, Double>> main(String dataset, List<String> featuresToRemove)
+	public static final Map<String, double[]> main(String dataset, List<String> featuresToRemove)
 	{
-		Map<Integer, Map<String, Double>> datasetToPredict = new HashMap<Integer, Map<String, Double>>();
+		// Setup the mapping to hold the temporary and final processed data.
+		Map<String, List<Double>> temporaryData = new HashMap<String, List<Double>>();
+		Map<String, double[]> datasetToPredict = new HashMap<String, double[]>();
 		
+		int numberOfObservations = 0;
 		Path dataPath = Paths.get(dataset);
 		try (BufferedReader reader = Files.newBufferedReader(dataPath, StandardCharsets.UTF_8))
 		{
@@ -42,11 +45,11 @@ public class ProcessPredictionData
 				{
 					// If the feature is not one to be removed from the dataset.
 					featureIndicesToUse.add(featureIndex);
+					temporaryData.put(feature, new ArrayList<Double>());
 				}
 				featureIndex += 1;
 			}
-			
-			int observationIndex = 0;
+
 			while ((line = reader.readLine()) != null)
 			{
 				line = line.trim();
@@ -57,16 +60,14 @@ public class ProcessPredictionData
 				}
 				
 				// Enter the feature values for this observation into the mapping of the temporary processing of the data.
-				Map<String, Double> observationMapping = new HashMap<String, Double>();
 				String[] chunks = line.split("\t");
 				for (Integer i : featureIndicesToUse)
 				{
 					String feature = featureNames[i];
 					double value = Double.parseDouble(chunks[i]);
-					observationMapping.put(feature, value);
+					temporaryData.get(feature).add(value);
 				}
-				datasetToPredict.put(observationIndex, observationMapping);
-				observationIndex++;
+				numberOfObservations++;
 			}
 		}
 		catch (IOException e)
@@ -77,6 +78,18 @@ public class ProcessPredictionData
 			System.exit(0);
 		}
 		
+		// Generate the final processed data.
+		for (Map.Entry<String, List<Double>> entry : temporaryData.entrySet())
+		{
+			double[] featureDataArray = new double[numberOfObservations];
+			List<Double> parsedData = entry.getValue();
+			for (int i = 0; i < numberOfObservations; i++)
+			{
+				featureDataArray[i] = parsedData.get(i).doubleValue();
+			}
+			datasetToPredict.put(entry.getKey(), featureDataArray);
+		}
+
 		return datasetToPredict;
 	}
 
