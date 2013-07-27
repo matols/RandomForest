@@ -26,28 +26,30 @@ public class Tree
 	private final Node growTree(Map<String, double[]> dataset, Map<String, int[]> dataIndices, Map<String, double[]> classData,
 			int[] inBagObservations, int mtry, Random treeRNG, int numberOfUniqueObservations)
 	{
-		boolean isOnlyOneClassInNode = this.oneClassPresent(classData, inBagObservations);
+		Set<String> classesPresent = this.classesPresent(classData, inBagObservations);
 		
 		// Create a terminal node if there are only observations of one class remaining.
-		if (isOnlyOneClassInNode)
+		if (classesPresent.size() < 2)
 		{
-			return new NodeTerminal(classData, inBagObservations);
+			return new NodeTerminal(classesPresent, classData, inBagObservations);
 		}
 		
 		// Determine the best split that can be made.
-		List<String> datasetFeatures = new ArrayList<String>(dataset.keySet());
-		Collections.shuffle(datasetFeatures, treeRNG);
-		int numVarsToSelect = Math.min(datasetFeatures.size(), mtry);
-		List<String> featuresToSplitOn = datasetFeatures.subList(0, numVarsToSelect);
-		ImmutableTwoValues<String, Double> bestSplit = FindBestSplit.main(dataset, dataIndices, classData, inBagObservations,
-				featuresToSplitOn, numberOfUniqueObservations);
-		String featureUsedForSplit = bestSplit.first;
-		double splitValue = bestSplit.second;
-		
-		// If no split was found, then generate a terminal node.
-		if (featureUsedForSplit == null)
+		String featureUsedForSplit = null;
+		double splitValue = 0.0;
+		while (featureUsedForSplit == null)
 		{
-			return new NodeTerminal(classData, inBagObservations);
+			List<String> datasetFeatures = new ArrayList<String>(dataset.keySet());
+			Collections.shuffle(datasetFeatures, treeRNG);
+			int numVarsToSelect = Math.min(datasetFeatures.size(), mtry);
+			List<String> featuresToSplitOn = datasetFeatures.subList(0, numVarsToSelect);
+			ImmutableTwoValues<String, Double> bestSplit = FindBestSplit.main(dataset, dataIndices, classData, inBagObservations,
+					featuresToSplitOn, numberOfUniqueObservations);
+			featureUsedForSplit = bestSplit.first;
+			splitValue = bestSplit.second;
+			//TODO warning and exit if it goes through X loops without finding an adequate split
+			//TODO put out the indices of the observations so that they can be checked
+			//TODO and say that X iterations went without being able to split the classes.
 		}
 		
 		// Split the dataset into observations going to the left child and those going to the right one based on the feature to
@@ -69,7 +71,7 @@ public class Tree
 	}
 	
 	
-	private final boolean oneClassPresent(Map<String, double[]> classData, int[] inBagObservations)
+	private final Set<String> classesPresent(Map<String, double[]> classData, int[] inBagObservations)
 	{
 		Set<String> classesPresent = new HashSet<String>();
 		Set<String> allClasses = new HashSet<String>(classData.keySet());
@@ -90,13 +92,13 @@ public class Tree
 			}
 		}
 
-		return classesPresent.size() < 2;
+		return classesPresent;
 	}
 
 	
-	public final Map<Integer, Map<String, Double>> predict(Map<Integer, Map<String, Double>> datasetToPredict)
+	public final Map<Integer, Map<String, Double>> predict(Map<String, double[]> datasetToPredict, Set<Integer> obsToPredict)
 	{
-		return this.tree.predict(datasetToPredict);
+		return this.tree.predict(datasetToPredict, obsToPredict);
 	}
 	
 	
