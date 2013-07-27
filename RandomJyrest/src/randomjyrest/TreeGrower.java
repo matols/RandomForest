@@ -56,9 +56,9 @@ public class TreeGrower implements Callable<ImmutableTwoValues<Set<Integer>, Tre
 		
 		// Determine the number of unique observations and the OOB observations.
 		this.oobOnThisTree = new HashSet<Integer>();
-		for (int i : this.inBagObservations)
+		for (int i = 0; i < observationsToSelect; i++)
 		{
-			if (i != 0)
+			if (this.inBagObservations[i] != 0)
 			{
 				this.numberOfUniqueObservations++;
 			}
