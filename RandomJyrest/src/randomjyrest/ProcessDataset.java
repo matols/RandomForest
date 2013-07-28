@@ -18,7 +18,7 @@ import java.util.Set;
 import utilities.ImmutableThreeValues;
 import utilities.IndexedDoubleData;
 
-public class ProcessDataset
+public final class ProcessDataset
 {
 
 	/**

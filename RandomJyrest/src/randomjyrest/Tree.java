@@ -96,9 +96,10 @@ public class Tree
 	}
 
 	
-	public final Map<Integer, Map<String, Double>> predict(Map<String, double[]> datasetToPredict, Set<Integer> obsToPredict)
+	public final Map<String, double[]> predict(Map<String, double[]> datasetToPredict, Set<Integer> obsToPredict,
+			Map<String, double[]> predictions)
 	{
-		return this.tree.predict(datasetToPredict, obsToPredict);
+		return this.tree.predict(datasetToPredict, obsToPredict, predictions);
 	}
 	
 	

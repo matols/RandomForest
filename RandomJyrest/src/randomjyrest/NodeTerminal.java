@@ -3,7 +3,6 @@
  */
 package randomjyrest;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -32,12 +31,13 @@ public class NodeTerminal extends Node
 		}
 	}
 	
-	public final Map<Integer, Map<String, Double>> predict(Map<String, double[]> datasetToPredict, Set<Integer> obsToPredict)
+	public final Map<String, double[]> predict(Map<String, double[]> datasetToPredict, Set<Integer> obsToPredict,
+			Map<String, double[]> predictions)
 	{
-		Map<Integer, Map<String, Double>> predictions = new HashMap<Integer, Map<String, Double>>();
+		double[] predictionsForNodesClass = predictions.get(this.classPresent);
 		for (Integer i : obsToPredict)
 		{
-//			predictions.put(i, this.weightInNode);
+			predictionsForNodesClass[i] += this.weightInNode;
 		}
 		return predictions;
 	}

@@ -3,7 +3,6 @@
  */
 package randomjyrest;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -28,7 +27,8 @@ public class NodeNonTerminal extends Node
 		this.featureSplitOn = featureSplitOn;
 	}
 	
-	public final Map<Integer, Map<String, Double>> predict(Map<String, double[]> datasetToPredict, Set<Integer> obsToPredict)
+	public final Map<String, double[]> predict(Map<String, double[]> datasetToPredict, Set<Integer> obsToPredict,
+			Map<String, double[]> predictions)
 	{
 		double[] dataForSplitFeature = datasetToPredict.get(this.featureSplitOn);
 
@@ -49,14 +49,10 @@ public class NodeNonTerminal extends Node
 		}
 		
 		// Have the child nodes make predictions.
-		Map<Integer, Map<String, Double>> leftHandChildPredictions = this.children[0].predict(datasetToPredict, leftChildObs);
-		Map<Integer, Map<String, Double>> rightHandChildPredictions = this.children[1].predict(datasetToPredict, rightChildObs);
+		predictions = this.children[0].predict(datasetToPredict, leftChildObs, predictions);
+		predictions = this.children[1].predict(datasetToPredict, rightChildObs, predictions);
 		
-		// Combine the predictions of the children.
-		Map<Integer, Map<String, Double>> thisNodePredictions = new HashMap<Integer, Map<String, Double>>();
-		thisNodePredictions.putAll(leftHandChildPredictions);
-		thisNodePredictions.putAll(rightHandChildPredictions);
-		return thisNodePredictions;
+		return predictions;
 	}
 
 }

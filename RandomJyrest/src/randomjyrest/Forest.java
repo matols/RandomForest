@@ -25,27 +25,33 @@ public class Forest
 	 * The trees that make up the forest.
 	 */
 	public List<Tree> forest;
+	
+	/**
+	 * A record of the classes that were used in training the tree.
+	 */
+	public List<String> classesInTrainingSet;
 
 
-	public final void main(String dataset, int numberOfTrees, int mtry, List<String> featuresToRemove, double[] weights, int numberOfProcesses,
+	public final Map<String, double[]> main(String dataset, int numberOfTrees, int mtry, List<String> featuresToRemove, double[] weights, int numberOfProcesses,
 			boolean isCalcualteOOB)
 	{
 		this.forest = new ArrayList<Tree>(numberOfTrees);
-		growForest(dataset, featuresToRemove, weights, numberOfTrees, mtry, new Random(), numberOfProcesses, isCalcualteOOB);
+		return growForest(dataset, featuresToRemove, weights, numberOfTrees, mtry, new Random(), numberOfProcesses, isCalcualteOOB);
 	}
 
-	public final void main(String dataset, int numberOfTrees, int mtry, List<String> featuresToRemove, double[] weights, long seed,
+	public final Map<String, double[]> main(String dataset, int numberOfTrees, int mtry, List<String> featuresToRemove, double[] weights, long seed,
 			int numberOfProcesses, boolean isCalcualteOOB)
 	{
 		this.forest = new ArrayList<Tree>(numberOfTrees);
-		growForest(dataset, featuresToRemove, weights, numberOfTrees, mtry, new Random(seed), numberOfProcesses, isCalcualteOOB);
+		return growForest(dataset, featuresToRemove, weights, numberOfTrees, mtry, new Random(seed), numberOfProcesses, isCalcualteOOB);
 	}
 
 
-	public final void growForest(String dataset, List<String> featuresToRemove, double[] weights, int numberOfTrees, int mtry, Random forestRNG,
+	public final Map<String, double[]> growForest(String dataset, List<String> featuresToRemove, double[] weights, int numberOfTrees, int mtry, Random forestRNG,
 			int numberOfProcesses, boolean isCalcualteOOB)
 	{
 		List<Set<Integer>> oobObservations = new ArrayList<Set<Integer>>(numberOfTrees);
+		int numberOfObservations = 0;
 
 		{	
 			ImmutableThreeValues<Map<String, double[]>, Map<String, int[]>, Map<String, double[]>> processedData =
@@ -55,10 +61,10 @@ public class Forest
 			Map<String, double[]> processedClassData = processedData.third;
 	
 			// Determine the classes in the dataset, and the indices of the observations from each class.
-			List<String> classes = new ArrayList<String>(processedClassData.keySet());
-			int numberOfObservations = processedClassData.get(classes.get(0)).length;
+			this.classesInTrainingSet = new ArrayList<String>(processedClassData.keySet());
+			numberOfObservations = processedClassData.get(this.classesInTrainingSet.get(0)).length;
 			Map<String, List<Integer>> observationsFromEachClass = new HashMap<String, List<Integer>>();
-			for (String s : classes)
+			for (String s : this.classesInTrainingSet)
 			{
 				double[] classWeights = processedClassData.get(s);
 				List<Integer> observationsInClass = new ArrayList<Integer>();
@@ -112,93 +118,73 @@ public class Forest
 		}
 		
 		// Make OOB predictions if required.
+		Map<String, double[]> predictions = new HashMap<String, double[]>();
 		if (isCalcualteOOB)
 		{
-			DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-		    Date startTime = new Date();
-		    String strDate = sdfDate.format(startTime);
-		    System.out.format("Start predicting at %s.\n", strDate);
+			//TODO remove prediction timing
+//			DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+//		    Date startTime = new Date();
+//		    String strDate = sdfDate.format(startTime);
+//		    System.out.format("Start predicting at %s.\n", strDate);
+			//TODO
+
 			// Generate the entire set of prediction data.
 			Map<String, double[]> datasetToPredict = ProcessPredictionData.main(dataset, featuresToRemove);
 
-			final ExecutorService treePredictionPool = Executors.newFixedThreadPool(numberOfProcesses);
-			List<Future<Map<Integer, Map<String, Double>>>> futurePredictions = new ArrayList<Future<Map<Integer, Map<String, Double>>>>(numberOfTrees);
+			// Setup the prediction output.
+			for (String s : this.classesInTrainingSet)
+			{
+				predictions.put(s, new double[numberOfObservations]);
+			}
+
 			for (int i = 0; i < numberOfTrees; i++)
 			{
-				futurePredictions.add(treePredictionPool.submit(new PredictionGenerator(this.forest.get(i), datasetToPredict, oobObservations.get(i)))); 
+				Tree treeToPredictOn = this.forest.get(i);
+				predictions = treeToPredictOn.predict(datasetToPredict, oobObservations.get(i), predictions); 
 			}
 			
-			try
-			{
-				for (Future<Map<Integer, Map<String, Double>>> f : futurePredictions)
-				{
-					//TODO combine the predictions.
-					f.get();
-				}
-			}
-			catch (ExecutionException e)
-			{
-				System.out.println("Error in a predictor thread.");
-				e.printStackTrace();
-				System.exit(0);
-			}
-			catch (InterruptedException e)
-			{
-				// Interrupted the thread, so exit the program.
-				System.out.println("Predictor interruption received.");
-				e.printStackTrace();
-				System.exit(0);
-			}
-			finally
-			{
-				treePredictionPool.shutdown();
-			}
-			
-			sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-		    startTime = new Date();
-		    strDate = sdfDate.format(startTime);
-		    System.out.format("End Predicting at %s.\n", strDate);
+			//TODO remove prediction timing
+//			sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+//		    startTime = new Date();
+//		    strDate = sdfDate.format(startTime);
+//		    System.out.format("End Predicting at %s.\n", strDate);
+			//TODO
 		}
+		
+		return predictions;
 	}
 	
 	
-	public final void predict(String dataset, List<String> featuresToRemove, double[] weights, int numberOfProcesses)
+	public final Map<String, double[]> predict(String dataset, List<String> featuresToRemove, double[] weights)
 	{
 		Map<String, double[]> datasetToPredict = ProcessPredictionData.main(dataset, featuresToRemove);
 		
-		int numberOfTrees = this.forest.size();
-		final ExecutorService treePredictionPool = Executors.newFixedThreadPool(numberOfProcesses);
-		List<Future<Map<Integer, Map<String, Double>>>> futurePredictions = new ArrayList<Future<Map<Integer, Map<String, Double>>>>(numberOfTrees);
-		for (Tree t : this.forest)
+		// Determine the observations being predicted.
+		Set<Integer> observationsToPredict = new HashSet<Integer>();
+		int numberOfObservations = 0;
+		for (int i = 0; i < datasetToPredict.get(this.classesInTrainingSet.get(0)).length; i++)
 		{
-			futurePredictions.add(treePredictionPool.submit(new PredictionGenerator(t, datasetToPredict, new HashSet<Integer>()))); 
+			observationsToPredict.add(numberOfObservations);
+			numberOfObservations++;
 		}
 		
-		try
+		int numberOfTrees = this.forest.size();
+		
+
+		// Setup the prediction output.
+		Map<String, double[]> predictions = new HashMap<String, double[]>();
+		for (String s : this.classesInTrainingSet)
 		{
-			for (Future<Map<Integer, Map<String, Double>>> f : futurePredictions)
-			{
-				//TODO combine the predictions.
-				f.get();
-			}
+			predictions.put(s, new double[numberOfObservations]);
 		}
-		catch (ExecutionException e)
+
+		for (int i = 0; i < numberOfTrees; i++)
 		{
-			System.out.println("Error in a predictor thread.");
-			e.printStackTrace();
-			System.exit(0);
+			Tree treeToPredictOn = this.forest.get(i);
+			predictions = treeToPredictOn.predict(datasetToPredict, observationsToPredict, predictions); 
 		}
-		catch (InterruptedException e)
-		{
-			// Interrupted the thread, so exit the program.
-			System.out.println("Predictor interruption received.");
-			e.printStackTrace();
-			System.exit(0);
-		}
-		finally
-		{
-			treePredictionPool.shutdown();
-		}
+		
+		return predictions;
 	}
 
 }
