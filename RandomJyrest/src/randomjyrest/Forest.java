@@ -3,6 +3,7 @@ package randomjyrest;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -24,32 +25,42 @@ public class Forest
 	/**
 	 * The trees that make up the forest.
 	 */
-	public List<Tree> forest;
+	private List<Tree> forest;
 	
 	/**
 	 * A record of the classes that were used in training the tree.
 	 */
-	public List<String> classesInTrainingSet;
-
+	private List<String> classesInTrainingSet;
+	
+	/**
+	 * The seed used to grow the forest.
+	 */
+	private long seedUsedForGrowing;
 
 	public final Map<String, double[]> main(String dataset, int numberOfTrees, int mtry, List<String> featuresToRemove, double[] weights, int numberOfProcesses,
 			boolean isCalcualteOOB)
 	{
 		this.forest = new ArrayList<Tree>(numberOfTrees);
-		return growForest(dataset, featuresToRemove, weights, numberOfTrees, mtry, new Random(), numberOfProcesses, isCalcualteOOB);
+		Random seedGenerator = new Random();
+		this.seedUsedForGrowing = seedGenerator.nextLong();
+		return growForest(dataset, featuresToRemove, weights, numberOfTrees, mtry, numberOfProcesses, isCalcualteOOB);
 	}
 
 	public final Map<String, double[]> main(String dataset, int numberOfTrees, int mtry, List<String> featuresToRemove, double[] weights, long seed,
 			int numberOfProcesses, boolean isCalcualteOOB)
 	{
 		this.forest = new ArrayList<Tree>(numberOfTrees);
-		return growForest(dataset, featuresToRemove, weights, numberOfTrees, mtry, new Random(seed), numberOfProcesses, isCalcualteOOB);
+		this.seedUsedForGrowing = seed;
+		return growForest(dataset, featuresToRemove, weights, numberOfTrees, mtry, numberOfProcesses, isCalcualteOOB);
 	}
 
 
-	public final Map<String, double[]> growForest(String dataset, List<String> featuresToRemove, double[] weights, int numberOfTrees, int mtry, Random forestRNG,
-			int numberOfProcesses, boolean isCalcualteOOB)
+	public final Map<String, double[]> growForest(String dataset, List<String> featuresToRemove, double[] weights, int numberOfTrees,
+			int mtry, int numberOfProcesses, boolean isCalcualteOOB)
 	{
+		// Initialise the random number generator used to grow the forest.
+		Random forestRNG = new Random(this.seedUsedForGrowing);
+		
 		List<Set<Integer>> oobObservations = new ArrayList<Set<Integer>>(numberOfTrees);
 		int numberOfObservations = 0;
 
@@ -143,6 +154,11 @@ public class Forest
 				predictions = treeToPredictOn.predict(datasetToPredict, oobObservations.get(i), predictions); 
 			}
 			
+			for (String s : this.classesInTrainingSet)
+			{
+				System.out.println(Arrays.toString(predictions.get(s)));
+			}
+			
 			//TODO remove prediction timing
 //			sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 //		    startTime = new Date();
@@ -152,6 +168,12 @@ public class Forest
 		}
 		
 		return predictions;
+	}
+	
+	
+	public final long getSeed()
+	{
+		return this.seedUsedForGrowing;
 	}
 	
 	
