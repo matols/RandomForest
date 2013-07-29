@@ -110,6 +110,8 @@ public final class PredictionAnalysis
 			recall += correct / countsOfEachClass.get(entry.getKey());
 			precision += correct / (correct + incorrect);
 		}
+		recall /= countsOfEachClass.size();
+		precision /= countsOfEachClass.size();
 		double fMeasure = (1 + (fType * fType)) * ((precision * recall) / ((fType * fType * precision) + recall));
 		return fMeasure;
 	}
