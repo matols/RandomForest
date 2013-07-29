@@ -21,9 +21,9 @@ public class ForestSizeOptimisation
 	/**
 	 * Used in the optimisation of the numberOfTreesToGrow parameter.
 	 * 
-	 * @param args - The file system locations of the files and directories used in the optimisation.
+	 * @param args		The file system locations of the files and directories used in the optimisation.
 	 */
-	public static void main(String[] args)
+	public static final void main(String[] args)
 	{
 		String inputFile = args[0];  // The location of the dataset used to grow the forests.
 		String resultsDir = args[1];  // The location where the results of the optimisation will be written.
@@ -31,10 +31,10 @@ public class ForestSizeOptimisation
 	}
 
 	/**
-	 * @param inputFile - The location of the dataset used to grow the forests.
-	 * @param resultsDir - The location where the results and records of the optimisation will go.
+	 * @param inputFile		The location of the dataset used to grow the forests.
+	 * @param resultsDir	The location where the results and records of the optimisation will go.
 	 */
-	public static void main(String inputFile, String resultsDir)
+	private static final void main(String inputFile, String resultsDir)
 	{
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
