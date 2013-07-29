@@ -55,7 +55,7 @@ public class Forest
 	}
 
 
-	public final Map<String, double[]> growForest(String dataset, List<String> featuresToRemove, double[] weights, int numberOfTrees,
+	private final Map<String, double[]> growForest(String dataset, List<String> featuresToRemove, double[] weights, int numberOfTrees,
 			int mtry, int numberOfProcesses, boolean isCalcualteOOB)
 	{
 		// Initialise the random number generator used to grow the forest.
