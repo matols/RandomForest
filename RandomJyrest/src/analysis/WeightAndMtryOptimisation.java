@@ -42,11 +42,13 @@ public class WeightAndMtryOptimisation
 		int numberOfForestsToCreate = 100;  // The number of forests to create for each weight/mtry combination.
 		int numberOfTreesToGrow = 1000;  // The number of trees to grow in each forest.
 		boolean isCalculateOOB = true;  // OOB error is being calculated.
-		Integer[] mtryToUse = {5, 10, 15, 20, 25, 30};  // The different values of mtry to test.
+		int[] mtryToUse = {5, 10, 15, 20, 25, 30};  // The different values of mtry to test.
 		
+		// Specify the features in the input dataset that should be ignored.
 		String[] unusedFeatures = new String[]{"UPAccession"};
 		List<String> featuresToRemove = Arrays.asList(unusedFeatures);
-		int numberOfProcesses = 4;
+		
+		int numberOfThreads = 4;  // The number of threads to use when growing the trees.
 		
 		double[] positiveWeightsToTest = new double[]{1.0};
 		double[] unlabelledWeightsToTest = new double[]{1.0};
@@ -164,7 +166,8 @@ public class WeightAndMtryOptimisation
 						// Grow the forest.
 						Date startTime = new Date();
 						Forest forest = new Forest();
-						Map<String, double[]> predictionsFromForest = forest.main(inputFile, numberOfTreesToGrow, mtry, featuresToRemove, weights, numberOfProcesses, isCalculateOOB);
+						Map<String, double[]> predictionsFromForest = forest.main(inputFile, numberOfTreesToGrow, mtry, featuresToRemove,
+								weights, seeds.get(i), numberOfThreads, isCalculateOOB);
 						Date endTime = new Date();
 						timeTaken += (endTime.getTime() - startTime.getTime());
 						
