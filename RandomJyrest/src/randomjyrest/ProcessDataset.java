@@ -31,9 +31,9 @@ public final class ProcessDataset
 	 * be treated as if it was numeric not categorical (i.e. binary splits will always be performed).
 	 * 
 	 * The features in featuresToRemove are not recorded in the final processed dataset. Additionally, any features that have
-	 * the same value for every obaservation are not recorded in the final processed dataset.
+	 * the same value for every observation are not recorded in the final processed dataset.
 	 * 
-	 * The values in the weight vector are the values for the individual observations. The values int he weight vector should
+	 * The values in the weight vector are the values for the individual observations. The values in the weight vector should
 	 * be specified so that weights[i] is the weight for the ith observation in the dataset. If the length of the weight vector
 	 * is less than the number of observations, then the weight vector is padded with 1.0s to make it have one value for each
 	 * observation.
