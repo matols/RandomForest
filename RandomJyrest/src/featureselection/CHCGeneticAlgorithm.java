@@ -20,9 +20,9 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-import analysis.PredictionAnalysis;
 
 import randomjyrest.Forest;
+import randomjyrest.PredictionAnalysis;
 import utilities.ImmutableThreeValues;
 import utilities.ImmutableTwoValues;
 import utilities.IndexedDoubleData;
