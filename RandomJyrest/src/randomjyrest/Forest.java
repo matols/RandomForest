@@ -1,10 +1,12 @@
 package randomjyrest;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -28,6 +30,16 @@ public class Forest
 	private List<Tree> forest;
 	
 	/**
+	 * The location of the dataset that was used to train the forest.
+	 */
+	private String trainingDataset;
+	
+	/**
+	 * The features that were removed from the training dataset.
+	 */
+	private List<String> featuresRemoved;
+	
+	/**
 	 * A record of the classes that were used in training the tree.
 	 */
 	private List<String> classesInTrainingSet;
@@ -36,37 +48,48 @@ public class Forest
 	 * The seed used to grow the forest.
 	 */
 	private long seedUsedForGrowing;
+	
+	/**
+	 * A sorted list of the indices of the observations that are OOB on each tree. For example, this.oobObservations.get(i) contains
+	 * the indices of the set of observations that are OOB on the ith tree.
+	 */
+	private List<Set<Integer>> oobObservations;
+
 
 	public final Map<String, double[]> main(String dataset, int numberOfTrees, int mtry, List<String> featuresToRemove, double[] weights, int numberOfProcesses,
 			boolean isCalcualteOOB)
 	{
 		this.forest = new ArrayList<Tree>(numberOfTrees);
+		this.trainingDataset = dataset;
 		Random seedGenerator = new Random();
+		this.featuresRemoved = featuresToRemove;
 		this.seedUsedForGrowing = seedGenerator.nextLong();
-		return growForest(dataset, featuresToRemove, weights, numberOfTrees, mtry, numberOfProcesses, isCalcualteOOB);
+		return growForest(weights, numberOfTrees, mtry, numberOfProcesses, isCalcualteOOB);
 	}
 
 	public final Map<String, double[]> main(String dataset, int numberOfTrees, int mtry, List<String> featuresToRemove, double[] weights, long seed,
 			int numberOfProcesses, boolean isCalcualteOOB)
 	{
 		this.forest = new ArrayList<Tree>(numberOfTrees);
+		this.trainingDataset = dataset;
+		this.featuresRemoved = featuresToRemove;
 		this.seedUsedForGrowing = seed;
-		return growForest(dataset, featuresToRemove, weights, numberOfTrees, mtry, numberOfProcesses, isCalcualteOOB);
+		return growForest(weights, numberOfTrees, mtry, numberOfProcesses, isCalcualteOOB);
 	}
 
 
-	private final Map<String, double[]> growForest(String dataset, List<String> featuresToRemove, double[] weights, int numberOfTrees,
-			int mtry, int numberOfProcesses, boolean isCalcualteOOB)
+	private final Map<String, double[]> growForest(double[] weights, int numberOfTrees, int mtry, int numberOfProcesses,
+			boolean isCalcualteOOB)
 	{
 		// Initialise the random number generator used to grow the forest.
 		Random forestRNG = new Random(this.seedUsedForGrowing);
 		
-		List<Set<Integer>> oobObservations = new ArrayList<Set<Integer>>(numberOfTrees);
+		this.oobObservations = new ArrayList<Set<Integer>>(numberOfTrees);
 		int numberOfObservations = 0;
 
 		{	
 			ImmutableThreeValues<Map<String, double[]>, Map<String, int[]>, Map<String, double[]>> processedData =
-					ProcessDataset.main(dataset, featuresToRemove, weights);
+					ProcessDataset.main(this.trainingDataset, this.featuresRemoved, weights);
 			Map<String, double[]> processedFeatureData = processedData.first;
 			Map<String, int[]> processedIndexData = processedData.second;
 			Map<String, double[]> processedClassData = processedData.third;
@@ -105,7 +128,7 @@ public class Forest
 				{
 					ImmutableTwoValues<Set<Integer>, Tree> growthReturn = t.get();
 					t = null;
-					oobObservations.add(growthReturn.first);
+					this.oobObservations.add(growthReturn.first);
 					this.forest.add(growthReturn.second);
 				}
 			}
@@ -132,15 +155,8 @@ public class Forest
 		Map<String, double[]> predictions = new HashMap<String, double[]>();
 		if (isCalcualteOOB)
 		{
-			//TODO remove prediction timing
-//			DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-//		    Date startTime = new Date();
-//		    String strDate = sdfDate.format(startTime);
-//		    System.out.format("Start predicting at %s.\n", strDate);
-			//TODO
-
 			// Generate the entire set of prediction data.
-			Map<String, double[]> datasetToPredict = ProcessPredictionData.main(dataset, featuresToRemove);
+			Map<String, double[]> datasetToPredict = ProcessPredictionData.main(this.trainingDataset, this.featuresRemoved);
 
 			// Setup the prediction output.
 			for (String s : this.classesInTrainingSet)
@@ -151,20 +167,8 @@ public class Forest
 			for (int i = 0; i < numberOfTrees; i++)
 			{
 				Tree treeToPredictOn = this.forest.get(i);
-				predictions = treeToPredictOn.predict(datasetToPredict, oobObservations.get(i), predictions); 
+				predictions = treeToPredictOn.predict(datasetToPredict, this.oobObservations.get(i), predictions); 
 			}
-			
-			for (String s : this.classesInTrainingSet)
-			{
-				System.out.println(Arrays.toString(predictions.get(s)));
-			}
-			
-			//TODO remove prediction timing
-//			sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-//		    startTime = new Date();
-//		    strDate = sdfDate.format(startTime);
-//		    System.out.format("End Predicting at %s.\n", strDate);
-			//TODO
 		}
 		
 		return predictions;
@@ -207,6 +211,130 @@ public class Forest
 		}
 		
 		return predictions;
+	}
+	
+	
+	/**
+	 * Determine the importance of each feature in the training dataset.
+	 * 
+	 * Calculates the importance based on the change in a quality measure (here g mean is used). For each tree in the forest the
+	 * quality measure is calculated by predicting only those observations that are OOB on the tree. Then for each feature, s, in the
+	 * dataset the quality measure is evaluated again on every tree using the OOB observations. The difference is that the values for
+	 * the feature in the dataset are permuted. Basically the values of s for the OOB observations on a tree, t, are shuffled between
+	 * each other (see PermutedData for an example of how this works). Then the OOB observations with the permuted values are
+	 * predicted on t. The quality measure is calculated, and the difference between the original quality measure of the predictions
+	 * of the OOB observations on t and the prediction of the permuted data is calculated. For each feature the arithmetic average
+	 * of the change in quality measure over all trees is determined, and this is the importance of that feature.
+	 * 
+	 * @return		A mapping from the feature names to their importance.
+	 */
+	public final Map<String, Double> variableImportance()
+	{
+		
+		List<Double> baseOOBQualityMeasure = new ArrayList<Double>(this.forest.size());
+		List<String> classOfObservations = PredictionAnalysis.determineClassOfObservations(this.trainingDataset);
+		int numberOfObservations = classOfObservations.size();
+		int numberOfTrees = this.forest.size();
+		
+		// Generate the original prediction data.
+		Map<String, double[]> datasetToPredict = ProcessPredictionData.main(this.trainingDataset, this.featuresRemoved);
+
+		// Determine the base quality measure for each tree in the forest.
+		{
+			for (int i = 0; i < numberOfTrees; i++)
+			{
+				// Setup the prediction output.
+				Map<String, double[]> predictions = new HashMap<String, double[]>();
+				for (String s : this.classesInTrainingSet)
+				{
+					predictions.put(s, new double[numberOfObservations]);
+				}
+				
+				// Generate the predictions.
+				Tree treeToPredictOn = this.forest.get(i);
+				predictions = treeToPredictOn.predict(datasetToPredict, this.oobObservations.get(i), predictions);
+				Map<String, Map<String, Integer>> confusionMatrix = PredictionAnalysis.calculateConfusionMatrix(classOfObservations,
+						predictions, this.oobObservations.get(i));
+				baseOOBQualityMeasure.add(PredictionAnalysis.calculateGMean(confusionMatrix, classOfObservations));
+			}
+		}
+		
+		// Determine the features in the dataset.
+		List<String> featuresInDataset = new ArrayList<String>();
+		Path dataPath = Paths.get(this.trainingDataset);
+		try (BufferedReader reader = Files.newBufferedReader(dataPath, StandardCharsets.UTF_8))
+		{
+			String line = reader.readLine();
+			line = line.replaceAll("\n", "");
+			String[] featureNames = line.split("\t");
+			String classFeatureColumnName = "Classification";
+
+			for (String feature : featureNames)
+			{
+				if (feature.equals(classFeatureColumnName))
+				{
+					// Ignore the class column.
+					;
+				}
+				else if (!this.featuresRemoved.contains(feature))
+				{
+					featuresInDataset.add(feature);
+				}
+			}
+		}
+		catch (IOException e)
+		{
+			// Caught an error while reading the file. Indicate this and exit.
+			System.out.println("An error occurred while determining the features to use.");
+			e.printStackTrace();
+			System.exit(0);
+		}
+		
+		// Determine the variable importance for each feature.
+		Map<String, Double> variableImportance = new HashMap<String, Double>();
+		for (String s : featuresInDataset)
+		{
+			System.out.println(s);
+			// Record a copy of the non-permuted data for feature s.
+			double[] dataForFeatureS = datasetToPredict.get(s);
+			double[] copyOfOriginalValuesForFeatureS = new double[numberOfObservations];
+			for (int i = 0; i < numberOfObservations; i++)
+			{
+				copyOfOriginalValuesForFeatureS[i] = dataForFeatureS[i];
+			}
+			
+			double cumulativeQualityMeasureChange = 0.0;
+			for (int i = 0; i < numberOfTrees; i++)
+			{
+				// Permute the data.
+				double[] permutedFeatureValues = PermuteData.main(this.trainingDataset, this.oobObservations.get(i),
+						this.featuresRemoved, s, copyOfOriginalValuesForFeatureS);
+				datasetToPredict.put(s, permutedFeatureValues);
+				
+				// Setup the prediction output.
+				Map<String, double[]> predictions = new HashMap<String, double[]>();
+				for (String p : this.classesInTrainingSet)
+				{
+					predictions.put(p, new double[numberOfObservations]);
+				}
+				
+				// Make the predictions on the permuted data.
+				predictions = this.forest.get(i).predict(datasetToPredict, this.oobObservations.get(i), predictions);
+				
+				// Determine the change in quality caused by permuting the data.
+				Map<String, Map<String, Integer>> confusionMatrix = PredictionAnalysis.calculateConfusionMatrix(classOfObservations,
+						predictions, this.oobObservations.get(i));
+				double permutedQualityMeasure = PredictionAnalysis.calculateGMean(confusionMatrix, classOfObservations);
+				cumulativeQualityMeasureChange += (baseOOBQualityMeasure.get(i) - permutedQualityMeasure);
+			}
+			cumulativeQualityMeasureChange /= numberOfTrees;
+			variableImportance.put(s, cumulativeQualityMeasureChange);
+			
+			// Reset the values for feature s back to their original values.
+			datasetToPredict.put(s, copyOfOriginalValuesForFeatureS);
+		}
+		
+		return variableImportance;
 	}
 
 }

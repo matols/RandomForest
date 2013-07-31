@@ -9,8 +9,10 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class PredictionAnalysis
 {
@@ -20,7 +22,26 @@ public final class PredictionAnalysis
 	 * @param predictions
 	 * @return
 	 */
-	public static final Map<String, Map<String, Integer>> calculateConfusionMatrix(List<String> observationClasses, Map<String, double[]> predictions)
+	public static final Map<String, Map<String, Integer>> calculateConfusionMatrix(List<String> observationClasses,
+			Map<String, double[]> predictions)
+	{
+		Set<Integer> observationsToUse = new HashSet<Integer>(observationClasses.size());
+		int numberOfObservations = observationClasses.size();
+		for (int i = 0; i < numberOfObservations; i++)
+		{
+			observationsToUse.add(i);
+		}
+		return calculateConfusionMatrix(observationClasses, predictions, observationsToUse);
+	}
+	
+	/**
+	 * @param observationClasses
+	 * @param predictions
+	 * @param observationsToUse
+	 * @return
+	 */
+	public static final Map<String, Map<String, Integer>> calculateConfusionMatrix(List<String> observationClasses,
+			Map<String, double[]> predictions, Set<Integer> observationsToUse)
 	{
 		// Set up the confusion matrix.
 		Map<String, Map<String, Integer>> confusionMatrix = new HashMap<String, Map<String, Integer>>();
@@ -32,8 +53,7 @@ public final class PredictionAnalysis
 			confusionMatrix.put(s, classPredictions);
 		}
 
-		int numberOfObservations = observationClasses.size();
-		for (int i = 0; i < numberOfObservations; i++)
+		for (int i : observationsToUse)
 		{
 			String obsClass = observationClasses.get(i);
 			String predictedClass = "";
