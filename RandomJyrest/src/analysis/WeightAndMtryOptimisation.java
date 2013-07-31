@@ -187,6 +187,7 @@ public class WeightAndMtryOptimisation
 							}
 						}
 					}
+					timeTaken /= numberOfForestsToCreate;
 					
 					// Evaluate the aggregate predictions.
 					Map<String, Map<String, Integer>> confusionMatrix = PredictionAnalysis.calculateConfusionMatrix(classOfObservations, predictions);
