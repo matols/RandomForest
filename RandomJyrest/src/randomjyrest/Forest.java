@@ -56,29 +56,29 @@ public class Forest
 	private List<Set<Integer>> oobObservations;
 
 
-	public final Map<String, double[]> main(String dataset, int numberOfTrees, int mtry, List<String> featuresToRemove, double[] weights, int numberOfProcesses,
-			boolean isCalcualteOOB)
+	public final Map<String, double[]> main(String dataset, int numberOfTrees, int mtry, List<String> featuresToRemove, double[] weights,
+			int numberOfThreads, boolean isCalcualteOOB)
 	{
 		this.forest = new ArrayList<Tree>(numberOfTrees);
 		this.trainingDataset = dataset;
 		Random seedGenerator = new Random();
 		this.featuresRemoved = featuresToRemove;
 		this.seedUsedForGrowing = seedGenerator.nextLong();
-		return growForest(weights, numberOfTrees, mtry, numberOfProcesses, isCalcualteOOB);
+		return growForest(weights, numberOfTrees, mtry, numberOfThreads, isCalcualteOOB);
 	}
 
-	public final Map<String, double[]> main(String dataset, int numberOfTrees, int mtry, List<String> featuresToRemove, double[] weights, long seed,
-			int numberOfProcesses, boolean isCalcualteOOB)
+	public final Map<String, double[]> main(String dataset, int numberOfTrees, int mtry, List<String> featuresToRemove, double[] weights,
+			long seed, int numberOfThreads, boolean isCalcualteOOB)
 	{
 		this.forest = new ArrayList<Tree>(numberOfTrees);
 		this.trainingDataset = dataset;
 		this.featuresRemoved = featuresToRemove;
 		this.seedUsedForGrowing = seed;
-		return growForest(weights, numberOfTrees, mtry, numberOfProcesses, isCalcualteOOB);
+		return growForest(weights, numberOfTrees, mtry, numberOfThreads, isCalcualteOOB);
 	}
 
 
-	private final Map<String, double[]> growForest(double[] weights, int numberOfTrees, int mtry, int numberOfProcesses,
+	private final Map<String, double[]> growForest(double[] weights, int numberOfTrees, int mtry, int numberOfThreads,
 			boolean isCalcualteOOB)
 	{
 		// Initialise the random number generator used to grow the forest.
@@ -113,7 +113,7 @@ public class Forest
 			}
 			
 			// Grow trees.
-			final ExecutorService treeGrowthPool = Executors.newFixedThreadPool(numberOfProcesses);
+			final ExecutorService treeGrowthPool = Executors.newFixedThreadPool(numberOfThreads);
 			List<Future<ImmutableTwoValues<Set<Integer>, Tree>>> futureGrowers = new ArrayList<Future<ImmutableTwoValues<Set<Integer>, Tree>>>(numberOfTrees);
 			for (int i = 0; i < numberOfTrees; i++)
 			{
@@ -232,7 +232,7 @@ public class Forest
 	{
 		
 		List<Double> baseOOBQualityMeasure = new ArrayList<Double>(this.forest.size());
-		List<String> classOfObservations = PredictionAnalysis.determineClassOfObservations(this.trainingDataset);
+		List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(this.trainingDataset);
 		int numberOfObservations = classOfObservations.size();
 		int numberOfTrees = this.forest.size();
 		

@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+import randomjyrest.DetermineObservationProperties;
 import randomjyrest.Forest;
 import randomjyrest.PredictionAnalysis;
 
@@ -20,6 +21,8 @@ public class ForestSizeOptimisation
 {
 
 	/**
+	 * Compares different different forest sizes.
+	 * 
 	 * Used in the optimisation of the numberOfTreesToGrow parameter.
 	 * 
 	 * @param args		The file system locations of the files and directories used in the optimisation.
@@ -28,19 +31,19 @@ public class ForestSizeOptimisation
 	{
 		String inputFile = args[0];  // The location of the dataset used to grow the forests.
 		String resultsDir = args[1];  // The location where the results of the optimisation will be written.
-		main(inputFile, resultsDir);
+		compare(inputFile, resultsDir);
 	}
 
 	/**
 	 * @param inputFile		The location of the dataset used to grow the forests.
 	 * @param resultsDir	The location where the results and records of the optimisation will go.
 	 */
-	private static final void main(String inputFile, String resultsDir)
+	private static final void compare(String inputFile, String resultsDir)
 	{
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int numberOfForestsToCreate = 10;  // The number of forests to create for each forest size.
+		int numberOfForestsToCreate = 100;  // The number of forests to create for each forest size.
 		int[] forestSizesToUse = {  // The different number of trees to test in each forest.
 				50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900,
 				950, 1000, 1050, 1100, 1150, 1200, 1250, 1300, 1350, 1400, 1450, 1500, 1550, 1600, 1650, 1700, 1750, 1800, 1850,
@@ -55,12 +58,12 @@ public class ForestSizeOptimisation
 		String[] unusedFeatures = new String[]{"UPAccession"};
 		List<String> featuresToRemove = Arrays.asList(unusedFeatures);
 		
-		int numberOfThreads = 4;  // The number of threads to use when growing the trees.
+		int numberOfThreads = 1;  // The number of threads to use when growing the trees.
 
 		// Define the weights for each class in the input dataset.
 		Map<String, Double> classWeights = new HashMap<String, Double>();
 		classWeights.put("Unlabelled", 1.0);
-		classWeights.put("Positive", 4.4);
+		classWeights.put("Positive", 1.0);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -84,17 +87,18 @@ public class ForestSizeOptimisation
 			System.exit(0);
 		}
 
-		// Initialise the parameter and controller object record files.
+		// Record the parameters.
 		String resultsLocation = resultsDir + "/Results.txt";
 		String parameterLocation = resultsDir + "/Parameters.txt";
 		try
 		{
-			// Record the parameters.
 			FileWriter parameterOutputFile = new FileWriter(parameterLocation);
 			BufferedWriter parameterOutputWriter = new BufferedWriter(parameterOutputFile);
 			parameterOutputWriter.write("Forest sizes used - " + Arrays.toString(forestSizesToUse));
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.write("Number of forests grown - " + Integer.toString(numberOfForestsToCreate));
+			parameterOutputWriter.newLine();
+			parameterOutputWriter.write("mtry - " + Integer.toString(mtry));
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.write("Weights used");
 			parameterOutputWriter.newLine();
@@ -126,7 +130,7 @@ public class ForestSizeOptimisation
 		}
 		
 		// Determine the class of each observation.
-		List<String> classOfObservations = PredictionAnalysis.determineClassOfObservations(inputFile);
+		List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(inputFile);
 		
 		// Determine the weight vector.
 		double[] weights = determineObservationWeights(classOfObservations, "Positive", classWeights.get("Positive"), "Unlabelled",

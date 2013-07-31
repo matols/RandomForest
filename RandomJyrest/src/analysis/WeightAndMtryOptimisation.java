@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+import randomjyrest.DetermineObservationProperties;
 import randomjyrest.Forest;
 import randomjyrest.PredictionAnalysis;
 
@@ -20,6 +21,8 @@ public class WeightAndMtryOptimisation
 {
 
 	/**
+	 * Performs a grid search over multiple mtry and class weight values.
+	 * 
 	 * Used in the optimisation of the mtry parameter and the weights of the individual classes.
 	 * 
 	 * @param args		The file system locations of the files and directories used in the optimisation.
@@ -28,14 +31,14 @@ public class WeightAndMtryOptimisation
 	{
 		String inputFile = args[0];  // The location of the dataset used to grow the forests.
 		String resultsDir = args[1];  // The location where the results of the optimisation will be written.
-		main(inputFile, resultsDir);
+		compare(inputFile, resultsDir);
 	}
 
 	/**
 	 * @param inputFile		The location of the dataset used to grow the forests.
 	 * @param resultsDir	The location where the results of the optimisation will be written.
 	 */
-	private static final void main(String inputFile, String resultsDir)
+	private static final void compare(String inputFile, String resultsDir)
 	{
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
@@ -49,7 +52,7 @@ public class WeightAndMtryOptimisation
 		String[] unusedFeatures = new String[]{"UPAccession"};
 		List<String> featuresToRemove = Arrays.asList(unusedFeatures);
 		
-		int numberOfThreads = 4;  // The number of threads to use when growing the trees.
+		int numberOfThreads = 1;  // The number of threads to use when growing the trees.
 		
 		double[] positiveWeightsToTest = new double[]{1.0};
 		double[] unlabelledWeightsToTest = new double[]{1.0};
@@ -112,7 +115,7 @@ public class WeightAndMtryOptimisation
 		}
 		
 		// Determine the class of each observation.
-		List<String> classOfObservations = PredictionAnalysis.determineClassOfObservations(inputFile);
+		List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(inputFile);
 		int numberOfObservations = classOfObservations.size();
 
 		// Generate all the random seeds to use in growing the forests. The same numberOfForestsToCreate seeds will be used for every weight/mtry

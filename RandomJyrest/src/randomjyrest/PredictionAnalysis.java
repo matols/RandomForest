@@ -1,11 +1,5 @@
 package randomjyrest;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -180,65 +174,6 @@ public final class PredictionAnalysis
 			MCC = ((TP * TN) - (FP * FN)) / (Math.sqrt((TP + TN) * (TP + FN) * (TN + FP) * (TN + FN)));
 		}
 		return MCC;
-	}
-
-	/**
-	 * @param inputFile
-	 * @return
-	 */
-	public static final List<String> determineClassOfObservations(String inputFile)
-	{
-		List<String> classOfObservations = new ArrayList<String>();
-		Path dataPath = Paths.get(inputFile);
-		try (BufferedReader reader = Files.newBufferedReader(dataPath, StandardCharsets.UTF_8))
-		{
-			String line = null;
-
-			// Determine the column that contains the class data.
-			line = reader.readLine();
-			line = line.replaceAll("\n", "");
-			String[] featureNames = line.split("\t");
-			String classFeatureColumnName = "Classification";
-			int classIndex = -1;
-			int featureIndex = 0;
-			for (String feature : featureNames)
-			{
-				if (feature.equals(classFeatureColumnName))
-				{
-					classIndex = featureIndex;
-				}
-				featureIndex++;
-			}
-			if (classIndex == -1)
-			{
-				// No class column was provided.
-				System.out.println("No class column was provided. Please include a column headed Classification.");
-				System.exit(0);
-			}
-			
-			// Extract the class data.
-			while ((line = reader.readLine()) != null)
-			{
-				line = line.trim();
-				if (line.length() == 0)
-				{
-					// If the line is made up of all whitespace, then ignore the line.
-					continue;
-				}
-				
-				String[] chunks = line.split("\t");				
-				classOfObservations.add(chunks[classIndex]);
-			}
-		}
-		catch (IOException e)
-		{
-			// Caught an error while reading the file. Indicate this and exit.
-			System.out.println("An error occurred while determining the class of each observation.");
-			e.printStackTrace();
-			System.exit(0);
-		}
-		
-		return classOfObservations;
 	}
 	
 }
