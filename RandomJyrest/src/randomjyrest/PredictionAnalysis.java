@@ -156,6 +156,39 @@ public final class PredictionAnalysis
 	}
 	
 	/**
+	 * @param observationClasses
+	 * @param predictions
+	 * @return
+	 */
+	public static final double calculateLogarithmicScore(List<String> observationClasses, Map<String, double[]> predictions)
+	{
+		double averageLogarithmicScore = 0.0;
+		int numberOfObservations = observationClasses.size();
+		
+		for (int i = 0; i < numberOfObservations; i++)
+		{
+			String trueClass = observationClasses.get(i);
+			double totalPredictiveWeight = 0.0;
+			double weightOfTrueClass = 0.0;
+
+			for (Map.Entry<String, double[]> entry : predictions.entrySet())
+			{
+				double classWeight = entry.getValue()[i];
+				totalPredictiveWeight += classWeight;
+				if (entry.getKey().equals(trueClass))
+				{
+					weightOfTrueClass = classWeight;
+				}
+			}
+			
+			double score = Math.log(weightOfTrueClass / totalPredictiveWeight);
+			averageLogarithmicScore += score;
+		}
+		
+		return averageLogarithmicScore / numberOfObservations;
+	}
+	
+	/**
 	 * @param confusionMatrix
 	 * @return
 	 */

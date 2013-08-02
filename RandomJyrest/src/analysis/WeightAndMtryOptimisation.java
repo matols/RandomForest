@@ -87,9 +87,9 @@ public class WeightAndMtryOptimisation
 			// Setup the results file.
 			FileWriter resultsOutputFile = new FileWriter(resultsLocation);
 			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("PositiveWeight\tUnlabelledWeight\tMtry\tGMean\tMCC\tF0.5\tF1\tF2\tAccuracy\tError\tTimeTakenPerRepetition(ms)\tPositives\t\tUnlabelleds\t");
+			resultsOutputWriter.write("PositiveWeight\tUnlabelledWeight\tMtry\tLogarithmicScore\tGMean\tMCC\tF0.5\tF1\tF2\tAccuracy\tError\tTimeTakenPerRepetition(ms)\tPositives\t\tUnlabelleds\t");
 			resultsOutputWriter.newLine();
-			resultsOutputWriter.write("\t\t\t\t\t\t\t\t\t\t\tTrue\tFalse\tTrue\tFalse");
+			resultsOutputWriter.write("\t\t\t\t\t\t\t\t\t\t\t\tTrue\tFalse\tTrue\tFalse");
 			resultsOutputWriter.newLine();
 			resultsOutputWriter.close();
 
@@ -202,6 +202,8 @@ public class WeightAndMtryOptimisation
 						resultsOutputWriter.write(String.format("%.5f", uWeight));
 						resultsOutputWriter.write("\t");
 						resultsOutputWriter.write(Integer.toString(mtry));
+						resultsOutputWriter.write("\t");
+						resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateLogarithmicScore(classOfObservations, predictions)));
 						resultsOutputWriter.write("\t");
 						resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateGMean(confusionMatrix, classOfObservations)));
 						resultsOutputWriter.write("\t");
