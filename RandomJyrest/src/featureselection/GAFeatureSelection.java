@@ -1,15 +1,8 @@
 package featureselection;
 
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -34,120 +27,6 @@ public class GAFeatureSelection
 	
 	
 	/**
-	 * Analyses the results of a set of runs of the genetic algorithm feature selection.
-	 * 
-	 * @param args		The file system locations of the files and directories used in the GA feature selection.
-	 */
-	public static final void gaAnalysis(String[] args)
-	{
-		String inputFile = args[0];  // The location of the dataset used to grow the forests.
-		String resultsDir = args[1];  // The location where the results of the optimisation will be written.
-		runAnalysis(inputFile, resultsDir);
-	}
-	
-	
-	/**
-	 * @param inputFile		The location of the dataset used to grow the forests.
-	 * @param resultsDir	The location where the results of the feature selection will be written.
-	 */
-	private static final void runAnalysis(String inputFile, String resultsDir)
-	{
-		//===================================================================
-		//==================== CONTROL PARAMETER SETTING ====================
-		//===================================================================
-		// Specify the features in the input dataset that should be ignored.
-		String[] unusedFeatures = new String[]{"UPAccession"};
-		List<String> featuresToRemove = Arrays.asList(unusedFeatures);
-		//===================================================================
-		//==================== CONTROL PARAMETER SETTING ====================
-		//===================================================================
-
-		File outputDirectory = new File(resultsDir);
-		if (!outputDirectory.isDirectory())
-		{
-			System.out.println("The location supplied for the results directory is not a valid directory location.");
-			System.exit(0);
-		}
-		
-		// Determine the features in the dataset.
-		List<String> featuresInDataset = new ArrayList<String>();
-		Path dataPath = Paths.get(inputFile);
-		try (BufferedReader reader = Files.newBufferedReader(dataPath, StandardCharsets.UTF_8))
-		{
-			String line = reader.readLine();
-			line = line.replaceAll("\n", "");
-			String[] featureNames = line.split("\t");
-			String classFeatureColumnName = "Classification";
-
-			for (String feature : featureNames)
-			{
-				if (feature.equals(classFeatureColumnName))
-				{
-					// Ignore the class column.
-					;
-				}
-				else if (!featuresToRemove.contains(feature))
-				{
-					featuresInDataset.add(feature);
-				}
-			}
-		}
-		catch (IOException e)
-		{
-			// Caught an error while reading the file. Indicate this and exit.
-			System.out.println("An error occurred while determining the features to use.");
-			e.printStackTrace();
-			System.exit(0);
-		}
-
-		// Get the best individuals from the GA runs.
-		List<List<String>> bestIndividuals = new ArrayList<List<String>>();
-		//TODO get the directories in the output directory (can just ignore the Parameters.txt file)
-		//TODO for each of the directories get the files in it
-		//TODO get the file of the last generation
-		//TODO the individual at the top of the file is the best individual from that run
-
-		// Generate the output matrix.
-		try
-		{
-			String matrixOutputLocation = resultsDir + "/MatrixOutput.txt";
-			FileWriter matrixOutputFile = new FileWriter(matrixOutputLocation);
-			BufferedWriter matrixOutputWriter = new BufferedWriter(matrixOutputFile);
-			for (String s : featuresInDataset)
-			{
-				// Write out the feature name.
-				matrixOutputWriter.write(s);
-				matrixOutputWriter.write("\t");
-
-				// Record whether the feature was present (0) or absent (1) in the individual. A 0 is used for a present feature
-				// as the indivudals are the features that were not used.
-				double featureOccurreces = 0.0;
-				for (List<String> l : bestIndividuals)
-				{
-					int featurePresence = 1;
-					if (l.contains(s))
-					{
-						featurePresence = 0;
-					}
-					featureOccurreces += featurePresence;
-					matrixOutputWriter.write(Integer.toString(featurePresence));
-					matrixOutputWriter.write("\t");
-				}
-				double featureFractions = featureOccurreces / bestIndividuals.size();
-				matrixOutputWriter.write(Double.toString(featureFractions));
-				matrixOutputWriter.newLine();
-			}
-			matrixOutputWriter.close();
-		}
-		catch (Exception e)
-		{
-			e.printStackTrace();
-			System.exit(0);
-		}
-	}
-	
-	
-	/**
 	 * @param inputFile		The location of the dataset used to grow the forests.
 	 * @param resultsDir	The location where the results of the feature selection will be written.
 	 */
@@ -159,7 +38,7 @@ public class GAFeatureSelection
 		// Specify the random forest control parameters.
 		int numberOfTreesToGrow = 1000;  // The number of trees to grow in each forest.
 		int mtry = 10;  // The number of features to consider at each split in a tree.
-		int numberOfThreads = 1;  // The number of threads to use when growing the trees.
+		int numberOfThreads = 2;  // The number of threads to use when growing the trees.
 		
 		// Specify the features in the input dataset that should be ignored.
 		String[] unusedFeatures = new String[]{"UPAccession"};
@@ -171,7 +50,7 @@ public class GAFeatureSelection
 		classWeights.put("Positive", 1.0);
 		
 		int numberOfRepetitionsToPerform = 20;  // The number of runs of the GA feature selection to perform.
-		boolean isNewRunBeingPerformed = false;  // Whether the run should be a continuation of a previous run or not.
+		boolean isNewRunBeingPerformed = true;  // Whether the run should be a continuation of a previous run or not.
 		
 		// Specify the genetic algorithm control parameters.
 		int populationSize = 50;  // The number of individuals in the population.
@@ -204,7 +83,31 @@ public class GAFeatureSelection
 			}
 			
 			// Write out the parameters used.
-			//TODO record the parameters (weights, population forest size, etc.)
+			String parameterLocation = resultsDir + "/Parameters.txt";
+			try
+			{
+				FileWriter parameterOutputFile = new FileWriter(parameterLocation);
+				BufferedWriter parameterOutputWriter = new BufferedWriter(parameterOutputFile);
+				parameterOutputWriter.write("Trees\t" + Integer.toString(numberOfTreesToGrow));
+				parameterOutputWriter.newLine();
+				parameterOutputWriter.write("Population\t" + Integer.toString(populationSize));
+				parameterOutputWriter.newLine();
+				parameterOutputWriter.write("Mtry\t" + Integer.toString(mtry));
+				parameterOutputWriter.newLine();
+				parameterOutputWriter.write("Features\t" + featuresToRemove.toString());
+				parameterOutputWriter.newLine();
+				for (String s : classWeights.keySet())
+				{
+					parameterOutputWriter.write("Weight\t" + s + "\t" + Double.toString(classWeights.get(s)));
+					parameterOutputWriter.newLine();
+				}
+				parameterOutputWriter.close();
+			}
+			catch (Exception e)
+			{
+				e.printStackTrace();
+				System.exit(0);
+			}
 		}
 		else
 		{
@@ -216,6 +119,8 @@ public class GAFeatureSelection
 						"Please supply the location of the results directory of a previous run or start a new one (isNewRunBeingPerformed = true)");
 				System.exit(0);
 			}
+			
+			//TODO get the parameters used from the run that is being continued.
 		}
 		
 		// Determine the weight vector.

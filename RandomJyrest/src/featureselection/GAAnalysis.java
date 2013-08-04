@@ -1,0 +1,192 @@
+package featureselection;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+public class GAAnalysis
+{
+
+	/**
+	 * Analyses the results of a set of runs of the genetic algorithm feature selection.
+	 * 
+	 * @param args		The file system locations of the files and directories used in the GA feature selection.
+	 */
+	public static final void main(String[] args)
+	{
+		String inputFile = args[0];  // The location of the dataset used to grow the forests.
+		String resultsDir = args[1];  // The location where the results of the optimisation will be written.
+		runAnalysis(inputFile, resultsDir);
+	}
+	
+	
+	/**
+	 * @param inputFile		The location of the dataset used to grow the forests.
+	 * @param resultsDir	The location where the results of the feature selection will be written.
+	 */
+	private static final void runAnalysis(String inputFile, String resultsDir)
+	{
+		//===================================================================
+		//==================== CONTROL PARAMETER SETTING ====================
+		//===================================================================
+		// Specify the features in the input dataset that should be ignored.
+		String[] unusedFeatures = new String[]{"UPAccession"};
+		List<String> featuresToRemove = Arrays.asList(unusedFeatures);
+		//===================================================================
+		//==================== CONTROL PARAMETER SETTING ====================
+		//===================================================================
+
+		File outputDirectory = new File(resultsDir);
+		if (!outputDirectory.isDirectory())
+		{
+			System.out.println("The location supplied for the results directory is not a valid directory location.");
+			System.exit(0);
+		}
+		
+		// Determine the features in the dataset.
+		List<String> featuresInDataset = new ArrayList<String>();
+		Path dataPath = Paths.get(inputFile);
+		try (BufferedReader reader = Files.newBufferedReader(dataPath, StandardCharsets.UTF_8))
+		{
+			String line = reader.readLine();
+			line = line.replaceAll("\n", "");
+			String[] featureNames = line.split("\t");
+			String classFeatureColumnName = "Classification";
+
+			for (String feature : featureNames)
+			{
+				if (feature.equals(classFeatureColumnName))
+				{
+					// Ignore the class column.
+					;
+				}
+				else if (!featuresToRemove.contains(feature))
+				{
+					featuresInDataset.add(feature);
+				}
+			}
+		}
+		catch (IOException e)
+		{
+			// Caught an error while reading the file. Indicate this and exit.
+			System.out.println("An error occurred while determining the features to use.");
+			e.printStackTrace();
+			System.exit(0);
+		}
+
+		// Get the best individuals from the GA runs.
+		List<List<String>> bestIndividuals = new ArrayList<List<String>>();
+		List<Double> indivudalsFitnesses = new ArrayList<Double>();
+		List<Long> indivudalSeeds = new ArrayList<Long>();
+		File[] gaDirContents = outputDirectory.listFiles();  // Get the directories that contain the results of the GA runs.
+		for (File f : gaDirContents)
+		{
+			if (f.isDirectory())
+			{
+				File[] gaGenerationRecords = f.listFiles();
+
+				// For each GA run, determine the final generation.
+				String finalGenerationLocation = "";
+				int maxGeneration = 0;
+				for (File g : gaGenerationRecords)
+				{
+					int currentGeneration = Integer.parseInt(g.getName());
+					if (currentGeneration > maxGeneration)
+					{
+						maxGeneration = currentGeneration;
+						finalGenerationLocation = g.getAbsolutePath();
+					}
+				}
+				
+				// Extract the information about the fitness, seed and feature set used.
+				Path gaGenPath = Paths.get(finalGenerationLocation);
+				try (BufferedReader reader = Files.newBufferedReader(gaGenPath, StandardCharsets.UTF_8))
+				{
+					reader.readLine();  // Strip the header line.
+					String generationData = reader.readLine().trim();
+					String[] bestIndividualInformation = generationData.split("\t");
+					indivudalsFitnesses.add(Double.parseDouble(bestIndividualInformation[0]));
+					indivudalSeeds.add(Long.parseLong(bestIndividualInformation[1]));
+					String individual = bestIndividualInformation[2].substring(1, bestIndividualInformation[2].length());
+					String[] featuresNotUsed = individual.split(", ");
+					bestIndividuals.add(Arrays.asList(featuresNotUsed));
+				}
+				catch (IOException e)
+				{
+					// Caught an error while reading the file. Indicate this and exit.
+					System.out.println("An error occurred while extracting the information from the GA generation located at: " + finalGenerationLocation);
+					e.printStackTrace();
+					System.exit(0);
+				}
+			}
+		}
+
+		// Generate the output matrix.
+		try
+		{
+			String matrixOutputLocation = resultsDir + "/MatrixOutput.txt";
+			FileWriter matrixOutputFile = new FileWriter(matrixOutputLocation);
+			BufferedWriter matrixOutputWriter = new BufferedWriter(matrixOutputFile);
+			for (String s : featuresInDataset)
+			{
+				// Write out the feature name.
+				matrixOutputWriter.write(s);
+				matrixOutputWriter.write("\t");
+
+				// Record whether the feature was present (0) or absent (1) in the individual. A 0 is used for a present feature
+				// as the individuals are the features that were not used.
+				double featureOccurreces = 0.0;
+				for (List<String> l : bestIndividuals)
+				{
+					int featurePresence = 1;
+					if (l.contains(s))
+					{
+						featurePresence = 0;
+					}
+					featureOccurreces += featurePresence;
+					matrixOutputWriter.write(Integer.toString(featurePresence));
+					matrixOutputWriter.write("\t");
+				}
+				double featureFractions = featureOccurreces / bestIndividuals.size();
+				matrixOutputWriter.write(Double.toString(featureFractions));
+				matrixOutputWriter.newLine();
+			}
+			matrixOutputWriter.newLine();
+			
+			// Output the fitnesses.
+			matrixOutputWriter.write("Fitness\t");
+			for (Double d : indivudalsFitnesses)
+			{
+				matrixOutputWriter.write(Double.toString(d));
+				matrixOutputWriter.write("\t");
+			}
+			matrixOutputWriter.newLine();
+			
+			// Output the seeds.
+			matrixOutputWriter.write("Seed\t");
+			for (Long l : indivudalSeeds)
+			{
+				matrixOutputWriter.write(Long.toString(l));
+				matrixOutputWriter.write("\t");
+			}
+			matrixOutputWriter.newLine();
+			
+			matrixOutputWriter.close();
+		}
+		catch (Exception e)
+		{
+			e.printStackTrace();
+			System.exit(0);
+		}
+	}
+
+}
