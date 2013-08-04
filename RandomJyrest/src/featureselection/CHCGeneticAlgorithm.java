@@ -135,7 +135,7 @@ public class CHCGeneticAlgorithm
 	    		DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			    Date now = new Date();
 			    String strDate = sdfDate.format(now);
-	    		System.out.format("Now starting generation number : %d at %s.\n", generationsElapsed + 1, strDate);
+	    		System.out.format("\tNow starting generation number : %d at %s.\n", generationsElapsed + 1, strDate);
 	    	}
 	    	
 	    	// Generate offspring for potential inclusion in the next generation. This list may be empty if there were no
@@ -311,7 +311,7 @@ public class CHCGeneticAlgorithm
 	private static final void recordPopulation(String resultsDir, List<List<String>> population, List<Double> fitnesses,
 			List<Long> seeds, int generationsElapsed, int populationSize)
 	{
-		String resultsLocation = resultsDir + "/" + String.format("%06d", generationsElapsed) + ".txt";
+		String resultsLocation = resultsDir + "/" + String.format("%09d", generationsElapsed);
 		try
 		{
 			FileWriter resultsOutputFile = new FileWriter(resultsLocation);
@@ -325,6 +325,7 @@ public class CHCGeneticAlgorithm
 				resultsOutputWriter.write(Long.toString(seeds.get(i)));
 				resultsOutputWriter.write("\t");
 				resultsOutputWriter.write(population.get(i).toString());
+				resultsOutputWriter.newLine();
 			}
 			resultsOutputWriter.close();
 		}
