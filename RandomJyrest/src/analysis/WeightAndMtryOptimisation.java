@@ -52,9 +52,9 @@ public class WeightAndMtryOptimisation
 		String[] unusedFeatures = new String[]{"UPAccession"};
 		List<String> featuresToRemove = Arrays.asList(unusedFeatures);
 		
-		int numberOfThreads = 3;  // The number of threads to use when growing the trees.
+		int numberOfThreads = 1;  // The number of threads to use when growing the trees.
 		
-		double[] positiveWeightsToTest = new double[]{2.0, 2.2, 2.4, 2.6, 2.8, 3.0, 3.2, 3.4, 3.6, 3.8, 4.0, 4.2, 4.4, 4.6, 4.8, 5.0, 5.2, 5.4, 5.6, 5.8, 6.0};
+		double[] positiveWeightsToTest = new double[]{1.0};
 		double[] unlabelledWeightsToTest = new double[]{1.0};
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
