@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
@@ -46,6 +47,7 @@ public class CHCGeneticAlgorithm
 	{
 		// Setup the directory for the results.
 		File resultsDirectory = new File(resultsDir);
+		boolean isRunContinued = false;
 		if (!resultsDirectory.exists())
 		{
 			// The results directory does not exist.
@@ -59,8 +61,7 @@ public class CHCGeneticAlgorithm
 		else
 		{
 			// The results directory already exists.
-			System.out.println("The results directory already exists. Please remove/rename the file before retrying");
-			System.exit(0);
+			isRunContinued = true;
 		}
 		
 		if (populationSize < 2)
@@ -129,11 +130,26 @@ public class CHCGeneticAlgorithm
 		int threshold = featuresInDataset.size() / 4;
 		
 		// Generate the initial population.
-	    if (isVerboseOutput)
-	    {
-	    	System.out.println("Now generating the initial population");
-	    }
-	    List<List<String>> population = initialisePopulation(featuresInDataset, featuresToRemove, populationSize);
+		int generationsElapsed = 0;
+		List<List<String>> population = null;
+		if (isRunContinued)
+		{
+			if (isVerboseOutput)
+		    {
+		    	System.out.println("Now retrieving the population from the last generation of the previous run");
+		    }
+			ImmutableTwoValues<List<List<String>>, Integer> lastGeneration = retrieveInitialPopulation(resultsDir);
+			population = lastGeneration.first;
+			generationsElapsed = lastGeneration.second;
+		}
+		else
+		{
+		    if (isVerboseOutput)
+		    {
+		    	System.out.println("Now generating the initial population");
+		    }
+		    population = initialisePopulation(featuresInDataset, featuresToRemove, populationSize);
+		}
 	    
 	    // Calculate the fitness of the initial population.
 	    ImmutableTwoValues<List<Double>, List<Long>> populationFitness = calculateFitness(population, inputFile, numberOfTrees, mtry, numberOfThreads, weights, observationClasses);
@@ -142,7 +158,6 @@ public class CHCGeneticAlgorithm
 	    
 	    // Generate generations until convergence is reached.
 	    boolean isConvergenceReached = false;
-	    int generationsElapsed = 0;
 	    while(!isConvergenceReached)
 	    {
 	    	if (isVerboseOutput)
@@ -445,6 +460,69 @@ public class CHCGeneticAlgorithm
 	    }
 	    
 	    return new ImmutableThreeValues<List<List<String>>, List<Double>, List<Long>>(fittestIndividuals, fittestIndividualsFitness, fittestIndividualsSeeds);
+	}
+	
+	private static final ImmutableTwoValues<List<List<String>>, Integer> retrieveInitialPopulation(String populationDir)
+	{
+		List<List<String>> population = new ArrayList<List<String>>();
+		int lastGeneration = 0;
+		
+		File populationDirectory = new File(populationDir);
+		File[] generationRecords = populationDirectory.listFiles();
+
+		// Determine the final generation from the previous run.
+		String finalGenerationLocation = "";
+		for (File f : generationRecords)
+		{
+			int currentGeneration = Integer.parseInt(f.getName());
+			if (currentGeneration > lastGeneration)
+			{
+				lastGeneration = currentGeneration;
+				finalGenerationLocation = f.getAbsolutePath();
+			}
+		}
+		
+		// Read in the population from the last generation record.
+		BufferedReader reader = null;
+		try
+		{
+			reader = new BufferedReader(new FileReader(finalGenerationLocation));
+			reader.readLine();  // Strip the header line.
+			
+			String line = null;
+			while ((line = reader.readLine()) != null)
+			{
+				String[] individualData = line.trim().split("\t");
+				String[] individualFeatureSet = individualData[2].substring(1, individualData[2].length() - 1).split(", ");
+				population.add(Arrays.asList(individualFeatureSet));
+			}
+		}
+		catch (IOException e)
+		{
+			// Caught an error while reading the file. Indicate this and exit.
+			System.out.println("An error occurred while extracting the population informaion located at: " + finalGenerationLocation);
+			e.printStackTrace();
+			System.exit(0);
+		}
+		finally
+		{
+			try
+			{
+				if (reader != null)
+				{
+					reader.close();
+				}
+			}
+			catch (IOException e)
+			{
+				// Caught an error while closing the file. Indicate this and exit.
+				System.out.println("An error occurred while closing the file located at: " + finalGenerationLocation);
+				e.printStackTrace();
+				System.exit(0);
+			}
+		}
+		
+		return new ImmutableTwoValues<List<List<String>>, Integer>(population, lastGeneration);
 	}
 	
 }

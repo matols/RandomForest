@@ -1,8 +1,11 @@
 package featureselection;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -38,7 +41,7 @@ public class GAFeatureSelection
 		// Specify the random forest control parameters.
 		int numberOfTreesToGrow = 1000;  // The number of trees to grow in each forest.
 		int mtry = 10;  // The number of features to consider at each split in a tree.
-		int numberOfThreads = 2;  // The number of threads to use when growing the trees.
+		int numberOfThreads = 1;  // The number of threads to use when growing the trees.
 		
 		// Specify the features in the input dataset that should be ignored.
 		String[] unusedFeatures = new String[]{"UPAccession"};
@@ -50,7 +53,8 @@ public class GAFeatureSelection
 		classWeights.put("Positive", 1.0);
 		
 		int numberOfRepetitionsToPerform = 20;  // The number of runs of the GA feature selection to perform.
-		boolean isNewRunBeingPerformed = true;  // Whether the run should be a continuation of a previous run or not.
+		boolean isNewRunBeingPerformed = false;  // Whether the run should be a continuation of a previous run or not.
+		int startingIterationNumber = 0;  // The number of the directory for the first iteration.
 		
 		// Specify the genetic algorithm control parameters.
 		int populationSize = 50;  // The number of individuals in the population.
@@ -61,6 +65,7 @@ public class GAFeatureSelection
 		
 		// Setup the directory for the results.
 		File resultsDirectory = new File(resultsDir);
+		String parameterLocation = resultsDir + "/Parameters.txt";
 		if (isNewRunBeingPerformed)
 		{
 			// A previous run is not being continued.
@@ -83,7 +88,6 @@ public class GAFeatureSelection
 			}
 			
 			// Write out the parameters used.
-			String parameterLocation = resultsDir + "/Parameters.txt";
 			try
 			{
 				FileWriter parameterOutputFile = new FileWriter(parameterLocation);
@@ -120,7 +124,95 @@ public class GAFeatureSelection
 				System.exit(0);
 			}
 			
-			//TODO get the parameters used from the run that is being continued.
+			// Determine the last iteration performed (this will be the iteration that is started from).
+			startingIterationNumber = 0;
+			File[] previousIteratations = resultsDirectory.listFiles();
+			for (File f : previousIteratations)
+			{
+				if (f.isDirectory())
+				{
+					int iterationNumber = Integer.parseInt(f.getName());
+					if (iterationNumber > startingIterationNumber)
+					{
+						startingIterationNumber = iterationNumber;
+					}
+				}
+			}
+			
+			// Load the parameters from the run that is being continued.
+			classWeights = new HashMap<String, Double>();
+			BufferedReader reader = null;
+			try
+			{
+				reader = new BufferedReader(new FileReader(parameterLocation));
+				String line = null;
+				while ((line = reader.readLine()) != null)
+				{
+					line = line.trim();
+					if (line.length() == 0)
+					{
+						// If the line is made up of all whitespace, then ignore the line.
+						continue;
+					}
+					
+					// Enter the feature values for this observation into the mapping of the temporary processing of the data.
+					String[] chunks = line.split("\t");
+					if (chunks[0].equals("Trees"))
+					{
+						numberOfTreesToGrow = Integer.parseInt(chunks[1]);
+					}
+					else if (chunks[0].equals("Population"))
+					{
+						populationSize = Integer.parseInt(chunks[1]);
+					}
+					else if (chunks[0].equals("Mtry"))
+					{
+						mtry = Integer.parseInt(chunks[1]);
+					}
+					else if (chunks[0].equals("Features"))
+					{
+						String features = chunks[1].substring(1, chunks[1].length() - 1);  // String off the enclosing [...].
+						String[] individualFeatures = features.split(", ");
+						featuresToRemove = Arrays.asList(individualFeatures);
+						
+					}
+					else if (chunks[0].equals("Weight"))
+					{
+						classWeights.put(chunks[1], Double.parseDouble(chunks[2]));
+					}
+					else
+					{
+						// Got an unexpected line in the parameter file.
+						System.out.println("An unexpected argument was found in the file of the parameters of the past run:");
+						System.out.println(line);
+						System.exit(0);
+					}
+				}
+			}
+			catch (IOException e)
+			{
+				// Caught an error while reading the file. Indicate this and exit.
+				System.out.println("An error occurred while extracting the parameters.");
+				e.printStackTrace();
+				System.exit(0);
+			}
+			finally
+			{
+				try
+				{
+					if (reader != null)
+					{
+						reader.close();
+					}
+				}
+				catch (IOException e)
+				{
+					// Caught an error while closing the file. Indicate this and exit.
+					System.out.println("An error occurred while closing the parameters file.");
+					e.printStackTrace();
+					System.exit(0);
+				}
+			}
 		}
 		
 		// Determine the weight vector.
@@ -128,7 +220,7 @@ public class GAFeatureSelection
 		double[] weights = DetermineObservationProperties.determineObservationWeights(classOfObservations, "Positive",
 				classWeights.get("Positive"), "Unlabelled", classWeights.get("Unlabelled"));
 		
-		for (int i = 0; i < numberOfRepetitionsToPerform; i++)
+		for (int i = startingIterationNumber; i < numberOfRepetitionsToPerform; i++)
 		{
 			CHCGeneticAlgorithm.main(inputFile, resultsDir + "/" + Integer.toString(i), populationSize, isVerboseOutput, mtry, numberOfTreesToGrow, numberOfThreads, weights, featuresToRemove);
 		}
