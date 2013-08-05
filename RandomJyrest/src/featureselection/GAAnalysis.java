@@ -132,7 +132,7 @@ public class GAAnalysis
 					String[] bestIndividualInformation = generationData.split("\t");
 					indivudalsFitnesses.add(Double.parseDouble(bestIndividualInformation[0]));
 					indivudalSeeds.add(Long.parseLong(bestIndividualInformation[1]));
-					String individual = bestIndividualInformation[2].substring(1, bestIndividualInformation[2].length());
+					String individual = bestIndividualInformation[2].substring(1, bestIndividualInformation[2].length() - 1);
 					String[] featuresNotUsed = individual.split(", ");
 					bestIndividuals.add(Arrays.asList(featuresNotUsed));
 				}
