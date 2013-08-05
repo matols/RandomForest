@@ -1,11 +1,8 @@
 package randomjyrest;
 
 import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,9 +16,10 @@ public class DetermineObservationProperties
 	public static final List<String> determineObservationClasses(String inputFile)
 	{
 		List<String> classOfObservations = new ArrayList<String>();
-		Path dataPath = Paths.get(inputFile);
-		try (BufferedReader reader = Files.newBufferedReader(dataPath, StandardCharsets.UTF_8))
+		BufferedReader reader = null;
+		try
 		{
+			reader = new BufferedReader(new FileReader(inputFile));
 			String line = null;
 
 			// Determine the column that contains the class data.
@@ -66,6 +64,23 @@ public class DetermineObservationProperties
 			System.out.println("An error occurred while determining the class of each observation.");
 			e.printStackTrace();
 			System.exit(0);
+		}
+		finally
+		{
+			try
+			{
+				if (reader != null)
+				{
+					reader.close();
+				}
+			}
+			catch (IOException e)
+			{
+				// Caught an error while closing the file. Indicate this and exit.
+				System.out.println("An error occurred while closing the file used to determine the class of each observation.");
+				e.printStackTrace();
+				System.exit(0);
+			}
 		}
 		
 		return classOfObservations;

@@ -3,12 +3,9 @@ package featureselection;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -54,9 +51,10 @@ public class GAAnalysis
 		
 		// Determine the features in the dataset.
 		List<String> featuresInDataset = new ArrayList<String>();
-		Path dataPath = Paths.get(inputFile);
-		try (BufferedReader reader = Files.newBufferedReader(dataPath, StandardCharsets.UTF_8))
+		BufferedReader reader = null;
+		try
 		{
+			reader = new BufferedReader(new FileReader(inputFile));
 			String line = reader.readLine();
 			line = line.replaceAll("\n", "");
 			String[] featureNames = line.split("\t");
@@ -81,6 +79,23 @@ public class GAAnalysis
 			System.out.println("An error occurred while determining the features to use.");
 			e.printStackTrace();
 			System.exit(0);
+		}
+		finally
+		{
+			try
+			{
+				if (reader != null)
+				{
+					reader.close();
+				}
+			}
+			catch (IOException e)
+			{
+				// Caught an error while closing the file. Indicate this and exit.
+				System.out.println("An error occurred while closing the file used to determine the features in the dataset.");
+				e.printStackTrace();
+				System.exit(0);
+			}
 		}
 
 		// Get the best individuals from the GA runs.
@@ -108,9 +123,10 @@ public class GAAnalysis
 				}
 				
 				// Extract the information about the fitness, seed and feature set used.
-				Path gaGenPath = Paths.get(finalGenerationLocation);
-				try (BufferedReader reader = Files.newBufferedReader(gaGenPath, StandardCharsets.UTF_8))
+				reader = null;
+				try
 				{
+					reader = new BufferedReader(new FileReader(finalGenerationLocation));
 					reader.readLine();  // Strip the header line.
 					String generationData = reader.readLine().trim();
 					String[] bestIndividualInformation = generationData.split("\t");
@@ -126,6 +142,23 @@ public class GAAnalysis
 					System.out.println("An error occurred while extracting the information from the GA generation located at: " + finalGenerationLocation);
 					e.printStackTrace();
 					System.exit(0);
+				}
+				finally
+				{
+					try
+					{
+						if (reader != null)
+						{
+							reader.close();
+						}
+					}
+					catch (IOException e)
+					{
+						// Caught an error while closing the file. Indicate this and exit.
+						System.out.println("An error occurred while closing the file located at: " + finalGenerationLocation);
+						e.printStackTrace();
+						System.exit(0);
+					}
 				}
 			}
 		}

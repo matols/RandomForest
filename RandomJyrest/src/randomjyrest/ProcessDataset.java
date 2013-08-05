@@ -1,11 +1,8 @@
 package randomjyrest;
 
 import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -72,9 +69,10 @@ public final class ProcessDataset
 		Map<String, int[]> processedIndexData = new HashMap<String, int[]>();
 		Map<String, double[]> processedClassData = new HashMap<String, double[]>();
 
-		Path dataPath = Paths.get(dataset);
-		try (BufferedReader reader = Files.newBufferedReader(dataPath, StandardCharsets.UTF_8))
+		BufferedReader reader = null;
+		try
 		{
+			reader = new BufferedReader(new FileReader(dataset));
 			String line = null;
 
 			// Generate a mapping from the index of the column in the dataset to the name of the feature that the column contains values of.
@@ -175,6 +173,23 @@ public final class ProcessDataset
 			System.out.println("An error occurred while processing the input data file.");
 			e.printStackTrace();
 			System.exit(0);
+		}
+		finally
+		{
+			try
+			{
+				if (reader != null)
+				{
+					reader.close();
+				}
+			}
+			catch (IOException e)
+			{
+				// Caught an error while closing the file. Indicate this and exit.
+				System.out.println("An error occurred while closing the input data file.");
+				e.printStackTrace();
+				System.exit(0);
+			}
 		}
 
 		// Generate the final processed data.

@@ -3,12 +3,9 @@ package featureselection;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -113,9 +110,10 @@ public class VariableImportance
 
 		// Determine the features in the dataset.
 		List<String> featuresInDataset = new ArrayList<String>();
-		Path dataPath = Paths.get(inputFile);
-		try (BufferedReader reader = Files.newBufferedReader(dataPath, StandardCharsets.UTF_8))
+		BufferedReader reader = null;
+		try
 		{
+			reader = new BufferedReader(new FileReader(inputFile));
 			String line = reader.readLine();
 			line = line.replaceAll("\n", "");
 			String[] featureNames = line.split("\t");
@@ -140,6 +138,23 @@ public class VariableImportance
 			System.out.println("An error occurred while determining the features to use.");
 			e.printStackTrace();
 			System.exit(0);
+		}
+		finally
+		{
+			try
+			{
+				if (reader != null)
+				{
+					reader.close();
+				}
+			}
+			catch (IOException e)
+			{
+				// Caught an error while closing the file. Indicate this and exit.
+				System.out.println("An error occurred while closing the input data file.");
+				e.printStackTrace();
+				System.exit(0);
+			}
 		}
 
 		// Write out the importance header
@@ -178,7 +193,7 @@ public class VariableImportance
 			seeds.add(seedToUse);
 		}
 		
-		// Determine the weight vector for this positive/unlabelled weight combination.
+		// Determine the weight vector.
 		List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(inputFile);
 		double[] weights = DetermineObservationProperties.determineObservationWeights(classOfObservations, "Positive",
 				classWeights.get("Positive"), "Unlabelled", classWeights.get("Unlabelled"));

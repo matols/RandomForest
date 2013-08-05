@@ -1,8 +1,0 @@
-/**
- * 
- */
-/**
- * @author Simon
- *
- */
-package analysis;
