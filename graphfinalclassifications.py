@@ -8,36 +8,58 @@ def main(args):
     """
     """
 
-    nrProteinPredictions = args[0]  # The file containing the protein predictions for only the non-redundant proteins.
-    rProteinPredictions = args[1]  # The file containing the protein predictions for only the redundant proteins.
-    allProteinPredictions = args[2]  # The file containing the protein predictions for all proteins.
+    predictionsFile = args[0]  # The file containing the predictions of all proteins.
+    nonredundantProteinDataset = args[1]  # The file containing the dataset of non-redundant proteins.
+    redundantProteinDataset = args[2]  # The file containing the dataset of redundant proteins.
     outputDirectory = args[3]  # The location of the directory where the results should be written.
     if os.path.exists(outputDirectory):
         shutil.rmtree(outputDirectory)
     os.mkdir(outputDirectory)
 
+    ###################################################################
+    ## Parameters
+    numberOfBins = 30
+    ###################################################################
+
+    # Parse the protein predictions.
+    proteinData = parse_predictions(predictionsFile)
+
+    # Determine the non-redundat and redundant proteins accessions.
+    nonredundantAccessions = determine_proteins_in_dataset(nonredundantProteinDataset)
+    redundantAccessions = determine_proteins_in_dataset(redundantProteinDataset)
+
     # Generate the predictions and graph for the non-redudnant proteins.
     nonRedundantDirectory = outputDirectory + '/Non-Redundant'
     os.mkdir(nonRedundantDirectory)
-    parse_input(nrProteinPredictions, nonRedundantDirectory)
+    parse_input(proteinData, nonredundantAccessions, nonRedundantDirectory, numberOfBins)
 
     # Generate the predictions and graph for the redudnant proteins.
     redundantDirectory = outputDirectory + '/Redundant'
     os.mkdir(redundantDirectory)
-    parse_input(rProteinPredictions, redundantDirectory)
+    parse_input(proteinData, redundantAccessions, redundantDirectory, numberOfBins)
 
     # Generate the predictions and graph for all proteins.
     allDirectory = outputDirectory + '/All'
     os.mkdir(allDirectory)
-    parse_input(allProteinPredictions, allDirectory)
+    parse_input(proteinData, proteinData.keys(), allDirectory, numberOfBins)
 
-def parse_input(proteinPredictions, outputDirectory, numberOfBins=30):
+def determine_proteins_in_dataset(dataset):
+    proteinAccessions = []
+    readDataset = open(dataset, 'r')
+    header = readDataset.readline().strip().split('\t')
+    accessionIndex = header.index('UPAccession')
+    for line in readDataset:
+        acc = line.strip().split('\t')[accessionIndex]
+        proteinAccessions.append(acc)
+    readDataset.close()
+    return proteinAccessions
+
+def parse_predictions(predictionsFile):
     """
     """
 
-    # Parse the predicted classification information.
     proteinData = {}  # A record of the protein prediction data indexed by the protein accession.
-    readPredictions = open(proteinPredictions, 'r')
+    readPredictions = open(predictionsFile, 'r')
     readPredictions.readline()  # Strip off the header.
     for line in readPredictions:
         chunks = (line.strip()).split('\t')
@@ -48,12 +70,18 @@ def parse_input(proteinPredictions, outputDirectory, numberOfBins=30):
         proteinData[acc] = {'PosWeight' : posWeight, 'NegWeight' : negWeight, 'Class' : originalClass}
     readPredictions.close()
 
+    return proteinData
+
+def parse_input(proteinData, proteinAccessions, outputDirectory, numberOfBins=30):
+    """
+    """
+
     # Determine the unlabelled proteins that are predicted to be positive, along with the fraction of the prediction weight that is positive for each protein.
     unlabelledPredictedPositive = []  # The unlabelled proteins that have greater than 50% of their predicted weight as positive.
     unlabelledPosWeightFraction = []  # The fraction of the prediction weight that is positive for each unlabelled protein.
     positivePredictedUnlabelled = []  # The positive proteins that have greater than 50% of their predicted weight as unlabelled.
     positivePosWeightFraction = []  # The fraction of the prediction weight that is positive for each positive protein.
-    for i in proteinData:
+    for i in proteinAccessions:
         posWeightFraction = proteinData[i]['PosWeight'] / (proteinData[i]['PosWeight'] + proteinData[i]['NegWeight'])  # The fraction of a protein's predictive weight that is positive.
         if proteinData[i]['Class'] != 'Positive':
             # The protein is not positive.

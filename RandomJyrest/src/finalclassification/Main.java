@@ -27,20 +27,20 @@ public class Main
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int numberOfTrees = 1000;  // Number of trees in the forest.
-		long seed = 0L;  // The seed for growing the forest.
+		int numberOfTrees = 3000;  // Number of trees in the forest.
+		long seed = -5037396996932874440L;  // The seed for growing the forest.
 
-		int mtry = 10;  // The number of features to consider at each split in a tree.
+		int mtry = 15;  // The number of features to consider at each split in a tree.
 		
 		// Specify the features in the input dataset that should be ignored.
-		String[] featuresToUse = new String[]{"UPAccession"};
+		String[] featuresToUse = new String[]{"N", "Polar", "Y", "AlternativeTranscripts", "BS_Lymph_Node", "BS_Thyroid", "Aliphatic", "PositivelyCharged", "P", "Q", "UPAccession", "Tiny", "NonSynonymousCoding", "D", "BS_Umbilical_Cord", "DS_Neonate", "NonPolar", "M", "BS_Bone_Marrow", "A", "BS_Connective_Tissue", "Sequence", "BS_Pituitary_Gland", "S", "C", "Basic", "Hydrophobicity", "BS_Adipose_Tissue", "R", "V", "H", "BS_Tonsil", "BS_Vascular", "Small", "TransmembraneHelices", "OGlycosylation", "BS_Esophagus", "BS_Muscle", "BS_Nerve", "BS_Mammary_Gland", "BS_Intestine", "Isoelectric", "BinaryPPI", "W", "Charged", "BS_Pharynx", "BS_Kidney", "PESTMotif", "LowComplexity", "BS_Parathyroid", "BS_Ascites", "DS_Fetus", "F", "BS_Embryonic_Tissue", "3Untranslated", "BS_Cervix", "DS_Embryoid_Body", "DS_Juvenile", "Turns", "BS_Ear", "BS_Prostate", "Phosphoserine"};
 		List<String> featuresToRemove = Arrays.asList(featuresToUse);
 		
 		int numberOfThreads = 1;  // The number of threads to use when growing the trees.
 
 		// Define the weights for each class in the input dataset.
 		Map<String, Double> classWeights = new HashMap<String, Double>();
-		classWeights.put("Positive", 1.0);
+		classWeights.put("Positive", 5.4);
 		classWeights.put("Unlabelled", 1.0);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
@@ -85,7 +85,7 @@ public class Main
 			parameterOutputWriter.newLine();
 			for (String s : classWeights.keySet())
 			{
-				System.out.println(s + "\t" + Double.toString(classWeights.get(s)));
+				parameterOutputWriter.write(s + "\t" + Double.toString(classWeights.get(s)));
 				parameterOutputWriter.newLine();
 			}
 			parameterOutputWriter.write("Mtry used - " + Integer.toString(mtry));
@@ -101,16 +101,16 @@ public class Main
 			System.exit(0);
 		}
 		
-		// Determine the weight vector.
-		List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(testingDataset);
-		double[] weights = DetermineObservationProperties.determineObservationWeights(classOfObservations, "Positive",
+		// Determine the weights for the training observatons.
+		List<String> classOfTrainingObservations = DetermineObservationProperties.determineObservationClasses(trainingDataset);
+		double[] trainingSetWeights = DetermineObservationProperties.determineObservationWeights(classOfTrainingObservations, "Positive",
 				classWeights.get("Positive"), "Unlabelled", classWeights.get("Unlabelled"));
 		
 		// Determine the predictions.
 		Forest forest = new Forest();
-		Map<String, double[]> oobPredictions = forest.main(trainingDataset, numberOfTrees, mtry, featuresToRemove, weights, seed,
-				numberOfThreads, isCalcualteOOB);
-		Map<String, double[]> testSetPredictions = forest.predict(testingDataset, featuresToRemove, weights);
+		Map<String, double[]> oobPredictions = forest.main(trainingDataset, numberOfTrees, mtry, featuresToRemove, trainingSetWeights,
+				seed, numberOfThreads, isCalcualteOOB);
+		Map<String, double[]> testSetPredictions = forest.predict(testingDataset, featuresToRemove);
 		
 		// Define the names of the class and UniProt accession columns.
 		String classFeatureColumnName = "Classification";
@@ -127,8 +127,7 @@ public class Main
 		if (testingDataset != null)
 		{
 			// If a testing dataset has been supplied, then determine the accessions and classes of the proteins in the training dataset.
-			accessionsAndClasses = determineAccessionsAndClasses(trainingDataset,
-					accessionColumnName, classFeatureColumnName);
+			accessionsAndClasses = determineAccessionsAndClasses(testingDataset, accessionColumnName, classFeatureColumnName);
 			testingDatasetAccessions = accessionsAndClasses.first;
 			testingDatasetClasses = accessionsAndClasses.second;
 		}
