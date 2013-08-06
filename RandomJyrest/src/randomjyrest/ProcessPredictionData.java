@@ -8,10 +8,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import utilities.ImmutableTwoValues;
+
 public class ProcessPredictionData
 {
 
-	public static final Map<String, double[]> main(String dataset, List<String> featuresToRemove)
+	public static final ImmutableTwoValues<Map<String, double[]>, Integer> main(String dataset, List<String> featuresToRemove)
 	{
 		// Setup the mapping to hold the temporary and final processed data.
 		Map<String, List<Double>> temporaryData = new HashMap<String, List<Double>>();
@@ -105,7 +107,7 @@ public class ProcessPredictionData
 			datasetToPredict.put(entry.getKey(), featureDataArray);
 		}
 
-		return datasetToPredict;
+		return new ImmutableTwoValues<Map<String, double[]>, Integer>(datasetToPredict, numberOfObservations);
 	}
 
 }

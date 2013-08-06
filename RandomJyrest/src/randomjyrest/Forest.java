@@ -153,7 +153,7 @@ public class Forest
 		if (isCalcualteOOB)
 		{
 			// Generate the entire set of prediction data.
-			Map<String, double[]> datasetToPredict = ProcessPredictionData.main(this.trainingDataset, this.featuresRemoved);
+			Map<String, double[]> datasetToPredict = ProcessPredictionData.main(this.trainingDataset, this.featuresRemoved).first;
 
 			// Setup the prediction output.
 			for (String s : this.classesInTrainingSet)
@@ -178,21 +178,18 @@ public class Forest
 	}
 	
 	
-	public final Map<String, double[]> predict(String dataset, List<String> featuresToRemove, double[] weights)
+	public final Map<String, double[]> predict(String dataset, List<String> featuresToRemove)
 	{
-		Map<String, double[]> datasetToPredict = ProcessPredictionData.main(dataset, featuresToRemove);
+		ImmutableTwoValues<Map<String, double[]>, Integer> predictionData = ProcessPredictionData.main(dataset, featuresToRemove);
+		Map<String, double[]> datasetToPredict = predictionData.first;
+		int numberOfObservations = predictionData.second;
 		
 		// Determine the observations being predicted.
 		Set<Integer> observationsToPredict = new HashSet<Integer>();
-		int numberOfObservations = 0;
-		for (int i = 0; i < datasetToPredict.get(this.classesInTrainingSet.get(0)).length; i++)
+		for (int i = 0; i < numberOfObservations; i++)
 		{
-			observationsToPredict.add(numberOfObservations);
-			numberOfObservations++;
+			observationsToPredict.add(i);
 		}
-		
-		int numberOfTrees = this.forest.size();
-		
 
 		// Setup the prediction output.
 		Map<String, double[]> predictions = new HashMap<String, double[]>();
@@ -201,6 +198,7 @@ public class Forest
 			predictions.put(s, new double[numberOfObservations]);
 		}
 
+		int numberOfTrees = this.forest.size();
 		for (int i = 0; i < numberOfTrees; i++)
 		{
 			Tree treeToPredictOn = this.forest.get(i);
@@ -234,7 +232,7 @@ public class Forest
 		int numberOfTrees = this.forest.size();
 		
 		// Generate the original prediction data.
-		Map<String, double[]> datasetToPredict = ProcessPredictionData.main(this.trainingDataset, this.featuresRemoved);
+		Map<String, double[]> datasetToPredict = ProcessPredictionData.main(this.trainingDataset, this.featuresRemoved).first;
 
 		// Determine the base quality measure for each tree in the forest.
 		{
