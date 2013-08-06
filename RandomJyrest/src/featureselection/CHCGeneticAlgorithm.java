@@ -23,7 +23,6 @@ import randomjyrest.DetermineObservationProperties;
 import randomjyrest.Forest;
 import randomjyrest.PredictionAnalysis;
 import utilities.ImmutableFourValues;
-import utilities.ImmutableThreeValues;
 import utilities.ImmutableTwoValues;
 import utilities.IndexedDoubleData;
 
@@ -44,7 +43,8 @@ public class CHCGeneticAlgorithm
 	 * @param featuresToRemove	The features in the dataset that should be removed (not used in growing the forest).
 	 */
 	public static final void main(String inputFile, String resultsDir, int populationSize, boolean isVerboseOutput,
-			int mtry, int numberOfTrees, int numberOfThreads, double[] weights, List<String> featuresToRemove)
+			int mtry, int numberOfTrees, int numberOfThreads, double[] weights, List<String> featuresToRemove,
+			int generationsWithoutChange)
 	{
 		// Setup the directory for the results.
 		File resultsDirectory = new File(resultsDir);
@@ -173,32 +173,54 @@ public class CHCGeneticAlgorithm
 	    		System.out.format("\tNow starting generation number : %d at %s.\n", generationsElapsed + 1, strDate);
 	    	}
 	    	
-	    	// Generate offspring for potential inclusion in the next generation. This list may be empty if there were no
-	    	// offspring created.
-	    	List<List<String>> offspring = generateOffspring(population, populationSize, threshold);
-	    	
-	    	if (!offspring.isEmpty())
+	    	// Attempt to generate an offspring that is better than at least one of the parents. Make generationsWithoutChange attempts,
+	    	// and if no offspring that meets the criterion is generated, then decrease the threshold.
+	    	int numberOfAttemptsToImprovePopulation = 0;
+	    	boolean isPopulationUpdated = false;
+	    	while (numberOfAttemptsToImprovePopulation < generationsWithoutChange & !isPopulationUpdated)
 	    	{
-	    		// Some offspring were created.
-	    		
-		    	// Calculate the fitness of the offspring.
-		    	ImmutableTwoValues<List<Double>, List<Long>> offspringFitness = calculateFitness(offspring, inputFile, numberOfTrees, mtry, numberOfThreads, weights, observationClasses);
-		    	List<Double> fitnessOfOffspring = offspringFitness.first;
-			    List<Long> seedsOfOffspring = offspringFitness.second;
+	    		// Generate offspring for potential inclusion in the next generation. This list may be empty if there were no
+		    	// offspring created.
+		    	List<List<String>> offspring = generateOffspring(population, populationSize, threshold);
 		    	
-		    	// Update the population.
-			    population.addAll(offspring);
-			    fitnessOfPopulation.addAll(fitnessOfOffspring);
-			    seedsOfPopulation.addAll(seedsOfOffspring);
-			    ImmutableThreeValues<List<List<String>>, List<Double>, List<Long>> updatedPopulation = updatePopulation(population,
-			    		fitnessOfPopulation, seedsOfPopulation, populationSize);
-			    population = updatedPopulation.first;
-			    fitnessOfPopulation = updatedPopulation.second;
-			    seedsOfPopulation = updatedPopulation.third;
+		    	if (!offspring.isEmpty())
+		    	{
+		    		// Some offspring were created.
+		    		
+			    	// Calculate the fitness of the offspring.
+			    	ImmutableTwoValues<List<Double>, List<Long>> offspringFitness = calculateFitness(offspring, inputFile, numberOfTrees, mtry, numberOfThreads, weights, observationClasses);
+			    	List<Double> fitnessOfOffspring = offspringFitness.first;
+				    List<Long> seedsOfOffspring = offspringFitness.second;
+			    	
+			    	// Update the population.
+				    population.addAll(offspring);
+				    fitnessOfPopulation.addAll(fitnessOfOffspring);
+				    seedsOfPopulation.addAll(seedsOfOffspring);
+				    ImmutableFourValues<List<List<String>>, List<Double>, List<Long>, Boolean> updatedPopulation = updatePopulation(
+				    		population, fitnessOfPopulation, seedsOfPopulation, populationSize);
+				    population = updatedPopulation.first;
+				    fitnessOfPopulation = updatedPopulation.second;
+				    seedsOfPopulation = updatedPopulation.third;
+				    isPopulationUpdated = updatedPopulation.fourth;
+		    	}
+		    	else
+		    	{
+		    		// No offspring were created.
+		    		isPopulationUpdated = true; 
+		    		threshold -= 1;
+		    		if (threshold == 0)
+		    		{
+		    			isConvergenceReached = true;
+		    		}
+		    	}
+		    	
+	    		numberOfAttemptsToImprovePopulation++;
 	    	}
-	    	else
+	    	
+	    	// If the population was not updated in the numberOfAttemptsToImprovePopulation attempts at generating offspring, then
+	    	// decrease he threshold.
+	    	if (!isPopulationUpdated)
 	    	{
-	    		// No offspring were created.
 	    		threshold -= 1;
 	    		if (threshold == 0)
 	    		{
@@ -210,7 +232,8 @@ public class CHCGeneticAlgorithm
 	    	generationsElapsed += 1;
 	    	
 	    	// Write out the population.
-	    	recordPopulation(resultsDir, population, fitnessOfPopulation, seedsOfPopulation, generationsElapsed, populationSize, threshold);
+	    	recordPopulation(resultsDir, population, fitnessOfPopulation, seedsOfPopulation, generationsElapsed, populationSize,
+	    			threshold, numberOfAttemptsToImprovePopulation);
 	    }
 	}
 	
@@ -341,7 +364,7 @@ public class CHCGeneticAlgorithm
 	 * @param populationSize
 	 */
 	private static final void recordPopulation(String resultsDir, List<List<String>> population, List<Double> fitnesses,
-			List<Long> seeds, int generationsElapsed, int populationSize, int threshold)
+			List<Long> seeds, int generationsElapsed, int populationSize, int threshold, int attemptsAtImprovementMade)
 	{
 		String resultsLocation = resultsDir + "/" + String.format("%09d", generationsElapsed);
 		try
@@ -349,7 +372,7 @@ public class CHCGeneticAlgorithm
 			FileWriter resultsOutputFile = new FileWriter(resultsLocation);
 			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
 			resultsOutputWriter.write("Fitness\tSeedUsed\tIndividual\t");
-			resultsOutputWriter.write("(Threshold=" + Integer.toString(threshold) + ")");
+			resultsOutputWriter.write("(Attempts=" + Integer.toString(attemptsAtImprovementMade) + ", Threshold=" + Integer.toString(threshold) + ")");
 			resultsOutputWriter.newLine();
 			for (int i = 0; i < populationSize; i++)
 			{
@@ -440,8 +463,8 @@ public class CHCGeneticAlgorithm
 	 * @param populationSize
 	 * @return
 	 */
-	private static final ImmutableThreeValues<List<List<String>>, List<Double>, List<Long>> updatePopulation(List<List<String>> population, List<Double> fitness, List<Long> seeds,
-			int populationSize)
+	private static final ImmutableFourValues<List<List<String>>, List<Double>, List<Long>, Boolean> updatePopulation(
+			List<List<String>> population, List<Double> fitness, List<Long> seeds, int populationSize)
 	{
 		List<IndexedDoubleData> sortedByFitness = new ArrayList<IndexedDoubleData>();
 	    for (int j = 0; j < population.size(); j++)
@@ -453,6 +476,7 @@ public class CHCGeneticAlgorithm
 	    List<List<String>> fittestIndividuals = new ArrayList<List<String>>();
 	    List<Double> fittestIndividualsFitness = new ArrayList<Double>();
 	    List<Long> fittestIndividualsSeeds = new ArrayList<Long>();
+	    boolean isPopulationUpdated = false;
 	    for (int j = 0; j < populationSize; j ++)
 	    {
 	    	// Add the first populationSize individuals as the are the fittest.
@@ -460,9 +484,16 @@ public class CHCGeneticAlgorithm
 	    	fittestIndividuals.add(population.get(indexToAddFrom));
 	    	fittestIndividualsFitness.add(fitness.get(indexToAddFrom));
 	    	fittestIndividualsSeeds.add(seeds.get(indexToAddFrom));
+	    	
+	    	if (indexToAddFrom >= populationSize)
+	    	{
+	    		// One of the offspring has been added to the population.
+	    		isPopulationUpdated = true;
+	    	}
 	    }
 	    
-	    return new ImmutableThreeValues<List<List<String>>, List<Double>, List<Long>>(fittestIndividuals, fittestIndividualsFitness, fittestIndividualsSeeds);
+	    return new ImmutableFourValues<List<List<String>>, List<Double>, List<Long>, Boolean>(fittestIndividuals,
+	    		fittestIndividualsFitness, fittestIndividualsSeeds, isPopulationUpdated);
 	}
 	
 	/**

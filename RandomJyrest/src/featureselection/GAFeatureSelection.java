@@ -48,6 +48,7 @@ public class GAFeatureSelection
 		// Specify the genetic algorithm control parameters.
 		int populationSize = 50;  // The number of individuals in the population.
 		boolean isVerboseOutput = false;  // Whether status updates should be printed.
+		int generationsWithoutChange = 10;  // The maximum number of attempts that will be made in each generation to generate an offspring that is fitter than at least one member of the parent population.
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -111,6 +112,10 @@ public class GAFeatureSelection
 					{
 						isVerboseOutput = true;
 					}
+				}
+				else if (chunks[0].equals("Attempts"))
+				{
+					generationsWithoutChange = Integer.parseInt(chunks[1]);
 				}
 				else
 				{
@@ -185,6 +190,8 @@ public class GAFeatureSelection
 				parameterOutputWriter.write("Mtry\t" + Integer.toString(mtry));
 				parameterOutputWriter.newLine();
 				parameterOutputWriter.write("Features\t" + featuresToRemove.toString());
+				parameterOutputWriter.newLine();
+				parameterOutputWriter.write("Attepmts\t" + Integer.toString(generationsWithoutChange));
 				parameterOutputWriter.newLine();
 				for (String s : classWeights.keySet())
 				{
@@ -264,6 +271,10 @@ public class GAFeatureSelection
 					{
 						classWeights.put(chunks[1], Double.parseDouble(chunks[2]));
 					}
+					else if (chunks[0].equals("Attempts"))
+					{
+						generationsWithoutChange = Integer.parseInt(chunks[1]);
+					}
 					else
 					{
 						// Got an unexpected line in the parameter file.
@@ -306,7 +317,8 @@ public class GAFeatureSelection
 		
 		for (int i = startingIterationNumber; i < numberOfRepetitionsToPerform; i++)
 		{
-			CHCGeneticAlgorithm.main(inputFile, resultsDir + "/" + Integer.toString(i), populationSize, isVerboseOutput, mtry, numberOfTreesPerForest, numberOfThreads, weights, featuresToRemove);
+			CHCGeneticAlgorithm.main(inputFile, resultsDir + "/" + Integer.toString(i), populationSize, isVerboseOutput, mtry,
+					numberOfTreesPerForest, numberOfThreads, weights, featuresToRemove, generationsWithoutChange);
 		}
 	}
 
