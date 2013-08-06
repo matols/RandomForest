@@ -263,8 +263,9 @@ public class CHCGeneticAlgorithm
 	    {
 	    	Forest forest = new Forest();
 	    	Map<String, double[]> predictions = forest.main(dataset, numberOfTrees, mtry, p, weights, numberOfThreads, true);
+	    	Map<String, Map<String, Integer>> confusionMatrix = PredictionAnalysis.calculateConfusionMatrix(observationClasses, predictions);
 
-	    	double individualFitness = PredictionAnalysis.calculateLogarithmicScore(observationClasses, predictions);
+	    	double individualFitness = PredictionAnalysis.calculateGMean(confusionMatrix, observationClasses);
 	    	
 	    	fitness.add(individualFitness);
 	    	seeds.add(forest.getSeed());

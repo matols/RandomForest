@@ -239,13 +239,15 @@ public class ForestSizeOptimisation
 				Forest forest = new Forest();
 				Map<String, double[]> predictions = forest.main(inputFile, i, mtry, featuresToRemove, weights, seeds.get(j),
 						numberOfThreads, isCalculateOOB);
+				Map<String, Map<String, Integer>> confusionMatrix = PredictionAnalysis.calculateConfusionMatrix(classOfObservations,
+						predictions);
 				
 				// Write out the results for this forest.
 				try
 				{
 					FileWriter resultsFile = new FileWriter(resultsLocation, true);
 					BufferedWriter resultsOutputWriter = new BufferedWriter(resultsFile);
-					resultsOutputWriter.write("\t" + Double.toString(PredictionAnalysis.calculateLogarithmicScore(classOfObservations, predictions)));
+					resultsOutputWriter.write("\t" + Double.toString(PredictionAnalysis.calculateGMean(confusionMatrix, classOfObservations)));
 					resultsOutputWriter.close();
 				}
 				catch (Exception e)
