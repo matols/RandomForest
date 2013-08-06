@@ -1,8 +1,11 @@
 package analysis;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -31,26 +34,17 @@ public class WeightAndMtryOptimisation
 	{
 		String inputFile = args[0];  // The location of the dataset used to grow the forests.
 		String resultsDir = args[1];  // The location where the results of the optimisation will be written.
-		compare(inputFile, resultsDir);
-	}
+		String parameterFile = args[2];  // The location where the parameters for the optimisation are recorded.
 
-	/**
-	 * @param inputFile		The location of the dataset used to grow the forests.
-	 * @param resultsDir	The location where the results of the optimisation will be written.
-	 */
-	private static final void compare(String inputFile, String resultsDir)
-	{
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
 		int numberOfForestsToCreate = 100;  // The number of forests to create for each weight/mtry combination.
-		int numberOfTreesToGrow = 1000;  // The number of trees to grow in each forest.
-		boolean isCalculateOOB = true;  // OOB error is being calculated.
+		int numberOfTreesPerForest = 1000;  // The number of trees to grow in each forest.
 		int[] mtryToUse = {5, 10, 15, 20, 25, 30};  // The different values of mtry to test.
 		
 		// Specify the features in the input dataset that should be ignored.
-		String[] unusedFeatures = new String[]{"UPAccession"};
-		List<String> featuresToRemove = Arrays.asList(unusedFeatures);
+		List<String> featuresToRemove = new ArrayList<String>();
 		
 		int numberOfThreads = 1;  // The number of threads to use when growing the trees.
 		
@@ -59,6 +53,107 @@ public class WeightAndMtryOptimisation
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
+
+		// Parse the parameters.
+		BufferedReader reader = null;
+		try
+		{
+			reader = new BufferedReader(new FileReader(parameterFile));
+			String line = null;
+			while ((line = reader.readLine()) != null)
+			{
+				line = line.trim();
+				if (line.length() == 0)
+				{
+					// If the line is made up of all whitespace, then ignore the line.
+					continue;
+				}
+				
+				// Enter the feature values for this observation into the mapping of the temporary processing of the data.
+				String[] chunks = line.split("\t");
+				if (chunks[0].equals("Forests"))
+				{
+					numberOfForestsToCreate = Integer.parseInt(chunks[1]);
+				}
+				else if (chunks[0].equals("Trees"))
+				{
+					numberOfTreesPerForest = Integer.parseInt(chunks[1]);
+				}
+				else if (chunks[0].equals("Mtry"))
+				{
+					String[] mtrys = chunks[1].split(",");
+					mtryToUse = new int[mtrys.length];
+					for (int i = 0; i < mtrys.length; i++)
+					{
+						mtryToUse[i] = Integer.parseInt(mtrys[i]);
+					}
+				}
+				else if (chunks[0].equals("Features"))
+				{
+					String[] features = chunks[1].split(",");
+					featuresToRemove = Arrays.asList(features);
+				}
+				else if (chunks[0].equals("Threads"))
+				{
+					numberOfThreads = Integer.parseInt(chunks[1]);
+				}
+				else if (chunks[0].equals("Weight"))
+				{
+					if (chunks[1].equals("Positive"))
+					{
+						String[] positiveWeights = chunks[2].split(",");
+						positiveWeightsToTest = new double[positiveWeights.length];
+						for (int i = 0; i < positiveWeights.length; i++)
+						{
+							positiveWeightsToTest[i] = Double.parseDouble(positiveWeights[i]);
+						}
+					}
+					else if (chunks[1].equals("Unlabelled"))
+					{
+						String[] unlabelledWeights = chunks[2].split(",");
+						unlabelledWeightsToTest = new double[unlabelledWeights.length];
+						for (int i = 0; i < unlabelledWeights.length; i++)
+						{
+							unlabelledWeightsToTest[i] = Double.parseDouble(unlabelledWeights[i]);
+						}
+					}
+				}
+				else
+				{
+					// Got an unexpected line in the parameter file.
+					System.out.println("An unexpected argument was found in the file of the parameters:");
+					System.out.println(line);
+					System.exit(0);
+				}
+			}
+		}
+		catch (IOException e)
+		{
+			// Caught an error while reading the file. Indicate this and exit.
+			System.out.println("An error occurred while extracting the parameters.");
+			e.printStackTrace();
+			System.exit(0);
+		}
+		finally
+		{
+			try
+			{
+				if (reader != null)
+				{
+					reader.close();
+				}
+			}
+			catch (IOException e)
+			{
+				// Caught an error while closing the file. Indicate this and exit.
+				System.out.println("An error occurred while closing the parameters file.");
+				e.printStackTrace();
+				System.exit(0);
+			}
+		}
+
+		// Mandatory control parameters for growing the forests.
+		boolean isCalculateOOB = true;  // OOB error is being calculated.
 
 		// Setup the directory for the results.
 		File resultsDirectory = new File(resultsDir);
@@ -98,7 +193,7 @@ public class WeightAndMtryOptimisation
 			BufferedWriter parameterOutputWriter = new BufferedWriter(parameterOutputFile);
 			parameterOutputWriter.write("Number of forests grown - " + Integer.toString(numberOfForestsToCreate));
 			parameterOutputWriter.newLine();
-			parameterOutputWriter.write("Number of trees in each forest - " + Integer.toString(numberOfTreesToGrow));
+			parameterOutputWriter.write("Number of trees in each forest - " + Integer.toString(numberOfTreesPerForest));
 			parameterOutputWriter.newLine();
 			parameterOutputWriter.write("Weights used");
 			parameterOutputWriter.newLine();
@@ -172,7 +267,7 @@ public class WeightAndMtryOptimisation
 						// Grow the forest.
 						Date startTime = new Date();
 						Forest forest = new Forest();
-						Map<String, double[]> predictionsFromForest = forest.main(inputFile, numberOfTreesToGrow, mtry, featuresToRemove,
+						Map<String, double[]> predictionsFromForest = forest.main(inputFile, numberOfTreesPerForest, mtry, featuresToRemove,
 								weights, seeds.get(i), numberOfThreads, isCalculateOOB);
 						Date endTime = new Date();
 						timeTaken += (endTime.getTime() - startTime.getTime());

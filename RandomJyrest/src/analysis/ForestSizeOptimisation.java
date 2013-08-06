@@ -1,8 +1,11 @@
 package analysis;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -31,15 +34,8 @@ public class ForestSizeOptimisation
 	{
 		String inputFile = args[0];  // The location of the dataset used to grow the forests.
 		String resultsDir = args[1];  // The location where the results of the optimisation will be written.
-		compare(inputFile, resultsDir);
-	}
-
-	/**
-	 * @param inputFile		The location of the dataset used to grow the forests.
-	 * @param resultsDir	The location where the results and records of the optimisation will go.
-	 */
-	private static final void compare(String inputFile, String resultsDir)
-	{
+		String parameterFile = args[2];  // The location where the parameters for the optimisation are recorded.
+		
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -51,22 +47,102 @@ public class ForestSizeOptimisation
 				2850, 2900, 2950, 3000, 3050, 3100, 3150, 3200, 3250, 3300, 3350, 3400, 3450, 3500, 3550, 3600, 3650, 3700, 3750,
 				3800, 3850, 3900, 3950, 4000, 4050, 4100, 4150, 4200, 4250, 4300, 4350, 4400, 4450, 4500, 4550, 4600, 4650, 4700,
 				4750, 4800, 4850, 4900, 4950, 5000};
-		boolean isCalculateOOB = true;  // OOB error is being calculated.
 		int mtry = 10;  // The number of features to consider at each split in a tree.
 		
 		// Specify the features in the input dataset that should be ignored.
-		String[] unusedFeatures = new String[]{"UPAccession"};
-		List<String> featuresToRemove = Arrays.asList(unusedFeatures);
+		List<String> featuresToRemove = new ArrayList<String>();
 		
 		int numberOfThreads = 1;  // The number of threads to use when growing the trees.
 
 		// Define the weights for each class in the input dataset.
 		Map<String, Double> classWeights = new HashMap<String, Double>();
-		classWeights.put("Unlabelled", 1.0);
-		classWeights.put("Positive", 1.0);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
+		
+		// Parse the parameters.
+		BufferedReader reader = null;
+		try
+		{
+			reader = new BufferedReader(new FileReader(parameterFile));
+			String line = null;
+			while ((line = reader.readLine()) != null)
+			{
+				line = line.trim();
+				if (line.length() == 0)
+				{
+					// If the line is made up of all whitespace, then ignore the line.
+					continue;
+				}
+				
+				// Enter the feature values for this observation into the mapping of the temporary processing of the data.
+				String[] chunks = line.split("\t");
+				if (chunks[0].equals("Forests"))
+				{
+					numberOfForestsToCreate = Integer.parseInt(chunks[1]);
+				}
+				else if (chunks[0].equals("Trees"))
+				{
+					String[] trees = chunks[1].split(",");
+					forestSizesToUse = new int[trees.length];
+					for (int i = 0; i < trees.length; i++)
+					{
+						forestSizesToUse[i] = Integer.parseInt(trees[i]);
+					}
+				}
+				else if (chunks[0].equals("Mtry"))
+				{
+					mtry = Integer.parseInt(chunks[1]);
+				}
+				else if (chunks[0].equals("Features"))
+				{
+					String[] features = chunks[1].split(",");
+					featuresToRemove = Arrays.asList(features);
+				}
+				else if (chunks[0].equals("Threads"))
+				{
+					numberOfThreads = Integer.parseInt(chunks[1]);
+				}
+				else if (chunks[0].equals("Weight"))
+				{
+					classWeights.put(chunks[1], Double.parseDouble(chunks[2]));
+				}
+				else
+				{
+					// Got an unexpected line in the parameter file.
+					System.out.println("An unexpected argument was found in the file of the parameters:");
+					System.out.println(line);
+					System.exit(0);
+				}
+			}
+		}
+		catch (IOException e)
+		{
+			// Caught an error while reading the file. Indicate this and exit.
+			System.out.println("An error occurred while extracting the parameters.");
+			e.printStackTrace();
+			System.exit(0);
+		}
+		finally
+		{
+			try
+			{
+				if (reader != null)
+				{
+					reader.close();
+				}
+			}
+			catch (IOException e)
+			{
+				// Caught an error while closing the file. Indicate this and exit.
+				System.out.println("An error occurred while closing the parameters file.");
+				e.printStackTrace();
+				System.exit(0);
+			}
+		}
+
+		// Mandatory parameters for growing the forests.
+		boolean isCalculateOOB = true;  // OOB error is being calculated.
 
 		// Setup the directory for the results.
 		File resultsDirectory = new File(resultsDir);
@@ -163,14 +239,13 @@ public class ForestSizeOptimisation
 				Forest forest = new Forest();
 				Map<String, double[]> predictions = forest.main(inputFile, i, mtry, featuresToRemove, weights, seeds.get(j),
 						numberOfThreads, isCalculateOOB);
-				Map<String, Map<String, Integer>> confusionMatrix = PredictionAnalysis.calculateConfusionMatrix(classOfObservations, predictions);
 				
 				// Write out the results for this forest.
 				try
 				{
 					FileWriter resultsFile = new FileWriter(resultsLocation, true);
 					BufferedWriter resultsOutputWriter = new BufferedWriter(resultsFile);
-					resultsOutputWriter.write("\t" + Double.toString(PredictionAnalysis.calculateGMean(confusionMatrix, classOfObservations)));
+					resultsOutputWriter.write("\t" + Double.toString(PredictionAnalysis.calculateLogarithmicScore(classOfObservations, predictions)));
 					resultsOutputWriter.close();
 				}
 				catch (Exception e)
