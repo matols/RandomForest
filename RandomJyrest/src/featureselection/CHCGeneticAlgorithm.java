@@ -22,6 +22,7 @@ import java.util.Set;
 import randomjyrest.DetermineObservationProperties;
 import randomjyrest.Forest;
 import randomjyrest.PredictionAnalysis;
+import utilities.ImmutableFourValues;
 import utilities.ImmutableThreeValues;
 import utilities.ImmutableTwoValues;
 import utilities.IndexedDoubleData;
@@ -132,15 +133,19 @@ public class CHCGeneticAlgorithm
 		// Generate the initial population.
 		int generationsElapsed = 0;
 		List<List<String>> population = null;
+		List<Double> fitnessOfPopulation = null;
+	    List<Long> seedsOfPopulation = null;
 		if (isRunContinued)
 		{
 			if (isVerboseOutput)
 		    {
 		    	System.out.println("Now retrieving the population from the last generation of the previous run");
 		    }
-			ImmutableTwoValues<List<List<String>>, Integer> lastGeneration = retrieveInitialPopulation(resultsDir);
+			ImmutableFourValues<List<List<String>>, List<Double>, List<Long>, Integer> lastGeneration = retrieveInitialPopulation(resultsDir);
 			population = lastGeneration.first;
-			generationsElapsed = lastGeneration.second;
+			fitnessOfPopulation = lastGeneration.second;
+			seedsOfPopulation = lastGeneration.third;
+			generationsElapsed = lastGeneration.fourth;
 		}
 		else
 		{
@@ -149,12 +154,12 @@ public class CHCGeneticAlgorithm
 		    	System.out.println("Now generating the initial population");
 		    }
 		    population = initialisePopulation(featuresInDataset, featuresToRemove, populationSize);
-		}
 	    
-	    // Calculate the fitness of the initial population.
-	    ImmutableTwoValues<List<Double>, List<Long>> populationFitness = calculateFitness(population, inputFile, numberOfTrees, mtry, numberOfThreads, weights, observationClasses);
-	    List<Double> fitnessOfPopulation = populationFitness.first;
-	    List<Long> seedsOfPopulation = populationFitness.second;
+		    // Calculate the fitness of the initial population.
+		    ImmutableTwoValues<List<Double>, List<Long>> populationFitness = calculateFitness(population, inputFile, numberOfTrees, mtry, numberOfThreads, weights, observationClasses);
+		    fitnessOfPopulation = populationFitness.first;
+		    seedsOfPopulation = populationFitness.second;
+		}
 	    
 	    // Generate generations until convergence is reached.
 	    boolean isConvergenceReached = false;
@@ -460,9 +465,15 @@ public class CHCGeneticAlgorithm
 	    return new ImmutableThreeValues<List<List<String>>, List<Double>, List<Long>>(fittestIndividuals, fittestIndividualsFitness, fittestIndividualsSeeds);
 	}
 	
-	private static final ImmutableTwoValues<List<List<String>>, Integer> retrieveInitialPopulation(String populationDir)
+	/**
+	 * @param populationDir
+	 * @return
+	 */
+	private static final ImmutableFourValues<List<List<String>>, List<Double>, List<Long>, Integer> retrieveInitialPopulation(String populationDir)
 	{
 		List<List<String>> population = new ArrayList<List<String>>();
+		List<Double> fitnesses = new ArrayList<Double>();
+		List<Long> seeds =new ArrayList<Long>();
 		int lastGeneration = 0;
 		
 		File populationDirectory = new File(populationDir);
@@ -491,6 +502,8 @@ public class CHCGeneticAlgorithm
 			while ((line = reader.readLine()) != null)
 			{
 				String[] individualData = line.trim().split("\t");
+				fitnesses.add(Double.parseDouble(individualData[0]));
+				seeds.add(Long.parseLong(individualData[1]));
 				String[] individualFeatureSet = individualData[2].substring(1, individualData[2].length() - 1).split(", ");
 				population.add(Arrays.asList(individualFeatureSet));
 			}
@@ -520,7 +533,7 @@ public class CHCGeneticAlgorithm
 			}
 		}
 		
-		return new ImmutableTwoValues<List<List<String>>, Integer>(population, lastGeneration);
+		return new ImmutableFourValues<List<List<String>>, List<Double>, List<Long>, Integer>(population, fitnesses, seeds, lastGeneration);
 	}
 	
 }
