@@ -205,7 +205,7 @@ public class CHCGeneticAlgorithm
 	    	generationsElapsed += 1;
 	    	
 	    	// Write out the population.
-	    	recordPopulation(resultsDir, population, fitnessOfPopulation, seedsOfPopulation, generationsElapsed, populationSize);
+	    	recordPopulation(resultsDir, population, fitnessOfPopulation, seedsOfPopulation, generationsElapsed, populationSize, threshold);
 	    }
 	}
 	
@@ -336,14 +336,15 @@ public class CHCGeneticAlgorithm
 	 * @param populationSize
 	 */
 	private static final void recordPopulation(String resultsDir, List<List<String>> population, List<Double> fitnesses,
-			List<Long> seeds, int generationsElapsed, int populationSize)
+			List<Long> seeds, int generationsElapsed, int populationSize, int threshold)
 	{
 		String resultsLocation = resultsDir + "/" + String.format("%09d", generationsElapsed);
 		try
 		{
 			FileWriter resultsOutputFile = new FileWriter(resultsLocation);
 			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("Fitness\tSeedUsed\tIndividual");
+			resultsOutputWriter.write("Fitness\tSeedUsed\tIndividual\t");
+			resultsOutputWriter.write("(Threshold=" + Integer.toString(threshold) + ")");
 			resultsOutputWriter.newLine();
 			for (int i = 0; i < populationSize; i++)
 			{
