@@ -27,20 +27,20 @@ public class Main
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int numberOfTrees = 3000;  // Number of trees in the forest.
-		long seed = -5037396996932874440L;  // The seed for growing the forest.
+		int numberOfTrees = 1000;  // Number of trees in the forest.
+		long seed = 0L;  // The seed for growing the forest.
 
-		int mtry = 15;  // The number of features to consider at each split in a tree.
+		int mtry = 10;  // The number of features to consider at each split in a tree.
 		
 		// Specify the features in the input dataset that should be ignored.
-		String[] featuresToUse = new String[]{"N", "Polar", "Y", "AlternativeTranscripts", "BS_Lymph_Node", "BS_Thyroid", "Aliphatic", "PositivelyCharged", "P", "Q", "UPAccession", "Tiny", "NonSynonymousCoding", "D", "BS_Umbilical_Cord", "DS_Neonate", "NonPolar", "M", "BS_Bone_Marrow", "A", "BS_Connective_Tissue", "Sequence", "BS_Pituitary_Gland", "S", "C", "Basic", "Hydrophobicity", "BS_Adipose_Tissue", "R", "V", "H", "BS_Tonsil", "BS_Vascular", "Small", "TransmembraneHelices", "OGlycosylation", "BS_Esophagus", "BS_Muscle", "BS_Nerve", "BS_Mammary_Gland", "BS_Intestine", "Isoelectric", "BinaryPPI", "W", "Charged", "BS_Pharynx", "BS_Kidney", "PESTMotif", "LowComplexity", "BS_Parathyroid", "BS_Ascites", "DS_Fetus", "F", "BS_Embryonic_Tissue", "3Untranslated", "BS_Cervix", "DS_Embryoid_Body", "DS_Juvenile", "Turns", "BS_Ear", "BS_Prostate", "Phosphoserine"};
+		String[] featuresToUse = new String[]{};
 		List<String> featuresToRemove = Arrays.asList(featuresToUse);
 		
 		int numberOfThreads = 1;  // The number of threads to use when growing the trees.
 
 		// Define the weights for each class in the input dataset.
 		Map<String, Double> classWeights = new HashMap<String, Double>();
-		classWeights.put("Positive", 5.4);
+		classWeights.put("Positive", 1.0);
 		classWeights.put("Unlabelled", 1.0);
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
