@@ -10,6 +10,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -182,9 +183,9 @@ public class WeightAndMtryOptimisation
 			// Setup the results file.
 			FileWriter resultsOutputFile = new FileWriter(resultsLocation);
 			BufferedWriter resultsOutputWriter = new BufferedWriter(resultsOutputFile);
-			resultsOutputWriter.write("PositiveWeight\tUnlabelledWeight\tMtry\tLogarithmicScore\tGMean\tMCC\tF0.5\tF1\tF2\tAccuracy\tError\tTimeTakenPerRepetition(ms)\tPositives\t\tUnlabelleds\t");
+			resultsOutputWriter.write("PositiveWeight\tUnlabelledWeight\tMtry\tGMean\tMCC\tF0.5\tF1\tF2\tAccuracy\tError\tTimeTakenPerRepetition(ms)\tPositives\t\tUnlabelleds\t");
 			resultsOutputWriter.newLine();
-			resultsOutputWriter.write("\t\t\t\t\t\t\t\t\t\t\t\tTrue\tFalse\tTrue\tFalse");
+			resultsOutputWriter.write("\t\t\t\t\t\t\t\t\t\t\tTrue\tFalse\tTrue\tFalse");
 			resultsOutputWriter.newLine();
 			resultsOutputWriter.close();
 
@@ -211,9 +212,14 @@ public class WeightAndMtryOptimisation
 			System.exit(0);
 		}
 		
-		// Determine the class of each observation.
+		// Determine the number of each observation type.
+		
+		
+		// Determine the class of each observation and the number of each class.
 		List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(inputFile);
-		int numberOfObservations = classOfObservations.size();
+		Map<String, Integer> countsOfEachClass = new HashMap<String, Integer>();
+		countsOfEachClass.put("Positive", Collections.frequency(classOfObservations, "Positive") * numberOfForestsToCreate);
+		countsOfEachClass.put("Unlabelled", Collections.frequency(classOfObservations, "Unlabelled") * numberOfForestsToCreate);
 
 		// Generate all the random seeds to use in growing the forests. The same numberOfForestsToCreate seeds will be used for every weight/mtry
 		// combination. This ensures that the only difference in the results is due to the chosen weight/mtry combination.
@@ -256,10 +262,13 @@ public class WeightAndMtryOptimisation
 					// Determine the weight vector for this positive/unlabelled weight combination.
 					double[] weights = determineObservationWeights(classOfObservations, "Positive", pWeight, "Unlabelled", uWeight);
 					
-					// Setup the prediction output.
-					Map<String, double[]> predictions = new HashMap<String, double[]>();
-					predictions.put("Positive", new double[classOfObservations.size()]);
-					predictions.put("Unlabelled", new double[classOfObservations.size()]);
+					// Setup the aggregate confusion matrix.
+					Map<String, Map<String, Integer>> confusionMatrix = new HashMap<String, Map<String, Integer>>();
+					Map<String, Integer> emptyConfMat = new HashMap<String, Integer>();
+					emptyConfMat.put("Correct", 0);
+					emptyConfMat.put("Incorrect", 0);
+					confusionMatrix.put("Positive", new HashMap<String, Integer>(emptyConfMat));
+					confusionMatrix.put("Unlabelled", new HashMap<String, Integer>(emptyConfMat));
 					
 					long timeTaken = 0l;
 					for (int i = 0; i < numberOfForestsToCreate; i++)
@@ -272,22 +281,18 @@ public class WeightAndMtryOptimisation
 						Date endTime = new Date();
 						timeTaken += (endTime.getTime() - startTime.getTime());
 						
-						// Add the predictions from this forest to the aggregate results.
-						for (Map.Entry<String, double[]> entry : predictionsFromForest.entrySet())
+						Map<String, Map<String, Integer>> confMat = PredictionAnalysis.calculateConfusionMatrix(classOfObservations, predictionsFromForest);
+						for (String s : confMat.keySet())
 						{
-							String classOfPredictions = entry.getKey();
-							double[] oldPredictedWeights = predictions.get(classOfPredictions);
-							double[] newPredictedWeights = entry.getValue();
-							for (int j = 0; j < numberOfObservations; j++)
+							for (String p : confMat.get(s).keySet())
 							{
-								oldPredictedWeights[j] += newPredictedWeights[j];
+								int oldPrediction = confusionMatrix.get(s).get(p);
+								int newPrediction = confMat.get(s).get(p) + oldPrediction;
+								confusionMatrix.get(s).put(p, newPrediction);
 							}
 						}
 					}
 					timeTaken /= numberOfForestsToCreate;
-					
-					// Evaluate the aggregate predictions.
-					Map<String, Map<String, Integer>> confusionMatrix = PredictionAnalysis.calculateConfusionMatrix(classOfObservations, predictions);
 					
 					// Record the results of this weight combination.
 					try
@@ -300,9 +305,7 @@ public class WeightAndMtryOptimisation
 						resultsOutputWriter.write("\t");
 						resultsOutputWriter.write(Integer.toString(mtry));
 						resultsOutputWriter.write("\t");
-						resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateLogarithmicScore(classOfObservations, predictions)));
-						resultsOutputWriter.write("\t");
-						resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateGMean(confusionMatrix, classOfObservations)));
+						resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateGMean(confusionMatrix, countsOfEachClass)));
 						resultsOutputWriter.write("\t");
 						resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateMCC(confusionMatrix)));
 						resultsOutputWriter.write("\t");

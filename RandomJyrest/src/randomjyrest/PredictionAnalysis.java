@@ -129,6 +129,25 @@ public final class PredictionAnalysis
 		double fMeasure = (1 + (fType * fType)) * ((precision * recall) / ((fType * fType * precision) + recall));
 		return fMeasure;
 	}
+
+	/**
+	 * @param confusionMatrix
+	 * @param countsOfEachClass
+	 * @return
+	 */
+	public static final double calculateGMean(Map<String, Map<String, Integer>> confusionMatrix, Map<String, Integer> countsOfEachClass)
+	{
+		double gMean = 1.0;
+		for (Map.Entry<String, Map<String, Integer>> entry : confusionMatrix.entrySet())
+		{
+			Map<String, Integer> predictions = entry.getValue();
+			double correct = predictions.get("Correct");
+			double recall = correct / countsOfEachClass.get(entry.getKey());
+			gMean *= recall;
+		}
+		gMean = Math.pow(gMean, (1.0 / confusionMatrix.size()));
+		return gMean;
+	}
 	
 	/**
 	 * @param confusionMatrix
