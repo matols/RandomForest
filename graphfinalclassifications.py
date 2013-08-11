@@ -1,6 +1,8 @@
 import os
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
+import numpy as np
+import numpy.ma
 import shutil
 import sys
 
@@ -142,6 +144,29 @@ def generate_graph(unlabelledPosWeightFraction, positivePosWeightFraction, saveL
     gs.update(left=0, right=1, bottom=0, top=1, wspace=0.05, hspace=0.05)
     histPlot = plt.subplot(gs[1:-1, 1:-1])
     axes = currentFigure.gca()
+	
+#	# Determine the numbers of observations that fall in each bin.
+#    bins = [i / float(numberOfBins) for i in range(numberOfBins + 1)]
+#    xValues = np.array(bins[:-1])
+#    unlabelledCount = []
+#    positiveCount = []
+#    for i in range(numberOfBins):
+#        minVal = bins[i]
+#        maxVal = bins[i + 1]
+#        unlabelledCount.append(len([j for j in unlabelledPosWeightFraction if j >= minVal and j < maxVal]))
+#        positiveCount.append(len([j for j in positivePosWeightFraction if j >= minVal and j < maxVal]))
+#    unlabelledCount = np.array(unlabelledCount)
+#    positiveCount = np.array(positiveCount)
+    
+#    # Create the masks.
+#    unlabelledGreaterMask = numpy.ma.where(unlabelledCount >= positiveCount)
+#    positiveGreaterMask = numpy.ma.where(positiveCount >= unlabelledCount)
+    
+#    # Create the bars.
+#    barWidth = 1 / float(numberOfBins)
+#    p1 = plt.bar(xValues[unlabelledGreaterMask], unlabelledCount[unlabelledGreaterMask], color='r', alpha=1, edgecolor='none', linewidth=0, width=barWidth, log=False)
+#    p2 = plt.bar(xValues, positiveCount, color='b', alpha=1, edgecolor='none', linewidth=0, width=barWidth, log=False)
+#    p3 = plt.bar(xValues[positiveGreaterMask], unlabelledCount[positiveGreaterMask], color='r', alpha=1, edgecolor='none', linewidth=0, width=barWidth, log=False)
 
     # Plot the protein predictions.
     bins = [i / float(numberOfBins) for i in range(numberOfBins + 1)]
