@@ -33,8 +33,8 @@ public class Main
 		int mtry = 10;  // The number of features to consider at each split in a tree.
 		
 		// Specify the features in the input dataset that should be ignored.
-		String[] featuresToUse = new String[]{};
-		List<String> featuresToRemove = Arrays.asList(featuresToUse);
+		String[] featuresToIgnore = new String[]{};
+		List<String> featuresToRemove = Arrays.asList(featuresToIgnore);
 		
 		int numberOfThreads = 1;  // The number of threads to use when growing the trees.
 
@@ -110,7 +110,11 @@ public class Main
 		Forest forest = new Forest();
 		Map<String, double[]> oobPredictions = forest.main(trainingDataset, numberOfTrees, mtry, featuresToRemove, trainingSetWeights,
 				seed, numberOfThreads, isCalcualteOOB);
-		Map<String, double[]> testSetPredictions = forest.predict(testingDataset, featuresToRemove);
+		Map<String, double[]> testSetPredictions = null;
+		if (testingDataset != null)
+		{
+			testSetPredictions = forest.predict(testingDataset, featuresToRemove);
+		}
 		
 		// Define the names of the class and UniProt accession columns.
 		String classFeatureColumnName = "Classification";
