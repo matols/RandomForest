@@ -191,7 +191,7 @@ public class GAFeatureSelection
 				parameterOutputWriter.newLine();
 				parameterOutputWriter.write("Features\t" + featuresToRemove.toString());
 				parameterOutputWriter.newLine();
-				parameterOutputWriter.write("Attepmts\t" + Integer.toString(generationsWithoutChange));
+				parameterOutputWriter.write("Attempts\t" + Integer.toString(generationsWithoutChange));
 				parameterOutputWriter.newLine();
 				for (String s : classWeights.keySet())
 				{
