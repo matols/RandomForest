@@ -1,5 +1,6 @@
 import argparse
 import numpy
+import os
 import random
 import sys
 
@@ -9,7 +10,7 @@ def main(args):
 
     parser = argparse.ArgumentParser(description='Process the command line input for the significance testing.')
     parser.add_argument('dataset', help='the location containing the dataset')
-    parser.add_argument('output', help='the location to save the test results')
+    parser.add_argument('output', help='the location to save the results')
     parser.add_argument('-f', '--features', default='', help='the features to remove (csv)')
     parser.add_argument('-N', '--permutations', default=1000, type=int, help='the number of permutations to perform')
     parser.add_argument('-t', '--statistic', default='mean', choices=['mean', 'median', 'ranksum'], help='the test statistic')
@@ -25,39 +26,85 @@ def main(args):
     alphaLevels = [0.05] if not args.alpha else [float(i) for i in args.alpha]
     correctionAlpha = args.correct
     
-    # Determine original permutation, number of positive proteins and statistics about the features.
+    # Setup the results directory and record the parameters.
+    statsFile = resultsLocation + '/StatisticalTesting.txt'
+    parameterFile = resultsLocation + '/ParametersUsed.txt'
+    if os.path.exists(resultsLocation):
+        print('The results directory already exists.')
+        sys.exit()
+    os.mkdir(resultsLocation)
+    writeParams = open(parameterFile, 'w')
+    writeParams.write('Dataset Used - ' + args.dataset + '\n')
+    writeParams.write('Features Removed - ' + args.features + '\n')
+    writeParams.write('Permutations Used - ' + str(numberOfPermutations) + '\n')
+    writeParams.write('Test Statistic - ' + args.statistic + '\n')
+    writeParams.write('Alpha Levels - ' + ('0.05' if not args.alpha else ','.join(args.alpha)) + '\n')
+    writeParams.write('Multiple Comparison Correction - ' + ('Performed With Alpha = ' + str(correctionAlpha)) if correctionAlpha else 'Not Performed' + '\n')
+    writeParams.close()
+    
+    # Determine the original permutation and number of positive proteins.
     originalPositiveProteins = [i for i in range(len(dataset)) if dataset['Classification'][i] == b'Positive']
     originalUnlabeledProteins = [i for i in range(len(dataset)) if i not in originalPositiveProteins]
     numberOfPositiveProteins = len(originalPositiveProteins)
-    permutationIndices = [i for i in range(len(dataset))]
+    
+    # Determine the ranks for the observations in the dataset.
+    indicesToRanks = {}
+    for i in [j for j in dataset.dtype.names if j != 'Classification']:
+        featureData = list(dataset[i])
+        sortedFeatureData = sorted(zip(featureData, range(len(dataset))))
+        ranks = {}
+        featureValuesToIndices = {}
+        for j in zip(sortedFeatureData, [j + 1 for j in range(len(sortedFeatureData))]):
+            featureValue = j[0][0]
+            featureIndex = j[0][1]
+            if featureValue in ranks:
+                ranks[featureValue] += j[1]
+                featureValuesToIndices[featureValue].append(featureIndex)
+            else:
+                ranks[featureValue] = j[1]
+                featureValuesToIndices[featureValue] = [featureIndex]
+
+        indicesToRanks[i] = {}
+        for key in ranks:
+            averageRank = ranks[key] / featureData.count(key)
+            for k in featureValuesToIndices[key]:
+                indicesToRanks[i][k] = averageRank
+
+    # Calculate statistics about the dataset.
     originalPositiveMeans, originalUnlabelledMeans = test_statistic_mean(dataset, originalPositiveProteins, originalUnlabeledProteins)
     originalPositiveMedians, originalUnlabelledMedians = test_statistic_median(dataset, originalPositiveProteins, originalUnlabeledProteins)
-    originalPositiveRankSums, originalUnlabelledRankSums = test_statistic_ranksum(dataset, originalPositiveProteins, originalUnlabeledProteins)
+    originalPositiveRankSums, originalUnlabelledRankSums = test_statistic_ranksum(dataset, originalPositiveProteins, originalUnlabeledProteins, indicesToRanks)
 
     # Determine the original test statistic for each feature, along with its sign.
-    originalPositiveStat, originalUnlabelledStat = testStatistic(dataset, originalPositiveProteins, originalUnlabeledProteins)
+    originalPositiveStat, originalUnlabelledStat = testStatistic(dataset, originalPositiveProteins, originalUnlabeledProteins, indicesToRanks)
     originalStatistic = dict([(i, originalPositiveStat[i] - originalUnlabelledStat[i]) for i in originalPositiveStat])
     originalStatisticSigns = dict([(i, originalStatistic[i] < 0) for i in originalStatistic])
 
-    largerEffectPermutations = dict([(i, 1) for i in originalStatisticSigns])
-    permutationsChecked = set([])
-    permutationsChecked.add(','.join([str(i) for i in originalPositiveProteins]))
-    for i in range(numberOfPermutations):
-        if len(permutationsChecked) % 1000 == 0:
-            print(len(permutationsChecked))
-
-        # Determine the next permutation to use.
+    # Determine the permutations to used.
+    permutationIndices = [i for i in range(len(dataset))]
+    permutationsToCheck = set([])
+    print(str(len(permutationsToCheck)) + ' permutations created')
+    permutationsToCheck.add(','.join([str(i) for i in originalPositiveProteins]))
+    while len(permutationsToCheck) < (numberOfPermutations + 1):
+        if len(permutationsToCheck)  % 10000 == 0:
+            print(str(len(permutationsToCheck)) + ' permutations created')
         permutation = sorted(random.sample(permutationIndices, numberOfPositiveProteins))
-        permutationAsStr = ','.join([str(i) for i in permutation])
-        while permutationAsStr in permutationsChecked:
-            permutation = sorted(random.sample(permutationIndices, numberOfPositiveProteins))
-            permutationAsStr = ','.join([str(i) for i in permutation])
-        permutationsChecked.add(permutationAsStr)
+        permutationAsStr = ','.join([str(i) for i in permutation])      
+        permutationsToCheck.add(permutationAsStr)
 
-        # Determine the unlablled protein indices.
-        unlabelledProteinIndices = [i for i in range(len(dataset)) if i not in permutation]
+    # Calculate the test statistic for each permutation.
+    largerEffectPermutations = dict([(i, 0) for i in originalStatisticSigns])
+    numberOfPermsChecked = 0
+    for i in permutationsToCheck:
+        if numberOfPermsChecked % 10000 == 0:
+            print(str(numberOfPermsChecked) + ' permutations checked')
+        numberOfPermsChecked += 1
 
-        positiveStat, unlabelledStat = testStatistic(dataset, permutation, unlabelledProteinIndices)
+        # Determine the protein indices.
+        positiveProteinIndices = [int(j) for j in i.split(',')]
+        unlabelledProteinIndices = [j for j in range(len(dataset)) if j not in positiveProteinIndices]
+
+        positiveStat, unlabelledStat = testStatistic(dataset, positiveProteinIndices, unlabelledProteinIndices, indicesToRanks)
         permutationStatistic = dict([(i, positiveStat[i] - unlabelledStat[i]) for i in positiveStat])
         for j in permutationStatistic:
             if originalStatisticSigns[j]:
@@ -82,7 +129,7 @@ def main(args):
                 correctedSignificance[feature] = 'False'
                 isNoneFailed = False
 
-    writeResults = open(resultsLocation, 'w')
+    writeResults = open(statsFile, 'w')
     writeResults.write('Feature\tPositiveMean\tPositiveMedian\tPositiveRankSum\tUnlabelledMean\tUnlabelledMedian\tUnlabelledRankSum\tPermutations\tOriginalStatistic\tStatsNoLessExtreme\tPValue')
     for i in alphaLevels:
         writeResults.write('\tSignificantAt-' + str(i))
@@ -101,7 +148,7 @@ def main(args):
         writeResults.write('\n')
     writeResults.close()
 
-def test_statistic_mean(dataset, indicesOfPositiveClass, indicesOfUnlabelledClass):
+def test_statistic_mean(dataset, indicesOfPositiveClass, indicesOfUnlabelledClass, dummyInput=None):
     """Returns the inter-class difference in the mean of each feature.
     """
 
@@ -115,7 +162,7 @@ def test_statistic_mean(dataset, indicesOfPositiveClass, indicesOfUnlabelledClas
     
     return resultsPositive, resultsUnlabelled
 
-def test_statistic_median(dataset, indicesOfPositiveClass, indicesOfUnlabelledClass):
+def test_statistic_median(dataset, indicesOfPositiveClass, indicesOfUnlabelledClass, dummyInput=None):
     """Returns the inter-class difference in the median of each feature.
     """
 
@@ -129,29 +176,17 @@ def test_statistic_median(dataset, indicesOfPositiveClass, indicesOfUnlabelledCl
     
     return resultsPositive, resultsUnlabelled
 
-def test_statistic_ranksum(dataset, indicesOfPositiveClass, indicesOfUnlabelledClass):
+def test_statistic_ranksum(dataset, indicesOfPositiveClass, indicesOfUnlabelledClass, indicesToRanks):
     """Returns the rank sum of each feature for the Positive and Unlabelled classes.
     """
 
     resultsPositive = {}
     resultsUnlabelled = {}
-    for i in [j for j in dataset.dtype.names if j != 'Classification']:
-        allFeatureData = sorted(dataset[i])
-        ranks = {}
-        for j in zip(allFeatureData, [i + 1 for i in range(len(allFeatureData))]):
-            if j[0] in ranks:
-                ranks[j[0]] += j[1]
-            else:
-                ranks[j[0]] = j[1]
-        for key in ranks:
-            ranks[key] /= allFeatureData.count(key)
-        positiveProteinValues = dataset[i][indicesOfPositiveClass]
-        positiveRanks = [ranks[i] for i in positiveProteinValues]
-        sumOfPositiveRanks = sum(positiveRanks)
+    for i in indicesToRanks:
+        ranks = indicesToRanks[i]
+        sumOfPositiveRanks = sum([ranks[j] for j in indicesOfPositiveClass])
+        sumOfUnlabelledRanks = sum([ranks[j] for j in indicesOfUnlabelledClass])
         resultsPositive[i] = sumOfPositiveRanks
-        unlabelledProteinValues = dataset[i][indicesOfUnlabelledClass]
-        unlabelledRanks = [ranks[i] for i in unlabelledProteinValues]
-        sumOfUnlabelledRanks = sum(unlabelledRanks)
         resultsUnlabelled[i] = sumOfUnlabelledRanks
     
     return resultsPositive, resultsUnlabelled
