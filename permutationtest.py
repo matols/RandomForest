@@ -95,22 +95,24 @@ def main(args):
     # Calculate the test statistic for each permutation.
     largerEffectPermutations = dict([(i, 0) for i in originalStatisticSigns])
     numberOfPermsChecked = 0
-    for i in permutationsToCheck:
+    while permutationsToCheck:
         if numberOfPermsChecked % 10000 == 0:
             print(str(numberOfPermsChecked) + ' permutations checked')
         numberOfPermsChecked += 1
 
+        currentPermutaion = permutationsToCheck.pop()
+
         # Determine the protein indices.
-        positiveProteinIndices = [int(j) for j in i.split(',')]
-        unlabelledProteinIndices = [j for j in range(len(dataset)) if j not in positiveProteinIndices]
+        positiveProteinIndices = [int(i) for i in currentPermutaion.split(',')]
+        unlabelledProteinIndices = [i for i in range(len(dataset)) if i not in positiveProteinIndices]
 
         positiveStat, unlabelledStat = testStatistic(dataset, positiveProteinIndices, unlabelledProteinIndices, indicesToRanks)
         permutationStatistic = dict([(i, positiveStat[i] - unlabelledStat[i]) for i in positiveStat])
-        for j in permutationStatistic:
-            if originalStatisticSigns[j]:
-                largerEffectPermutations[j] += 1 if permutationStatistic[j] <= originalStatistic[j] else 0
+        for i in permutationStatistic:
+            if originalStatisticSigns[i]:
+                largerEffectPermutations[i] += 1 if permutationStatistic[i] <= originalStatistic[i] else 0
             else:
-                largerEffectPermutations[j] += 1 if permutationStatistic[j] >= originalStatistic[j] else 0
+                largerEffectPermutations[i] += 1 if permutationStatistic[i] >= originalStatistic[i] else 0
 
     pValues = dict([(i, largerEffectPermutations[i] / (numberOfPermutations + 1)) for i in largerEffectPermutations])
 
