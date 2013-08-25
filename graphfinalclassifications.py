@@ -1,4 +1,5 @@
 import os
+import math
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,11 +18,7 @@ def main(args):
     if os.path.exists(outputDirectory):
         shutil.rmtree(outputDirectory)
     os.mkdir(outputDirectory)
-
-    ###################################################################
-    ## Parameters
-    numberOfBins = 30
-    ###################################################################
+    numberOfBins = 10 if len(args) < 5 else int(args[4])  # The number of bins to use in the histograms.
 
     # Parse the protein predictions.
     proteinData = parse_predictions(predictionsFile)
@@ -112,30 +109,82 @@ def parse_input(proteinData, proteinAccessions, outputDirectory, numberOfBins=30
         writeUnlabelleds.write(i[0] + '\t' + str(i[1]) + '\n')
     writeUnlabelleds.close()
 
-    # Write ou statistics about the confusion matrix.
-    writeConfusion = open(outputDirectory + '/ConfusionMatrix.txt', 'w')
-    writeConfusion.write('PAsP\tUAsP\tUAsU\tPAsU\n')
-    writeConfusion.write(str(len(positivePosWeightFraction) - len(positivePredictedUnlabelled)))  # The number of positive proteins predicted as positive (TPs).
-    writeConfusion.write('\t')
-    writeConfusion.write(str(len(unlabelledPredictedPositive)))  # The number of unlabelled proteins predicted as positive (FPs).
-    writeConfusion.write('\t')
-    writeConfusion.write(str(len(unlabelledPosWeightFraction) - len(unlabelledPredictedPositive)))  # The number of unlabelled proteins predicted as unlabelled (TNs).
-    writeConfusion.write('\t')
-    writeConfusion.write(str(len(positivePredictedUnlabelled)))  # The number of positive proteins predicted as unlabelled (FNs).
-    writeConfusion.write('\n')
-    writeConfusion.close()
+    # Create the confusion matrix.
+    generate_confusion_matrix(len(positivePosWeightFraction) - len(positivePredictedUnlabelled), len(positivePredictedUnlabelled),
+	    len(unlabelledPredictedPositive), len(unlabelledPosWeightFraction) - len(unlabelledPredictedPositive), outputDirectory + '/ConfusionMatrix')
 
     # Create the histogram for the predictions of all the proteins.
-    generate_graph(unlabelledPosWeightFraction, positivePosWeightFraction, outputDirectory + '/ProteinPredictions.png', numberOfBins)
+    generate_histogram(unlabelledPosWeightFraction, positivePosWeightFraction, outputDirectory + '/ProteinPredictions.png', numberOfBins)
 
-def generate_graph(unlabelledPosWeightFraction, positivePosWeightFraction, saveLocation, numberOfBins=10):
+def generate_confusion_matrix(truePositives, falseNegatives, falsePositives, trueNegatives, figureSaveLocation):
+    """Create a cofusion matrix image.
+
+    @type figureSaveLocation - str
+    @use  figureSaveLocation - The location where the figure will be saved.
     """
-    TODO
-    Control legend placement
-    set colors of the bars          facecolor=['#FF0000', '#000000'] (red for U and black for P)
-    set edge colors of the bars     edgecolor=['#FF0000', '#000000'] (red for U and black for P)
-    maybe put the number of occurences on top of each bar (so like blue bar from 0 to 10 has a 10 on top of it and then the green stack from 10 to 12 has a 2 on top of it)
-    make only one 0 where the axes meet
+    
+    # Define the axes sizes.
+    axisMinValue = 0
+    axisMaxValue = 8
+    
+    # Define the lines used for the confusion matrix.
+    lineXCoords = [[axisMinValue, axisMaxValue], [axisMinValue, axisMaxValue],  # Lines at the top and bottom of the matrix.
+                   [2, 2], [6, 6],                                              # Lines at the left and right of the matrix.
+                   [axisMinValue + 1, axisMaxValue],                            # Line separating true classes.
+                   [4, 4],                                                      # Line separating predicted classes.
+                   [axisMinValue + 1, axisMinValue + 1],                        # Line under true class heading.
+                   [2, 6]]                                                      # Line under predicted class heading.
+    lineYCoords = [[6, 6], [2, 2],                                              # Lines at the left and right of the matrix.
+                   [axisMinValue, axisMaxValue], [axisMinValue, axisMaxValue],  # Lines at the top and bottom of the matrix.
+                   [4, 4],                                                      # Line separating true classes.
+                   [axisMinValue, axisMaxValue - 1],                            # Line separating predicted classes.
+                   [2, 6],                                                      # Line under true class heading.
+                   [axisMaxValue - 1, axisMaxValue - 1]]                        # Line under predicted class heading.
+    
+    # Initialise the figure.
+    currentFigure = plt.figure()
+    gs = gridspec.GridSpec(10, 10)
+    gs.update(left=0, right=1, bottom=0, top=1, wspace=0.05)
+    axes = plt.subplot(gs[1:-1, 1:-1])
+    axes.axis('equal')
+    axes.axis('off')
+    axes.set_xlim(left=axisMinValue, right=axisMaxValue)
+    axes.set_ylim(bottom=axisMinValue, top=axisMaxValue)
+    
+    # Draw the lines for the confusion matrix.
+    for x, y in zip(lineXCoords, lineYCoords):
+        axes.plot(x, y, markersize=0, color='black', linestyle='-', linewidth=2)
+
+    # Add the text.
+    axes.text(axisMinValue + 0.5, 4, 'True Class', size=20, color='black', horizontalalignment='center', verticalalignment='center', rotation=90)
+    axes.text(axisMinValue + 1.5, 3, 'Unlabelled', size=15, color='black', horizontalalignment='center', verticalalignment='center', rotation=90)
+    axes.text(axisMinValue + 1.5, 5, 'Positive', size=15, color='black', horizontalalignment='center', verticalalignment='center', rotation=90)
+
+    axes.text(4, axisMaxValue - 0.5, 'Predicted Class', size=20, color='black', horizontalalignment='center', verticalalignment='center')
+    axes.text(5, axisMaxValue - 1.5, 'Unlabelled', size=15, color='black', horizontalalignment='center', verticalalignment='center')
+    axes.text(3, axisMaxValue - 1.5, 'Positive', size=15, color='black', horizontalalignment='center', verticalalignment='center')
+
+    axes.text(3, 5, str(truePositives), size=20, color='black', horizontalalignment='center', verticalalignment='center')
+    axes.text(5, 5, str(falseNegatives), size=20, color='black', horizontalalignment='center', verticalalignment='center')
+    axes.text(3, 3, str(falsePositives), size=20, color='black', horizontalalignment='center', verticalalignment='center')
+    axes.text(5, 3, str(trueNegatives), size=20, color='black', horizontalalignment='center', verticalalignment='center')
+
+    axes.text(3, axisMinValue + 1, str(truePositives + falsePositives), size=20, color='black', horizontalalignment='center', verticalalignment='center')
+    axes.text(5, axisMinValue + 1, str(trueNegatives + falseNegatives), size=20, color='black', horizontalalignment='center', verticalalignment='center')
+    axes.text(axisMaxValue - 1, 5, str(truePositives + falseNegatives), size=20, color='black', horizontalalignment='center', verticalalignment='center')
+    axes.text(axisMaxValue - 1, 3, str(trueNegatives + falsePositives), size=20, color='black', horizontalalignment='center', verticalalignment='center')
+
+    axes.text(axisMaxValue - 1, axisMinValue + 1, str(truePositives + falseNegatives + falsePositives + trueNegatives), size=20, color='black', horizontalalignment='center', verticalalignment='center')
+
+    # Finalise the figure.
+    axes.xaxis.set_visible(False)
+    axes.yaxis.set_visible(False)
+
+    # Save the figure.
+    plt.savefig(figureSaveLocation, bbox_inches='tight', transparent=True)
+
+def generate_histogram(unlabelledPosWeightFraction, positivePosWeightFraction, saveLocation, numberOfBins=10):
+    """
     """
 
     # Create the figure
@@ -144,37 +193,60 @@ def generate_graph(unlabelledPosWeightFraction, positivePosWeightFraction, saveL
     gs.update(left=0, right=1, bottom=0, top=1, wspace=0.05, hspace=0.05)
     histPlot = plt.subplot(gs[1:-1, 1:-1])
     axes = currentFigure.gca()
-	
-#	# Determine the numbers of observations that fall in each bin.
-#    bins = [i / float(numberOfBins) for i in range(numberOfBins + 1)]
-#    xValues = np.array(bins[:-1])
-#    unlabelledCount = []
-#    positiveCount = []
-#    for i in range(numberOfBins):
-#        minVal = bins[i]
-#        maxVal = bins[i + 1]
-#        unlabelledCount.append(len([j for j in unlabelledPosWeightFraction if j >= minVal and j < maxVal]))
-#        positiveCount.append(len([j for j in positivePosWeightFraction if j >= minVal and j < maxVal]))
-#    unlabelledCount = np.array(unlabelledCount)
-#    positiveCount = np.array(positiveCount)
-    
-#    # Create the masks.
-#    unlabelledGreaterMask = numpy.ma.where(unlabelledCount >= positiveCount)
-#    positiveGreaterMask = numpy.ma.where(positiveCount >= unlabelledCount)
-    
-#    # Create the bars.
-#    barWidth = 1 / float(numberOfBins)
-#    p1 = plt.bar(xValues[unlabelledGreaterMask], unlabelledCount[unlabelledGreaterMask], color='r', alpha=1, edgecolor='none', linewidth=0, width=barWidth, log=False)
-#    p2 = plt.bar(xValues, positiveCount, color='b', alpha=1, edgecolor='none', linewidth=0, width=barWidth, log=False)
-#    p3 = plt.bar(xValues[positiveGreaterMask], unlabelledCount[positiveGreaterMask], color='r', alpha=1, edgecolor='none', linewidth=0, width=barWidth, log=False)
+    axes.set_xlabel('Fraction of Positive Weight', fontsize=15)
+    axes.set_ylabel('Frequency', fontsize=15)
+    axes.set_xlim(left=0.0, right=1.0)
 
     # Plot the protein predictions.
     bins = [i / float(numberOfBins) for i in range(numberOfBins + 1)]
-    axes.hist([unlabelledPosWeightFraction, positivePosWeightFraction], bins, label=['Non-Target', 'Target'], align='mid', histtype='barstacked', rwidth=1.0)
-    axes.legend()
+    axes.set_xticks(bins)
+    axes.set_yticks([0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0])
+    binRelativeWidth = 0.9
+    labelOffsetFromBinCentre = (0.5 * binRelativeWidth) * 0.5
 
+    numberOfPositiveObservations = len(positivePosWeightFraction)
+    positiveWeights = np.ones_like(positivePosWeightFraction) / numberOfPositiveObservations
+    numberOfUnlabelledObservations = len(unlabelledPosWeightFraction)
+    unlabelledWeights = np.ones_like(unlabelledPosWeightFraction) / numberOfUnlabelledObservations
+    counts, bins, patches = axes.hist([unlabelledPosWeightFraction, positivePosWeightFraction], bins, color=['#808080', '#000000'], label=['Unlabelled', 'Positive'],
+        align='mid', rwidth=binRelativeWidth, linewidth=0.0, weights=[unlabelledWeights, positiveWeights])
+
+    maxUnlabelledCount = 0.0
+    unlabelledCounts = counts[0]
+    unlabelledBinCentres = (0.5 - labelOffsetFromBinCentre) * np.diff(bins) + bins[:-1]
+    for count, x in zip(unlabelledCounts, unlabelledBinCentres):
+        if count > maxUnlabelledCount:
+            maxUnlabelledCount = count
+        # Label the bar with the number of observations in the bin.
+        numberOfObservations = int(round(count * numberOfUnlabelledObservations))
+        if numberOfObservations:
+            axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 10), textcoords='offset points',
+                verticalalignment='top', horizontalalignment='center', size=10, weight='bold')
+
+    maxPositiveCount = 0.0
+    positiveCounts = counts[1]
+    positiveBinCentres = (0.5 + labelOffsetFromBinCentre) * np.diff(bins) + bins[:-1]
+    for count, x in zip(positiveCounts, positiveBinCentres):
+        if count > maxPositiveCount:
+            maxPositiveCount = count
+        # Label the bar with the number of observations in the bin.
+        numberOfObservations = int(round(count * numberOfPositiveObservations))
+        if numberOfObservations:
+            axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 10), textcoords='offset points',
+                verticalalignment='top', horizontalalignment='center', size=10, weight='bold')
+
+    # Create the leggend.
+    axes.legend(loc='upper center', bbox_to_anchor=(0.5, 1.1), fancybox=True, shadow=True, ncol=2)
+
+    # Set the maxium y axis value by:
+    #    Finding the height of the tallest bar, x
+    #    Finding the smallest factor of 0.05 greater than x.
+    #    Adding 0.05 to the smallest factor.
+    # For example, this will give 0.7 when x = 0.64 and 0.3 when x = 0.21.
+    axes.set_ylim(bottom=0.0, top=(math.ceil(max(maxUnlabelledCount, maxPositiveCount) / 0.05) * 0.05) + 0.05)
+
+    # Save the figure.
     plt.savefig(saveLocation, bbox_inches='tight', transparent=True)
-    plt.show()
 
 if __name__ == '__main__':
     main(sys.argv[1:])
