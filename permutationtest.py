@@ -44,7 +44,7 @@ def main(args):
     
     # Determine the original permutation and number of positive proteins.
     originalPositiveProteins = [i for i in range(len(dataset)) if dataset['Classification'][i] == b'Positive']
-    originalUnlabeledProteins = [i for i in range(len(dataset)) if i not in originalPositiveProteins]
+    originalUnlabelledProteins = [i for i in range(len(dataset)) if i not in originalPositiveProteins]
     numberOfPositiveProteins = len(originalPositiveProteins)
     
     # Determine the ranks for the observations in the dataset.
@@ -71,12 +71,12 @@ def main(args):
                 indicesToRanks[i][k] = averageRank
 
     # Calculate statistics about the dataset.
-    originalPositiveMeans, originalUnlabelledMeans = test_statistic_mean(dataset, originalPositiveProteins, originalUnlabeledProteins)
-    originalPositiveMedians, originalUnlabelledMedians = test_statistic_median(dataset, originalPositiveProteins, originalUnlabeledProteins)
-    originalPositiveRankSums, originalUnlabelledRankSums = test_statistic_ranksum(dataset, originalPositiveProteins, originalUnlabeledProteins, indicesToRanks)
+    originalPositiveMeans, originalUnlabelledMeans = test_statistic_mean(dataset, originalPositiveProteins, originalUnlabelledProteins)
+    originalPositiveMedians, originalUnlabelledMedians = test_statistic_median(dataset, originalPositiveProteins, originalUnlabelledProteins)
+    originalPositiveRankSums, originalUnlabelledRankSums = test_statistic_ranksum(dataset, originalPositiveProteins, originalUnlabelledProteins, indicesToRanks)
 
     # Determine the original test statistic for each feature, along with its sign.
-    originalPositiveStat, originalUnlabelledStat = testStatistic(dataset, originalPositiveProteins, originalUnlabeledProteins, indicesToRanks)
+    originalPositiveStat, originalUnlabelledStat = testStatistic(dataset, originalPositiveProteins, originalUnlabelledProteins, indicesToRanks)
     originalStatistic = dict([(i, originalPositiveStat[i] - originalUnlabelledStat[i]) for i in originalPositiveStat])
     originalStatisticSigns = dict([(i, originalStatistic[i] < 0) for i in originalStatistic])
 
@@ -132,7 +132,7 @@ def main(args):
                 isNoneFailed = False
 
     writeResults = open(statsFile, 'w')
-    writeResults.write('Feature\tPositiveMean\tPositiveMedian\tPositiveRankSum\tUnlabelledMean\tUnlabelledMedian\tUnlabelledRankSum\tPermutations\tOriginalStatistic\tStatsNoLessExtreme\tPValue')
+    writeResults.write('Feature\tPositiveMean\tPositiveMedian\tPositiveMeanRankSum\tUnlabelledMean\tUnlabelledMedian\tUnlabelledMeanRankSum\tPermutations\tOriginalStatistic\tStatsNoLessExtreme\tPValue')
     for i in alphaLevels:
         writeResults.write('\tSignificantAt-' + str(i))
     if correctionAlpha:
@@ -179,8 +179,11 @@ def test_statistic_median(dataset, indicesOfPositiveClass, indicesOfUnlabelledCl
     return resultsPositive, resultsUnlabelled
 
 def test_statistic_ranksum(dataset, indicesOfPositiveClass, indicesOfUnlabelledClass, indicesToRanks):
-    """Returns the rank sum of each feature for the Positive and Unlabelled classes.
+    """Returns the mean rank sum of each feature for the Positive and Unlabelled classes.
     """
+
+    numberOfPositiveProteins = len(indicesOfPositiveClass)
+    numberOfUnlabelledProteins = len(indicesOfUnlabelledClass)
 
     resultsPositive = {}
     resultsUnlabelled = {}
@@ -188,8 +191,8 @@ def test_statistic_ranksum(dataset, indicesOfPositiveClass, indicesOfUnlabelledC
         ranks = indicesToRanks[i]
         sumOfPositiveRanks = sum([ranks[j] for j in indicesOfPositiveClass])
         sumOfUnlabelledRanks = sum([ranks[j] for j in indicesOfUnlabelledClass])
-        resultsPositive[i] = sumOfPositiveRanks
-        resultsUnlabelled[i] = sumOfUnlabelledRanks
+        resultsPositive[i] = sumOfPositiveRanks / numberOfPositiveProteins
+        resultsUnlabelled[i] = sumOfUnlabelledRanks / numberOfUnlabelledProteins
     
     return resultsPositive, resultsUnlabelled
 
