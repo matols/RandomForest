@@ -24,7 +24,7 @@ def main(args):
     for line in readStats:
         chunks = (line.strip()).split('\t')
         feature = chunks[0]
-        featureDict[feature] = feature + '\t' + chunks[10] + '\t' + chunks[11] + '\t' + chunks[12] + '\t' + chunks[13] + '\t'
+        featureDict[feature] = feature + '\t' + '{0:f}'.format(float(chunks[10])) + '\t' + chunks[11] + '\t' + chunks[12] + '\t' + chunks[13] + '\t'
     readStats.close()
     
     variableImpRanks = dict([(i, []) for i in featureDict])
