@@ -7,7 +7,7 @@ def main(PCAResults, figureSaveDir, PCsoPlot):
 	"""
 	"""
 
-	PCAScores = np.genfromtxt(PCAResults, delimiter='\t', skip_header=3, autostrip=True, dtype=None)
+	PCAScores = np.genfromtxt(PCAResults, delimiter='\t', skip_header=1, autostrip=True, dtype=None)
 
 	principalComponentsToPlot = int(PCsoPlot)
 

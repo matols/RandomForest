@@ -8,8 +8,6 @@ def main(args):
 	classification = {}
 	readOrig = open(datasetOriginal, 'r')
 	readOrig.readline()
-	readOrig.readline()
-	readOrig.readline()
 	observationIndex = 0
 	for line in readOrig:
 		line = line.strip()
@@ -23,8 +21,6 @@ def main(args):
 	header = (readPCA.readline()).strip()
 	headerChunks = header.split(',')[1:]
 	writePCA.write('\t'.join(headerChunks) + '\tClassification\n')
-	writePCA.write('\t'.join(['n'] * len(headerChunks)) + '\tr\n')
-	writePCA.write('\t'.join([''] * len(headerChunks)) + '\t\n')
 	numberPCAs = len(header)
 	for line in readPCA:
 		line = line.strip()
