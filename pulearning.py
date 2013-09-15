@@ -8,9 +8,8 @@ def main(args):
 
     """
 
-    parser = argparse.ArgumentParser(description='Process the command line input for the PU learning.', epilog='Setting -b, --outfrac to 0.0 will cause the' +
-        'unlabelled proteins to be weighted by their similarity to the positive proteins, while setting it to a value 1 >= x > 0 will cause the top x' +
-        'fraction of the unlabelled proteins to be output as positive, and the others to be output as unlabelled (no weighting performed)')
+    parser = argparse.ArgumentParser(description='Process the command line input for the PU learning.', epilog='Setting -b, --outfrac to a value x' +
+        'will cause the top x fraction of the unlabelled proteins to be output as positive, and the others to be output as unlabelled')
     parser.add_argument('dataset', help='the location containing the dataset')
     parser.add_argument('output', help='the location to save the results')
     parser.add_argument('-f', '--features', default='', help='the features to remove (csv)')
@@ -21,8 +20,11 @@ def main(args):
 
     # Parse the command line arguments.
     dataFileLocation = args.dataset
-    featuresToRemove = args.features.split(',')
     resultsLocation = args.output
+    featuresToRemove = args.features.split(',')
+    fractionPositiveSimilarityToRemove = args.possim
+    fractionUnlabelledToConvert = args.outfrac
+    fractionUnlabelledSimilarityToRemove = args.unlabsim
 
     # Parse the file containing the dataset.
     proteinAccsAndClasses = numpy.genfromtxt(dataFileLocation, dtype=None, delimiter='\t', names=True, case_sensitive=True, usecols=[0,-1])
@@ -43,21 +45,61 @@ def main(args):
 
     # Determine the pairwise distances (Euclidean) between all positive observations.
     positiveDistances = numpy.zeros((positiveData.shape[0], positiveData.shape[0]))
+    sortedPositiveDistances = set([])
     for i in range(0, positiveDistances.shape[0]):
         for j in range(i + 1, positiveDistances.shape[1]):
             norm = numpy.linalg.norm(positiveData[i] - positiveData[j])
+            sortedPositiveDistances.add((norm, i, j))
             positiveDistances[i, j] = norm
             positiveDistances[j, i] = norm
+    sortedPositiveDistances = sorted(sortedPositiveDistances, key=lambda x : x[0])
+    maxPositiveDistance = sortedPositiveDistances[-1][0]
+    minPositiveDistance = sortedPositiveDistances[0][0]
+
+    # Set the fractionPositiveSimilarityToRemove smallest simliarities to the largest distance (this will cause them to be set to 0 after the scaling).
+    if fractionPositiveSimilarityToRemove > 0:
+        numberOfDistancesToRemove = int(len(sortedPositiveDistances) * fractionPositiveSimilarityToRemove)
+        maxPositiveDistance = sortedPositiveDistances[-numberOfDistancesToRemove][0]
+        for i in sortedPositiveDistances[-numberOfDistancesToRemove:]:
+            indexI = i[1]
+            indexJ = i[2]
+            positiveDistances[indexI, indexJ] = maxPositiveDistance
+            positiveDistances[indexJ, indexI] = maxPositiveDistance
+    positiveDistances += (numpy.eye(positiveData.shape[0]) * maxPositiveDistance)  # Set the leading diagonal to have the maximum distance.
+
+    # Inversely scale the positive distances so that larger distances get smaller similarities.
+    positiveDistances = (maxPositiveDistance - positiveDistances) / (maxPositiveDistance - minPositiveDistance)
 
     # Determine the distance between each pair of observations (u, p) where u is an unlabelled protein and p a positive one.
     # The distance in cell unlabelledDistances[i, j] is the distance between positive observation i and unlabelled observation j.
     # Columns therefore represent unlabelled observations, and rows the positive ones.
     unlabelledDistances = numpy.zeros((positiveData.shape[0], unlabelledData.shape[0]))
+    sortedUnlabelledDistances = set([])
     for i in range(unlabelledDistances.shape[0]):
         for j in range(unlabelledDistances.shape[1]):
             norm = numpy.linalg.norm(positiveData[i] - unlabelledData[j])
+            sortedUnlabelledDistances.add((norm, i, j))
             unlabelledDistances[i, j] = norm
-    print(unlabelledDistances[:5, :5])
+    sortedUnlabelledDistances = sorted(sortedUnlabelledDistances, key=lambda x : x[0])
+    maxUnlabelledDistance = sortedUnlabelledDistances[-1][0]
+    minUnlabelledDistance = sortedUnlabelledDistances[0][0]
+
+    # Set the fractionUnlabelledSimilarityToRemove smallest simliarities to the largest distance (this will cause them to be set to 0 after the scaling).
+    if fractionUnlabelledSimilarityToRemove > 0:
+        numberOfDistancesToRemove = int(len(sortedUnlabelledDistances) * fractionUnlabelledSimilarityToRemove)
+        maxUnlabelledDistance = sortedUnlabelledDistances[-numberOfDistancesToRemove][0]
+        for i in sortedUnlabelledDistances[-numberOfDistancesToRemove:]:
+            indexI = i[1]
+            indexJ = i[2]
+            unlabelledDistances[indexI, indexJ] = maxUnlabelledDistance
+
+    # Inversely scale the unlabelled distances so that larger distances get smaller similarities.
+    unlabelledDistances = (maxUnlabelledDistance - unlabelledDistances) / (maxUnlabelledDistance - minUnlabelledDistance)
+
+    # Determine the positive likeness each of the unlabelled observations.
+    positiveWeightings = numpy.dot(positiveDistances, unlabelledDistances)
+    positiveLikeness = numpy.sum(positiveWeightings, 0)
+    print(positiveLikeness)
 
 def data_processing(dataFileLocation, featuresToRemove=[]):
     """Process a data file.
