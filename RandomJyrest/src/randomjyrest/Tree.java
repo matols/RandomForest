@@ -125,7 +125,7 @@ public class Tree
 			}
 			else
 			{
-				rightChildInBag[i] = inBagCount;
+				rightChildInBag[originalObsIndex] = inBagCount;
 				numberOfUniqueRightObservations += inBagUnique;
 			}
 		}
