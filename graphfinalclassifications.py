@@ -187,7 +187,7 @@ def generate_histogram(unlabelledPosWeightFraction, positivePosWeightFraction, s
     """
     """
 
-    # Create the figure
+    # Create the figure.
     currentFigure = plt.figure()
     gs = gridspec.GridSpec(10, 10)
     gs.update(left=0, right=1, bottom=0, top=1, wspace=0.05, hspace=0.05)
@@ -235,7 +235,7 @@ def generate_histogram(unlabelledPosWeightFraction, positivePosWeightFraction, s
             axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 10), textcoords='offset points',
                 verticalalignment='top', horizontalalignment='center', size=10, weight='bold')
 
-    # Create the leggend.
+    # Create the legend.
     axes.legend(loc='upper center', bbox_to_anchor=(0.5, 1.1), fancybox=True, shadow=True, ncol=2)
 
     # Set the maxium y axis value by:

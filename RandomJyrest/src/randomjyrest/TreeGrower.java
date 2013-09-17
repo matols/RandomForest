@@ -30,7 +30,7 @@ public class TreeGrower implements Callable<ImmutableTwoValues<Set<Integer>, Tre
 
 	
 	public TreeGrower(Map<String, double[]> featureData, Map<String, int[]> indexData, Map<String, double[]> classData,
-			int mtry, long seed, Map<String, List<Integer>> observationsFromEachClass, int observationsToSelect)
+			int mtry, long seed, Map<String, List<Integer>> observationsFromEachClass, int numberOfObservations)
 	{
 		this.dataset = featureData;
 		this.dataIndices = indexData;
@@ -39,7 +39,7 @@ public class TreeGrower implements Callable<ImmutableTwoValues<Set<Integer>, Tre
 		this.treeRNG = new Random(seed);
 		
 		// Determine observations to use. Perform a stratified bootstrap sampling to get the in bag observations.
-		this.inBagObservations = new int[observationsToSelect];
+		this.inBagObservations = new int[numberOfObservations];
 		Set<String> classes = observationsFromEachClass.keySet();
 		for (String s : classes)
 		{
@@ -56,7 +56,7 @@ public class TreeGrower implements Callable<ImmutableTwoValues<Set<Integer>, Tre
 		
 		// Determine the number of unique observations and the OOB observations.
 		this.oobOnThisTree = new HashSet<Integer>();
-		for (int i = 0; i < observationsToSelect; i++)
+		for (int i = 0; i < numberOfObservations; i++)
 		{
 			if (this.inBagObservations[i] != 0)
 			{
