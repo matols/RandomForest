@@ -239,7 +239,7 @@ public class ForestSizeOptimisation
 				Forest forest = new Forest();
 				Map<String, double[]> predictions = forest.main(inputFile, i, mtry, featuresToRemove, weights, seeds.get(j),
 						numberOfThreads, isCalculateOOB);
-				Map<String, Map<String, Integer>> confusionMatrix = PredictionAnalysis.calculateConfusionMatrix(classOfObservations,
+				Map<String, Map<String, Double>> confusionMatrix = PredictionAnalysis.calculateConfusionMatrix(classOfObservations,
 						predictions);
 				
 				// Write out the results for this forest.

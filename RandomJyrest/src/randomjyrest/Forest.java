@@ -248,7 +248,7 @@ public class Forest
 				// Generate the predictions.
 				Tree treeToPredictOn = this.forest.get(i);
 				predictions = treeToPredictOn.predict(datasetToPredict, this.oobObservations.get(i), predictions);
-				Map<String, Map<String, Integer>> confusionMatrix = PredictionAnalysis.calculateConfusionMatrix(classOfObservations,
+				Map<String, Map<String, Double>> confusionMatrix = PredictionAnalysis.calculateConfusionMatrix(classOfObservations,
 						predictions, this.oobObservations.get(i));
 				baseOOBQualityMeasure.add(PredictionAnalysis.calculateGMean(confusionMatrix, classOfObservations));
 			}
@@ -307,7 +307,6 @@ public class Forest
 		Map<String, Double> variableImportance = new HashMap<String, Double>();
 		for (String s : featuresInDataset)
 		{
-			System.out.println(s);
 			// Record a copy of the non-permuted data for feature s.
 			double[] dataForFeatureS = datasetToPredict.get(s);
 			double[] copyOfOriginalValuesForFeatureS = new double[numberOfObservations];
@@ -335,7 +334,7 @@ public class Forest
 				predictions = this.forest.get(i).predict(datasetToPredict, this.oobObservations.get(i), predictions);
 				
 				// Determine the change in quality caused by permuting the data.
-				Map<String, Map<String, Integer>> confusionMatrix = PredictionAnalysis.calculateConfusionMatrix(classOfObservations,
+				Map<String, Map<String, Double>> confusionMatrix = PredictionAnalysis.calculateConfusionMatrix(classOfObservations,
 						predictions, this.oobObservations.get(i));
 				double permutedQualityMeasure = PredictionAnalysis.calculateGMean(confusionMatrix, classOfObservations);
 				cumulativeQualityMeasureChange += (baseOOBQualityMeasure.get(i) - permutedQualityMeasure);

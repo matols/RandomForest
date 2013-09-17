@@ -36,6 +36,11 @@ public class WeightAndMtryOptimisation
 		String inputFile = args[0];  // The location of the dataset used to grow the forests.
 		String resultsDir = args[1];  // The location where the results of the optimisation will be written.
 		String parameterFile = args[2];  // The location where the parameters for the optimisation are recorded.
+		String discountsFile = null;  // The location where the discounts for the observations are recorded.
+		if (args.length > 3)
+		{
+			discountsFile = args[3];
+		}
 
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
@@ -212,14 +217,19 @@ public class WeightAndMtryOptimisation
 			System.exit(0);
 		}
 		
-		// Determine the number of each observation type.
-		
-		
 		// Determine the class of each observation and the number of each class.
 		List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(inputFile);
 		Map<String, Integer> countsOfEachClass = new HashMap<String, Integer>();
 		countsOfEachClass.put("Positive", Collections.frequency(classOfObservations, "Positive") * numberOfForestsToCreate);
 		countsOfEachClass.put("Unlabelled", Collections.frequency(classOfObservations, "Unlabelled") * numberOfForestsToCreate);
+		
+		// Determine the vector of discounts.
+		double[] discounts = new double[classOfObservations.size()];
+		Arrays.fill(discounts, 1.0);
+		if (discountsFile != null)
+		{
+			discounts = determineDiscounts(discountsFile);
+		}
 
 		// Generate all the random seeds to use in growing the forests. The same numberOfForestsToCreate seeds will be used for every weight/mtry
 		// combination. This ensures that the only difference in the results is due to the chosen weight/mtry combination.
@@ -260,15 +270,15 @@ public class WeightAndMtryOptimisation
 				    System.out.format("at %s.\n", strDate);
 					
 					// Determine the weight vector for this positive/unlabelled weight combination.
-					double[] weights = determineObservationWeights(classOfObservations, "Positive", pWeight, "Unlabelled", uWeight);
+					double[] weights = determineObservationWeights(classOfObservations, "Positive", pWeight, "Unlabelled", uWeight, discounts);
 					
 					// Setup the aggregate confusion matrix.
-					Map<String, Map<String, Integer>> confusionMatrix = new HashMap<String, Map<String, Integer>>();
-					Map<String, Integer> emptyConfMat = new HashMap<String, Integer>();
-					emptyConfMat.put("Correct", 0);
-					emptyConfMat.put("Incorrect", 0);
-					confusionMatrix.put("Positive", new HashMap<String, Integer>(emptyConfMat));
-					confusionMatrix.put("Unlabelled", new HashMap<String, Integer>(emptyConfMat));
+					Map<String, Map<String, Double>> confusionMatrix = new HashMap<String, Map<String, Double>>();
+					Map<String, Double> emptyConfMat = new HashMap<String, Double>();
+					emptyConfMat.put("Correct", 0.0);
+					emptyConfMat.put("Incorrect", 0.0);
+					confusionMatrix.put("Positive", new HashMap<String, Double>(emptyConfMat));
+					confusionMatrix.put("Unlabelled", new HashMap<String, Double>(emptyConfMat));
 					
 					long timeTaken = 0l;
 					for (int i = 0; i < numberOfForestsToCreate; i++)
@@ -281,13 +291,13 @@ public class WeightAndMtryOptimisation
 						Date endTime = new Date();
 						timeTaken += (endTime.getTime() - startTime.getTime());
 						
-						Map<String, Map<String, Integer>> confMat = PredictionAnalysis.calculateConfusionMatrix(classOfObservations, predictionsFromForest);
+						Map<String, Map<String, Double>> confMat = PredictionAnalysis.calculateConfusionMatrix(classOfObservations, predictionsFromForest);
 						for (String s : confMat.keySet())
 						{
 							for (String p : confMat.get(s).keySet())
 							{
-								int oldPrediction = confusionMatrix.get(s).get(p);
-								int newPrediction = confMat.get(s).get(p) + oldPrediction;
+								double oldPrediction = confusionMatrix.get(s).get(p);
+								double newPrediction = confMat.get(s).get(p) + oldPrediction;
 								confusionMatrix.get(s).put(p, newPrediction);
 							}
 						}
@@ -352,7 +362,7 @@ public class WeightAndMtryOptimisation
 	 * @return
 	 */
 	private static final double[] determineObservationWeights(List<String> observationClasses, String positiveClass, double positiveWeight,
-			String unlabelledClass, double unlabelledWeight)
+			String unlabelledClass, double unlabelledWeight, double[] discounts)
 	{
 		int numberOfObservations = observationClasses.size();
 		double[] weights = new double[numberOfObservations];
@@ -362,14 +372,69 @@ public class WeightAndMtryOptimisation
 			String classOfObs = observationClasses.get(i);
 			if (classOfObs.equals(positiveClass))
 			{
-				weights[i] = positiveWeight;
+				weights[i] = positiveWeight * discounts[i];
 			}
 			else
 			{
-				weights[i] = unlabelledWeight;
+				weights[i] = unlabelledWeight * discounts[i];
 			}
 		}
 		
 		return weights;
+	}
+
+	private static final double[] determineDiscounts(String discountLocation)
+	{
+		List<Double> discounts = new ArrayList<Double>();
+
+		BufferedReader reader = null;
+		try
+		{
+			reader = new BufferedReader(new FileReader(discountLocation));
+			String line = null;
+			
+			while ((line = reader.readLine()) != null)
+			{
+				line = line.trim();
+				if (line.length() == 0)
+				{
+					// If the line is made up of all whitespace, then ignore the line.
+					continue;
+				}
+				discounts.add(Double.parseDouble(line));
+			}
+		}
+		catch (IOException e)
+		{
+			// Caught an error while reading the file. Indicate this and exit.
+			System.out.println("An error occurred while processing the input data file.");
+			e.printStackTrace();
+			System.exit(0);
+		}
+		finally
+		{
+			try
+			{
+				if (reader != null)
+				{
+					reader.close();
+				}
+			}
+			catch (IOException e)
+			{
+				// Caught an error while closing the file. Indicate this and exit.
+				System.out.println("An error occurred while closing the input data file.");
+				e.printStackTrace();
+				System.exit(0);
+			}
+		}
+		
+		double[] observationDiscounts  = new double[discounts.size()];
+		for (int i = 0; i < discounts.size(); i++)
+		{
+			observationDiscounts[i] = discounts.get(i).doubleValue();
+		}
+		
+		return observationDiscounts;
 	}
 }
