@@ -1,4 +1,4 @@
-package analysis;
+package similaritycomparison;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -18,7 +18,7 @@ import randomjyrest.DetermineObservationProperties;
 import randomjyrest.Forest;
 import randomjyrest.PredictionAnalysis;
 
-public class SequenceIdentityComparison
+public class WeightOptimisation
 {
 
 	public static final void main(String[] args)
