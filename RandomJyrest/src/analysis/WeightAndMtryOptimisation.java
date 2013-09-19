@@ -258,7 +258,8 @@ public class WeightAndMtryOptimisation
 				    System.out.format("Now testing pos/unl weight %d/%d at %s.\n", pWeight, uWeight, strDate);
 					
 					// Determine the weight vector for the observations for this positive/unlabelled weight combination.
-					double[] weights = determineObservationWeights(classOfObservations, "Positive", pWeight, "Unlabelled", uWeight);
+					double[] weights = DetermineObservationProperties.determineObservationWeights(classOfObservations, "Positive",
+							pWeight, "Unlabelled", uWeight);
 					
 					// Setup the aggregate confusion matrix.
 					Map<String, Map<String, Double>> aggregateConfusionMatrix = new HashMap<String, Map<String, Double>>();
@@ -351,46 +352,6 @@ public class WeightAndMtryOptimisation
 				}
 			}
 		}
-	}
-
-	
-	/**
-	 * Calculate the vector of weights for the observations in a dataset.
-	 * 
-	 * The vector of weights will contain the weights of the observations in the same order that they appear in the dataset.
-	 * The vector at index i therefore contains the weight of the ith observation. The ordering is determined by the list of
-	 * the classes of the observations that is supplied.
-	 * 
-	 * @param observationClasses	The classes of the observations in the dataset.
-	 * @param positiveClass			The name of the positive class.
-	 * @param positiveWeight		The weight of the positive class.
-	 * @param unlabelledClass		The name of the unlabelled class.
-	 * @param unlabelledWeight		The weight of the unlabelled class.
-	 * @return						An array of the observation weights ordered as the observationClasses are ordered.
-	 */
-	private static final double[] determineObservationWeights(List<String> observationClasses, String positiveClass, double positiveWeight,
-			String unlabelledClass, double unlabelledWeight)
-	{
-		int numberOfObservations = observationClasses.size();  // Determine the total number of observations.
-		double[] weights = new double[numberOfObservations];  // Initialise the weight vector to contain one entry for each observation.
-		
-		// For each observation, determine its class, and then its weight.
-		for (int i = 0; i < numberOfObservations; i++)
-		{
-			String classOfObs = observationClasses.get(i);  // The class of the ith observation is the ith entry in observationClasses.
-			if (classOfObs.equals(positiveClass))
-			{
-				// If the class of the observation is positive, then the weight of the observation is the positive class weight.
-				weights[i] = positiveWeight;
-			}
-			else
-			{
-				// If the class of the observation is unlabelled, then the weight of the observation is the unlabelled class weight.
-				weights[i] = unlabelledWeight;
-			}
-		}
-		
-		return weights;
 	}
 
 }
