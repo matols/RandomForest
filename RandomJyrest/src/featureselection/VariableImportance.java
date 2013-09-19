@@ -19,6 +19,7 @@ import java.util.Random;
 
 import randomjyrest.Forest;
 import utilities.DetermineObservationProperties;
+import utilities.StringsSortedByDoubles;
 
 public class VariableImportance
 {

@@ -1,4 +1,4 @@
-package featureselection;
+package utilities;
 
 /**
  * @author Simon Bull
