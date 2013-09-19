@@ -7,7 +7,6 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -140,9 +139,6 @@ public class WeightOptimisation
 
 			// Determine the class of each observation and the number of each class.
 			List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(inputFile);
-			Map<String, Integer> countsOfEachClass = new HashMap<String, Integer>();
-			countsOfEachClass.put("Positive", Collections.frequency(classOfObservations, "Positive") * numberOfForestsToCreate);
-			countsOfEachClass.put("Unlabelled", Collections.frequency(classOfObservations, "Unlabelled") * numberOfForestsToCreate);
 			
 			for (int mtry : mtryToUse)
 			{
@@ -209,7 +205,7 @@ public class WeightOptimisation
 							resultsOutputWriter.write("\t");
 							resultsOutputWriter.write(Integer.toString(mtry));
 							resultsOutputWriter.write("\t");
-							resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateGMean(confusionMatrix, countsOfEachClass)));
+							resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateGMean(confusionMatrix, classOfObservations)));
 							resultsOutputWriter.write("\t");
 							resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateMCC(confusionMatrix)));
 							resultsOutputWriter.write("\t");
