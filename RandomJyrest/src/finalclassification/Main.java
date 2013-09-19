@@ -1,11 +1,8 @@
 package finalclassification;
 
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileReader;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -20,15 +17,28 @@ public class Main
 {
 
 	/**
-	 * @param args
+	 * Produce a final prediction of the class of each observation in a dataset.
+	 * 
+	 * The prediction generated for each observation is the prediction weight for each class, rather than a single class value.
+	 * 
+	 * @param args		The file system locations of the files and directories used in the classification.
 	 */
 	public static void main(String[] args)
 	{
+		// Parse the input arguments.
+		String trainingDataset = args[0];  // The dataset that is to be used to grow the forest.
+		String resultsDirLocation = args[1];  // The location where the results will be written.
+		String testingDataset = null;  // An optional dataset that will be predicted.
+		if (args.length > 2)
+		{
+			testingDataset = args[2];
+		}
+
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
-		int numberOfTrees = 1000;  // Number of trees in the forest.
-		long seed = 0L;  // The seed for growing the forest.
+		int numberOfTrees = 1000;  // The number of trees in the forest.
+		long seed = 0L;  // The seed used for growing the forest.
 
 		int mtry = 10;  // The number of features to consider at each split in a tree.
 		
@@ -36,7 +46,7 @@ public class Main
 		String[] featuresToIgnore = new String[]{};
 		List<String> featuresToRemove = Arrays.asList(featuresToIgnore);
 		
-		int numberOfThreads = 1;  // The number of threads to use when growing the trees.
+		int numberOfThreads = 1;  // The number of threads to use when growing the forest.
 
 		// Define the weights for each class in the input dataset.
 		Map<String, Double> classWeights = new HashMap<String, Double>();
@@ -46,30 +56,24 @@ public class Main
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
 		
-		// Mandatory parameters for growing the forest.
-		boolean isCalcualteOOB = true;
+		boolean isCalculateOOB = true;  // OOB error is being calculated.
 
-		// Parse the input arguments.
-		String trainingDataset = args[0];  // The dataset that is to be used to grow the forest.
-		String resultsDirLocation = args[1];  // The location where the results will be written.
-		String testingDataset = null;  // The optional dataset that will be predicted.
-		if (args.length > 2)
-		{
-			testingDataset = args[2];
-		}
+		// Setup the results directory.
 		File resultsDirectory = new File(resultsDirLocation);
 		if (!resultsDirectory.exists())
 		{
+			// The results directory does not exist.
 			boolean isDirCreated = resultsDirectory.mkdirs();
 			if (!isDirCreated)
 			{
-				System.out.println("The output directory could not be created.");
+				System.out.println("The results directory does not exist, but could not be created.");
 				System.exit(0);
 			}
 		}
 		else
 		{
-			System.out.println("The results directory already exists.");
+			// The results directory already exists.
+			System.out.println("The results directory already exists. Please remove/rename the file or directory before retrying");
 			System.exit(0);
 		}
 
@@ -101,42 +105,45 @@ public class Main
 			System.exit(0);
 		}
 		
-		// Determine the weights for the training observatons.
-		List<String> classOfTrainingObservations = DetermineObservationProperties.determineObservationClasses(trainingDataset);
-		double[] trainingSetWeights = DetermineObservationProperties.determineObservationWeights(classOfTrainingObservations, "Positive",
-				classWeights.get("Positive"), "Unlabelled", classWeights.get("Unlabelled"));
+		// Determine the class of each observation.
+		List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(trainingDataset);
 		
-		// Determine the predictions.
+		// Determine the vector of weights for the observations.
+		double[] weights = DetermineObservationProperties.determineObservationWeights(classOfObservations, "Positive", classWeights.get("Positive"), "Unlabelled",
+				classWeights.get("Unlabelled"));
+		
+		// Determine the OOB predictions (predictions for the training set) and the test set predictions (if there is a test set).
 		Forest forest = new Forest();
-		Map<String, double[]> oobPredictions = forest.main(trainingDataset, numberOfTrees, mtry, featuresToRemove, trainingSetWeights,
-				seed, numberOfThreads, isCalcualteOOB);
+		Map<String, double[]> oobPredictions = forest.main(trainingDataset, numberOfTrees, mtry, featuresToRemove, weights,
+				seed, numberOfThreads, isCalculateOOB);
 		Map<String, double[]> testSetPredictions = null;
 		if (testingDataset != null)
 		{
 			testSetPredictions = forest.predict(testingDataset, featuresToRemove);
 		}
 		
-		// Define the names of the class and UniProt accession columns.
+		// Define the names of the class and UniProt accession columns in the datasets.
 		String classFeatureColumnName = "Classification";
 		String accessionColumnName = "UPAccession";
 
 		// Determine the accessions and classes of the proteins in the training dataset.
-		ImmutableTwoValues<List<String>, List<String>> accessionsAndClasses = determineAccessionsAndClasses(trainingDataset,
-				accessionColumnName, classFeatureColumnName);
+		ImmutableTwoValues<List<String>, List<String>> accessionsAndClasses =
+				DetermineObservationProperties.determineAccessionsAndClasses(trainingDataset, accessionColumnName, classFeatureColumnName);
 		List<String> trainingDatasetAccessions = accessionsAndClasses.first;
 		List<String> trainingDatasetClasses = accessionsAndClasses.second;
 		
+		// Determine the accessions and classes of the proteins in the test set (if there is one).
 		List<String> testingDatasetAccessions = new ArrayList<String>();
 		List<String> testingDatasetClasses = new ArrayList<String>();
 		if (testingDataset != null)
 		{
-			// If a testing dataset has been supplied, then determine the accessions and classes of the proteins in the training dataset.
-			accessionsAndClasses = determineAccessionsAndClasses(testingDataset, accessionColumnName, classFeatureColumnName);
+			accessionsAndClasses = DetermineObservationProperties.determineAccessionsAndClasses(testingDataset, accessionColumnName,
+					classFeatureColumnName);
 			testingDatasetAccessions = accessionsAndClasses.first;
 			testingDatasetClasses = accessionsAndClasses.second;
 		}
 
-		// Write out the protein accessions and their predictions.
+		// Write out the protein accessions, their classes and their predictions.
 		String predictionResultsLocation = resultsDirLocation + "/Predictions.txt";
 		try
 		{
@@ -145,6 +152,7 @@ public class Main
 			proteinPredictionWriter.write("UPAccession\tPositiveWeight\tUnlabelledWeight\tOriginalClass");
 			proteinPredictionWriter.newLine();
 			
+			// Write out the predictions for the proteins in the training set.
 			for (int i = 0; i < trainingDatasetAccessions.size(); i++)
 			{
 				String acc = trainingDatasetAccessions.get(i);
@@ -161,6 +169,7 @@ public class Main
 				proteinPredictionWriter.newLine();
 			}
 			
+			// Write out the predictions for the proteins in the test set (nothing is written out if there is no test set).
 			for (int i = 0; i < testingDatasetAccessions.size(); i++)
 			{
 				String acc = testingDatasetAccessions.get(i);
@@ -184,94 +193,6 @@ public class Main
 			e.printStackTrace();
 			System.exit(0);
 		}
-	}
-	
-	
-	/**
-	 * @param dataset
-	 * @param accessionColumnName
-	 * @param classFeatureColumnName
-	 */
-	private static final ImmutableTwoValues<List<String>, List<String>> determineAccessionsAndClasses(String dataset,
-			String accessionColumnName, String classFeatureColumnName)
-	{
-		List<String> proteinAccessions = new ArrayList<String>();
-		List<String> proteinClasses = new ArrayList<String>();
-		BufferedReader reader = null;
-		try
-		{
-			reader = new BufferedReader(new FileReader(dataset));
-			
-			// Determine the class and accession column indices.
-			String[] features = reader.readLine().trim().split("\t");
-			int classColumnIndex = -1;
-			int accessionColumnIndex = -1;
-			for (int i = 0; i < features.length; i++)
-			{
-				String feature = features[i];
-				if (feature.equals(classFeatureColumnName))
-				{
-					classColumnIndex = i;
-				}
-				else if (feature.equals(accessionColumnName))
-				{
-					accessionColumnIndex = i;
-				}
-			}
-			
-			if (classColumnIndex == -1)
-			{
-				// No class column was provided.
-				System.out.println("No class column was provided. Please include a column headed Classification.");
-				System.exit(0);
-			}
-			else if (accessionColumnIndex == -1)
-			{
-				// No class column was provided.
-				System.out.println("No UniProt accession column was provided. Please include a column headed UPAccession.");
-				System.exit(0);
-			}
-			
-			String line = null;
-			while ((line = reader.readLine()) != null)
-			{
-				if (line.trim().length() == 0)
-				{
-					// If the line is made up of all whitespace, then ignore the line.
-					continue;
-				}
-				line = line.trim();
-				String[] splitLine = line.split("\t");
-				proteinAccessions.add(splitLine[accessionColumnIndex]);
-				proteinClasses.add(splitLine[classColumnIndex]);
-			}
-		}
-		catch (IOException e)
-		{
-			// Caught an error while reading the file. Indicate this and exit.
-			System.out.println("An error occurred while determining the accessions of the training dataset proteins.");
-			e.printStackTrace();
-			System.exit(0);
-		}
-		finally
-		{
-			try
-			{
-				if (reader != null)
-				{
-					reader.close();
-				}
-			}
-			catch (IOException e)
-			{
-				// Caught an error while closing the file. Indicate this and exit.
-				System.out.println("An error occurred while closing the training dataset.");
-				e.printStackTrace();
-				System.exit(0);
-			}
-		}
-		
-		return new ImmutableTwoValues<List<String>, List<String>>(proteinAccessions, proteinClasses);
 	}
 
 }
