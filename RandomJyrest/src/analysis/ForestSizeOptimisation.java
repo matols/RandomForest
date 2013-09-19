@@ -24,9 +24,9 @@ public class ForestSizeOptimisation
 {
 
 	/**
-	 * Compares different different forest sizes.
+	 * Compares different forest sizes.
 	 * 
-	 * Used in the optimisation of the numberOfTreesToGrow parameter.
+	 * Used in the optimisation of the numberOfTreesToGrow parameter of the random forest.
 	 * 
 	 * @param args		The file system locations of the files and directories used in the optimisation.
 	 */
@@ -40,7 +40,7 @@ public class ForestSizeOptimisation
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
 		int numberOfForestsToCreate = 100;  // The number of forests to create for each forest size.
-		int[] forestSizesToUse = {  // The different number of trees to test in each forest.
+		int[] forestSizesToUse = {  // The number of trees to test.
 				50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900,
 				950, 1000, 1050, 1100, 1150, 1200, 1250, 1300, 1350, 1400, 1450, 1500, 1550, 1600, 1650, 1700, 1750, 1800, 1850,
 				1900, 1950, 2000, 2050, 2100, 2150, 2200, 2250, 2300, 2350, 2400, 2450, 2500, 2550, 2600, 2650, 2700, 2750, 2800,
@@ -52,7 +52,7 @@ public class ForestSizeOptimisation
 		// Specify the features in the input dataset that should be ignored.
 		List<String> featuresToRemove = new ArrayList<String>();
 		
-		int numberOfThreads = 1;  // The number of threads to use when growing the trees.
+		int numberOfThreads = 1;  // The number of threads to use when growing a forest.
 
 		// Define the weights for each class in the input dataset.
 		Map<String, Double> classWeights = new HashMap<String, Double>();
@@ -74,15 +74,16 @@ public class ForestSizeOptimisation
 					// If the line is made up of all whitespace, then ignore the line.
 					continue;
 				}
-				
-				// Enter the feature values for this observation into the mapping of the temporary processing of the data.
+
 				String[] chunks = line.split("\t");
 				if (chunks[0].equals("Forests"))
 				{
+					// If the first entry on the line is Forests, then the line records the number of forests to create for each forest size.
 					numberOfForestsToCreate = Integer.parseInt(chunks[1]);
 				}
 				else if (chunks[0].equals("Trees"))
 				{
+					// If the first entry on the line is Trees, then the line records the forest sizes (number of trees) to test.
 					String[] trees = chunks[1].split(",");
 					forestSizesToUse = new int[trees.length];
 					for (int i = 0; i < trees.length; i++)
@@ -92,19 +93,23 @@ public class ForestSizeOptimisation
 				}
 				else if (chunks[0].equals("Mtry"))
 				{
+					// If the first entry on the line is Mtry, then the line contains the value of the mtry parameter.
 					mtry = Integer.parseInt(chunks[1]);
 				}
 				else if (chunks[0].equals("Features"))
 				{
+					// If the first entry on the line is Features, then the line contains the features in the dataset to ignore.
 					String[] features = chunks[1].split(",");
 					featuresToRemove = Arrays.asList(features);
 				}
 				else if (chunks[0].equals("Threads"))
 				{
+					// If the first entry on the line is Threads, then the line contains the number of threads to use when growing a forest.
 					numberOfThreads = Integer.parseInt(chunks[1]);
 				}
 				else if (chunks[0].equals("Weight"))
 				{
+					// If the first entry on the line is Weight, then the line contains a weight (third entry) for a class (second entry).
 					classWeights.put(chunks[1], Double.parseDouble(chunks[2]));
 				}
 				else
@@ -141,7 +146,6 @@ public class ForestSizeOptimisation
 			}
 		}
 
-		// Mandatory parameters for growing the forests.
 		boolean isCalculateOOB = true;  // OOB error is being calculated.
 
 		// Setup the directory for the results.
@@ -159,15 +163,16 @@ public class ForestSizeOptimisation
 		else
 		{
 			// The results directory already exists.
-			System.out.println("The results directory already exists. Please remove/rename the file before retrying");
+			System.out.println("The results directory already exists. Please remove/rename the file or directory before retrying");
 			System.exit(0);
 		}
 
-		// Record the parameters.
+		// Initialise the results and parameters record files.
 		String resultsLocation = resultsDir + "/Results.txt";
 		String parameterLocation = resultsDir + "/Parameters.txt";
 		try
 		{
+			// Record the parameters.
 			FileWriter parameterOutputFile = new FileWriter(parameterLocation);
 			BufferedWriter parameterOutputWriter = new BufferedWriter(parameterOutputFile);
 			parameterOutputWriter.write("Forest sizes used - " + Arrays.toString(forestSizesToUse));
@@ -191,8 +196,8 @@ public class ForestSizeOptimisation
 			System.exit(0);
 		}
 
-		// Generate all the random seeds to use in growing the forests. The same numberOfForestsToCreate seeds will be used for every
-		// forest size. This ensures that the only difference in the results is due to the chosen forest size.
+		// Generate all the unique random seeds to use in growing the forests. The same numberOfForestsToCreate seeds will be used for
+		// every forest size. This ensures that the only difference in the results is due to the chosen forest size.
 		Random randGen = new Random();
 		List<Long> seeds = new ArrayList<Long>();
 		for (int i = 0; i < numberOfForestsToCreate; i++)
@@ -200,6 +205,7 @@ public class ForestSizeOptimisation
 			long seedToUse = randGen.nextLong();
 			while (seeds.contains(seedToUse))
 			{
+				// Keep generating seeds until you get a unique one.
 				seedToUse = randGen.nextLong();
 			}
 			seeds.add(seedToUse);
@@ -208,7 +214,7 @@ public class ForestSizeOptimisation
 		// Determine the class of each observation.
 		List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(inputFile);
 		
-		// Determine the weight vector.
+		// Determine the vector of weights for the observations.
 		double[] weights = determineObservationWeights(classOfObservations, "Positive", classWeights.get("Positive"), "Unlabelled",
 				classWeights.get("Unlabelled"));
 
@@ -233,9 +239,10 @@ public class ForestSizeOptimisation
 				System.exit(0);
 			}
 
+			// Grow the specified number of forests.
 			for (int j = 0; j < numberOfForestsToCreate; j++)
 			{
-				// Grow the forest.
+				// Grow the forest, generate the OOB predictions and construct the confusion matrix.
 				Forest forest = new Forest();
 				Map<String, double[]> predictions = forest.main(inputFile, i, mtry, featuresToRemove, weights, seeds.get(j),
 						numberOfThreads, isCalculateOOB);
@@ -257,7 +264,7 @@ public class ForestSizeOptimisation
 				}
 			}
 			
-			// Finish writing out the results information for this forest size.
+			// Finish writing out the results information for this forest size (just a new line).
 			try
 			{
 				FileWriter resultsFile = new FileWriter(resultsLocation, true);
@@ -275,28 +282,37 @@ public class ForestSizeOptimisation
 	
 	
 	/**
-	 * @param observationClasses
-	 * @param positiveClass
-	 * @param positiveWeight
-	 * @param unlabelledClass
-	 * @param unlabelledWeight
-	 * @return
+	 * Calculate the vector of weights for the observations in a dataset.
+	 * 
+	 * The vector of weights will contain the weights of the observations in the same order that they appear in the dataset.
+	 * The vector at index i therefore contains the weight of the ith observation. The ordering is determined by the list of
+	 * the classes of the observations that is supplied.
+	 * 
+	 * @param observationClasses	The classes of the observations in the dataset.
+	 * @param positiveClass			The name of the positive class.
+	 * @param positiveWeight		The weight of the positive class.
+	 * @param unlabelledClass		The name of the unlabelled class.
+	 * @param unlabelledWeight		The weight of the unlabelled class.
+	 * @return						An array of the observation weights ordered as the observationClasses are ordered.
 	 */
 	private static final double[] determineObservationWeights(List<String> observationClasses, String positiveClass, double positiveWeight,
 			String unlabelledClass, double unlabelledWeight)
 	{
-		int numberOfObservations = observationClasses.size();
-		double[] weights = new double[numberOfObservations];
+		int numberOfObservations = observationClasses.size();  // Determine the total number of observations.
+		double[] weights = new double[numberOfObservations];  // Initialise the weight vector to contain one entry for each observation.
 		
+		// For each observation, determine its class, and then its weight.
 		for (int i = 0; i < numberOfObservations; i++)
 		{
-			String classOfObs = observationClasses.get(i);
+			String classOfObs = observationClasses.get(i);  // The class of the ith observation is the ith entry in observationClasses.
 			if (classOfObs.equals(positiveClass))
 			{
+				// If the class of the observation is positive, then the weight of the observation is the positive class weight.
 				weights[i] = positiveWeight;
 			}
 			else
 			{
+				// If the class of the observation is unlabelled, then the weight of the observation is the unlabelled class weight.
 				weights[i] = unlabelledWeight;
 			}
 		}

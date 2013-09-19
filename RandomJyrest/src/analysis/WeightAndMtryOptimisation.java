@@ -10,7 +10,6 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -36,11 +35,6 @@ public class WeightAndMtryOptimisation
 		String inputFile = args[0];  // The location of the dataset used to grow the forests.
 		String resultsDir = args[1];  // The location where the results of the optimisation will be written.
 		String parameterFile = args[2];  // The location where the parameters for the optimisation are recorded.
-		String discountsFile = null;  // The location where the discounts for the observations are recorded.
-		if (args.length > 3)
-		{
-			discountsFile = args[3];
-		}
 
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
@@ -52,10 +46,12 @@ public class WeightAndMtryOptimisation
 		// Specify the features in the input dataset that should be ignored.
 		List<String> featuresToRemove = new ArrayList<String>();
 		
-		int numberOfThreads = 1;  // The number of threads to use when growing the trees.
+		int numberOfThreads = 1;  // The number of threads to use when growing a forest.
 		
-		double[] positiveWeightsToTest = new double[]{1.0};
-		double[] unlabelledWeightsToTest = new double[]{1.0};
+		// Specify the weights that will be tested for each class. The total number of weight combinations will be
+		// positiveWeightsToTest.length * unlabelledWeightsToTest.length.
+		double[] positiveWeightsToTest = new double[]{1.0};  // The positive class weights to test.
+		double[] unlabelledWeightsToTest = new double[]{1.0};  // The unlabelled class weights to test.
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -74,19 +70,21 @@ public class WeightAndMtryOptimisation
 					// If the line is made up of all whitespace, then ignore the line.
 					continue;
 				}
-				
-				// Enter the feature values for this observation into the mapping of the temporary processing of the data.
+
 				String[] chunks = line.split("\t");
 				if (chunks[0].equals("Forests"))
 				{
+					// If the first entry on the line is Forests, then the line records the number of forests to create for each forest size.
 					numberOfForestsToCreate = Integer.parseInt(chunks[1]);
 				}
 				else if (chunks[0].equals("Trees"))
 				{
+					// If the first entry on the line is Trees, then the line records the number of trees to use in each forest.
 					numberOfTreesPerForest = Integer.parseInt(chunks[1]);
 				}
 				else if (chunks[0].equals("Mtry"))
 				{
+					// If the first entry on the line is Mtry, then the line contains the values of the mtry parameter to test.
 					String[] mtrys = chunks[1].split(",");
 					mtryToUse = new int[mtrys.length];
 					for (int i = 0; i < mtrys.length; i++)
@@ -96,15 +94,19 @@ public class WeightAndMtryOptimisation
 				}
 				else if (chunks[0].equals("Features"))
 				{
+					// If the first entry on the line is Features, then the line contains the features in the dataset to ignore.
 					String[] features = chunks[1].split(",");
 					featuresToRemove = Arrays.asList(features);
 				}
 				else if (chunks[0].equals("Threads"))
 				{
+					// If the first entry on the line is Threads, then the line contains the number of threads to use when growing a forest.
 					numberOfThreads = Integer.parseInt(chunks[1]);
 				}
 				else if (chunks[0].equals("Weight"))
 				{
+					// If the first entry on the line is Weight, then the line contains the weights (third entry) to test
+					// for a class (second entry).
 					if (chunks[1].equals("Positive"))
 					{
 						String[] positiveWeights = chunks[2].split(",");
@@ -158,7 +160,6 @@ public class WeightAndMtryOptimisation
 			}
 		}
 
-		// Mandatory control parameters for growing the forests.
 		boolean isCalculateOOB = true;  // OOB error is being calculated.
 
 		// Setup the directory for the results.
@@ -176,11 +177,11 @@ public class WeightAndMtryOptimisation
 		else
 		{
 			// The results directory already exists.
-			System.out.println("The results directory already exists. Please remove/rename the file before retrying");
+			System.out.println("The results directory already exists. Please remove/rename the file or directory before retrying");
 			System.exit(0);
 		}
 
-		// Initialise the results, parameters and controller object record files.
+		// Initialise the results and parameters record files.
 		String resultsLocation = resultsDir + "/Results.txt";
 		String parameterLocation = resultsDir + "/Parameters.txt";
 		try
@@ -216,23 +217,10 @@ public class WeightAndMtryOptimisation
 			e.printStackTrace();
 			System.exit(0);
 		}
-		
-		// Determine the class of each observation and the number of each class.
-		List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(inputFile);
-		Map<String, Integer> countsOfEachClass = new HashMap<String, Integer>();
-		countsOfEachClass.put("Positive", Collections.frequency(classOfObservations, "Positive") * numberOfForestsToCreate);
-		countsOfEachClass.put("Unlabelled", Collections.frequency(classOfObservations, "Unlabelled") * numberOfForestsToCreate);
-		
-		// Determine the vector of discounts.
-		double[] discounts = new double[classOfObservations.size()];
-		Arrays.fill(discounts, 1.0);
-		if (discountsFile != null)
-		{
-			discounts = determineDiscounts(discountsFile);
-		}
 
-		// Generate all the random seeds to use in growing the forests. The same numberOfForestsToCreate seeds will be used for every weight/mtry
-		// combination. This ensures that the only difference in the results is due to the chosen weight/mtry combination.
+		// Generate all the unique random seeds to use in growing the forests. The same numberOfForestsToCreate seeds will be used for
+		// every weight/mtry combination. This ensures that the only difference in the results is due to the chosen weight/mtry
+		// combination.
 		Random randGen = new Random();
 		List<Long> seeds = new ArrayList<Long>();
 		for (int i = 0; i < numberOfForestsToCreate; i++)
@@ -240,50 +228,61 @@ public class WeightAndMtryOptimisation
 			long seedToUse = randGen.nextLong();
 			while (seeds.contains(seedToUse))
 			{
+				// Keep generating seeds until you get a unique one.
 				seedToUse = randGen.nextLong();
 			}
 			seeds.add(seedToUse);
 		}
+		
+		// Determine the class of each observation.
+		List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(inputFile);
 
+		// Loop through all the mtry values to test.
 		for (int mtry : mtryToUse)
 		{
-			System.out.format("Now working on mtry - %d ", mtry);
 			DateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 		    Date currentTime = new Date();
 		    String strDate = sdfDate.format(currentTime);
-		    System.out.format("at %s.\n", strDate);
+		    System.out.format("Now testing mtry %d at %s.\n", mtry, strDate);
 			
+		    // Loop through all the positive class weights to test.
 			for (double pWeight : positiveWeightsToTest)
 			{
-				System.out.format("\tNow working on positive weight - %f ", pWeight);
-				sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-			    currentTime = new Date();
-			    strDate = sdfDate.format(currentTime);
-			    System.out.format("at %s.\n", strDate);
 				
+				// Loop through all the unlabelled class weights to test.
 				for (double uWeight : unlabelledWeightsToTest)
 				{
-					System.out.format("\t\tNow working on unlabelled weight - %f ", uWeight);
 					sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 				    currentTime = new Date();
 				    strDate = sdfDate.format(currentTime);
-				    System.out.format("at %s.\n", strDate);
+				    System.out.format("Now testing pos/unl weight %d/%d at %s.\n", pWeight, uWeight, strDate);
 					
-					// Determine the weight vector for this positive/unlabelled weight combination.
-					double[] weights = determineObservationWeights(classOfObservations, "Positive", pWeight, "Unlabelled", uWeight, discounts);
+					// Determine the weight vector for the observations for this positive/unlabelled weight combination.
+					double[] weights = determineObservationWeights(classOfObservations, "Positive", pWeight, "Unlabelled", uWeight);
 					
 					// Setup the aggregate confusion matrix.
-					Map<String, Map<String, Double>> confusionMatrix = new HashMap<String, Map<String, Double>>();
+					Map<String, Map<String, Double>> aggregateConfusionMatrix = new HashMap<String, Map<String, Double>>();
 					Map<String, Double> emptyConfMat = new HashMap<String, Double>();
 					emptyConfMat.put("Correct", 0.0);
 					emptyConfMat.put("Incorrect", 0.0);
-					confusionMatrix.put("Positive", new HashMap<String, Double>(emptyConfMat));
-					confusionMatrix.put("Unlabelled", new HashMap<String, Double>(emptyConfMat));
+					aggregateConfusionMatrix.put("Positive", new HashMap<String, Double>(emptyConfMat));
+					aggregateConfusionMatrix.put("Unlabelled", new HashMap<String, Double>(emptyConfMat));
 					
+					// Grow the specified number of forests for this mtry/weight combination. The time taken to grow a forest with
+					// the current combination is taken to be the mean time for growing the numberOfForestsToCreate forests. The
+					// performance with the current combination is calcualted by combining the predictions from all
+					// numberOfForestsToCreate forests generated, and then calculating the performance measures on the aggregate
+					// confusion matrix.
+					// Example:
+					// 		numberOfForestsToCreate = 2
+					//					TP	FP	TN	FN
+					//		Forest_1	10	5	20	7
+					//		Forest_2	11	7	19	5
+					//		Aggregate	21	12	39	12
 					long timeTaken = 0l;
 					for (int i = 0; i < numberOfForestsToCreate; i++)
 					{
-						// Grow the forest.
+						// Grow the forest and generate the OOB predictions.
 						Date startTime = new Date();
 						Forest forest = new Forest();
 						Map<String, double[]> predictionsFromForest = forest.main(inputFile, numberOfTreesPerForest, mtry, featuresToRemove,
@@ -291,14 +290,15 @@ public class WeightAndMtryOptimisation
 						Date endTime = new Date();
 						timeTaken += (endTime.getTime() - startTime.getTime());
 						
+						// Update the aggregate confusion matrix.
 						Map<String, Map<String, Double>> confMat = PredictionAnalysis.calculateConfusionMatrix(classOfObservations, predictionsFromForest);
 						for (String s : confMat.keySet())
 						{
 							for (String p : confMat.get(s).keySet())
 							{
-								double oldPrediction = confusionMatrix.get(s).get(p);
+								double oldPrediction = aggregateConfusionMatrix.get(s).get(p);
 								double newPrediction = confMat.get(s).get(p) + oldPrediction;
-								confusionMatrix.get(s).put(p, newPrediction);
+								aggregateConfusionMatrix.get(s).put(p, newPrediction);
 							}
 						}
 					}
@@ -315,30 +315,30 @@ public class WeightAndMtryOptimisation
 						resultsOutputWriter.write("\t");
 						resultsOutputWriter.write(Integer.toString(mtry));
 						resultsOutputWriter.write("\t");
-						resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateGMean(confusionMatrix, countsOfEachClass)));
+						resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateGMean(aggregateConfusionMatrix, classOfObservations)));
 						resultsOutputWriter.write("\t");
-						resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateMCC(confusionMatrix)));
+						resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateMCC(aggregateConfusionMatrix)));
 						resultsOutputWriter.write("\t");
-						resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateFMeasure(confusionMatrix, classOfObservations, 0.5)));
+						resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateFMeasure(aggregateConfusionMatrix, classOfObservations, 0.5)));
 						resultsOutputWriter.write("\t");
-						resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateFMeasure(confusionMatrix, classOfObservations, 1.0)));
+						resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateFMeasure(aggregateConfusionMatrix, classOfObservations, 1.0)));
 						resultsOutputWriter.write("\t");
-						resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateFMeasure(confusionMatrix, classOfObservations, 2.0)));
+						resultsOutputWriter.write(String.format("%.5f", PredictionAnalysis.calculateFMeasure(aggregateConfusionMatrix, classOfObservations, 2.0)));
 						resultsOutputWriter.write("\t");
-						double accuracy = PredictionAnalysis.calculateAccuracy(confusionMatrix);
+						double accuracy = PredictionAnalysis.calculateAccuracy(aggregateConfusionMatrix);
 						resultsOutputWriter.write(String.format("%.5f", accuracy));
 						resultsOutputWriter.write("\t");
 						resultsOutputWriter.write(String.format("%.5f", 1 - accuracy));
 						resultsOutputWriter.write("\t");
 						resultsOutputWriter.write(Long.toString(timeTaken));
 						resultsOutputWriter.write("\t");
-						resultsOutputWriter.write(Double.toString(confusionMatrix.get("Positive").get("Correct")));
+						resultsOutputWriter.write(Double.toString(aggregateConfusionMatrix.get("Positive").get("Correct")));
 						resultsOutputWriter.write("\t");
-						resultsOutputWriter.write(Double.toString(confusionMatrix.get("Positive").get("Incorrect")));
+						resultsOutputWriter.write(Double.toString(aggregateConfusionMatrix.get("Positive").get("Incorrect")));
 						resultsOutputWriter.write("\t");
-						resultsOutputWriter.write(Double.toString(confusionMatrix.get("Unlabelled").get("Correct")));
+						resultsOutputWriter.write(Double.toString(aggregateConfusionMatrix.get("Unlabelled").get("Correct")));
 						resultsOutputWriter.write("\t");
-						resultsOutputWriter.write(Double.toString(confusionMatrix.get("Unlabelled").get("Incorrect")));
+						resultsOutputWriter.write(Double.toString(aggregateConfusionMatrix.get("Unlabelled").get("Incorrect")));
 						resultsOutputWriter.write("\t");
 						resultsOutputWriter.newLine();
 						resultsOutputWriter.close();
@@ -352,89 +352,45 @@ public class WeightAndMtryOptimisation
 			}
 		}
 	}
+
 	
 	/**
-	 * @param observationClasses
-	 * @param positiveClass
-	 * @param positiveWeight
-	 * @param unlabelledClass
-	 * @param unlabelledWeight
-	 * @return
+	 * Calculate the vector of weights for the observations in a dataset.
+	 * 
+	 * The vector of weights will contain the weights of the observations in the same order that they appear in the dataset.
+	 * The vector at index i therefore contains the weight of the ith observation. The ordering is determined by the list of
+	 * the classes of the observations that is supplied.
+	 * 
+	 * @param observationClasses	The classes of the observations in the dataset.
+	 * @param positiveClass			The name of the positive class.
+	 * @param positiveWeight		The weight of the positive class.
+	 * @param unlabelledClass		The name of the unlabelled class.
+	 * @param unlabelledWeight		The weight of the unlabelled class.
+	 * @return						An array of the observation weights ordered as the observationClasses are ordered.
 	 */
 	private static final double[] determineObservationWeights(List<String> observationClasses, String positiveClass, double positiveWeight,
-			String unlabelledClass, double unlabelledWeight, double[] discounts)
+			String unlabelledClass, double unlabelledWeight)
 	{
-		int numberOfObservations = observationClasses.size();
-		double[] weights = new double[numberOfObservations];
+		int numberOfObservations = observationClasses.size();  // Determine the total number of observations.
+		double[] weights = new double[numberOfObservations];  // Initialise the weight vector to contain one entry for each observation.
 		
+		// For each observation, determine its class, and then its weight.
 		for (int i = 0; i < numberOfObservations; i++)
 		{
-			String classOfObs = observationClasses.get(i);
+			String classOfObs = observationClasses.get(i);  // The class of the ith observation is the ith entry in observationClasses.
 			if (classOfObs.equals(positiveClass))
 			{
-				weights[i] = positiveWeight * discounts[i];
+				// If the class of the observation is positive, then the weight of the observation is the positive class weight.
+				weights[i] = positiveWeight;
 			}
 			else
 			{
-				weights[i] = unlabelledWeight * discounts[i];
+				// If the class of the observation is unlabelled, then the weight of the observation is the unlabelled class weight.
+				weights[i] = unlabelledWeight;
 			}
 		}
 		
 		return weights;
 	}
 
-	private static final double[] determineDiscounts(String discountLocation)
-	{
-		List<Double> discounts = new ArrayList<Double>();
-
-		BufferedReader reader = null;
-		try
-		{
-			reader = new BufferedReader(new FileReader(discountLocation));
-			String line = null;
-			
-			while ((line = reader.readLine()) != null)
-			{
-				line = line.trim();
-				if (line.length() == 0)
-				{
-					// If the line is made up of all whitespace, then ignore the line.
-					continue;
-				}
-				discounts.add(Double.parseDouble(line));
-			}
-		}
-		catch (IOException e)
-		{
-			// Caught an error while reading the file. Indicate this and exit.
-			System.out.println("An error occurred while processing the input data file.");
-			e.printStackTrace();
-			System.exit(0);
-		}
-		finally
-		{
-			try
-			{
-				if (reader != null)
-				{
-					reader.close();
-				}
-			}
-			catch (IOException e)
-			{
-				// Caught an error while closing the file. Indicate this and exit.
-				System.out.println("An error occurred while closing the input data file.");
-				e.printStackTrace();
-				System.exit(0);
-			}
-		}
-		
-		double[] observationDiscounts  = new double[discounts.size()];
-		for (int i = 0; i < discounts.size(); i++)
-		{
-			observationDiscounts[i] = discounts.get(i).doubleValue();
-		}
-		
-		return observationDiscounts;
-	}
 }
