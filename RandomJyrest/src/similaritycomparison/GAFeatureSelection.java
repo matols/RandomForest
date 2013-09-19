@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import randomjyrest.DetermineObservationProperties;
+import utilities.DetermineObservationProperties;
 
 public class GAFeatureSelection
 {

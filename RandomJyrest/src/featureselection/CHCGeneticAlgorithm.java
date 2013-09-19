@@ -19,9 +19,9 @@ import java.util.Random;
 import java.util.Set;
 
 
-import randomjyrest.DetermineObservationProperties;
 import randomjyrest.Forest;
 import randomjyrest.PredictionAnalysis;
+import utilities.DetermineObservationProperties;
 import utilities.ImmutableFourValues;
 import utilities.ImmutableTwoValues;
 import utilities.IndexedDoubleData;

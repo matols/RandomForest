@@ -16,9 +16,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import randomjyrest.DetermineObservationProperties;
 import randomjyrest.Forest;
 import randomjyrest.PredictionAnalysis;
+import utilities.DetermineObservationProperties;
 
 public class WeightAndMtryOptimisation
 {

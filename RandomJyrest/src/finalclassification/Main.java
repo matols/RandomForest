@@ -9,8 +9,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import randomjyrest.DetermineObservationProperties;
 import randomjyrest.Forest;
+import utilities.DetermineObservationProperties;
 import utilities.ImmutableTwoValues;
 
 public class Main

@@ -17,8 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import randomjyrest.DetermineObservationProperties;
 import randomjyrest.Forest;
+import utilities.DetermineObservationProperties;
 
 public class VariableImportance
 {

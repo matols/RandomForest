@@ -1,4 +1,4 @@
-package randomjyrest;
+package utilities;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import utilities.ImmutableTwoValues;
 
 public class DetermineObservationProperties
 {
