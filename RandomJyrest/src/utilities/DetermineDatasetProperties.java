@@ -20,6 +20,20 @@ public class DetermineDatasetProperties
 	 */
 	public static final List<String> determineDatasetFeatures(String dataset, List<String> feauresToIgnore)
 	{
+		String classFeatureColumnName = "Classification";
+		return determineDatasetFeatures(dataset, feauresToIgnore, classFeatureColumnName);
+	}
+	
+	/**
+	 * 
+	 * returns the features ordered in the order they appear in the header line of the dataset file
+	 * 
+	 * @param dataset
+	 * @param feauresToIgnore
+	 * @return
+	 */
+	public static final List<String> determineDatasetFeatures(String dataset, List<String> feauresToIgnore, String classFeatureColumnName)
+	{
 		List<String> featuresInDataset = new ArrayList<String>();
 		BufferedReader reader = null;
 		try
@@ -28,7 +42,6 @@ public class DetermineDatasetProperties
 			String line = reader.readLine();
 			line = line.replaceAll("\n", "");
 			String[] featureNames = line.split("\t");
-			String classFeatureColumnName = "Classification";
 
 			for (String feature : featureNames)
 			{
