@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import randomjyrest.Forest;
-import utilities.DetermineObservationProperties;
+import utilities.DetermineDatasetProperties;
 import utilities.ImmutableTwoValues;
 
 public class Main
@@ -106,10 +106,10 @@ public class Main
 		}
 		
 		// Determine the class of each observation.
-		List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(trainingDataset);
+		List<String> classOfObservations = DetermineDatasetProperties.determineObservationClasses(trainingDataset);
 		
 		// Determine the vector of weights for the observations.
-		double[] weights = DetermineObservationProperties.determineObservationWeights(classOfObservations, "Positive", classWeights.get("Positive"), "Unlabelled",
+		double[] weights = DetermineDatasetProperties.determineObservationWeights(classOfObservations, "Positive", classWeights.get("Positive"), "Unlabelled",
 				classWeights.get("Unlabelled"));
 		
 		// Determine the OOB predictions (predictions for the training set) and the test set predictions (if there is a test set).
@@ -128,7 +128,7 @@ public class Main
 
 		// Determine the accessions and classes of the proteins in the training dataset.
 		ImmutableTwoValues<List<String>, List<String>> accessionsAndClasses =
-				DetermineObservationProperties.determineAccessionsAndClasses(trainingDataset, accessionColumnName, classFeatureColumnName);
+				DetermineDatasetProperties.determineObservationAccessionsAndClasses(trainingDataset, accessionColumnName, classFeatureColumnName);
 		List<String> trainingDatasetAccessions = accessionsAndClasses.first;
 		List<String> trainingDatasetClasses = accessionsAndClasses.second;
 		
@@ -137,7 +137,7 @@ public class Main
 		List<String> testingDatasetClasses = new ArrayList<String>();
 		if (testingDataset != null)
 		{
-			accessionsAndClasses = DetermineObservationProperties.determineAccessionsAndClasses(testingDataset, accessionColumnName,
+			accessionsAndClasses = DetermineDatasetProperties.determineObservationAccessionsAndClasses(testingDataset, accessionColumnName,
 					classFeatureColumnName);
 			testingDatasetAccessions = accessionsAndClasses.first;
 			testingDatasetClasses = accessionsAndClasses.second;

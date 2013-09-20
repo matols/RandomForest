@@ -14,7 +14,7 @@ public class GAAnalysis
 {
 
 	/**
-	 * Analyses the results of a set of runs of the genetic algorithm feature selection.
+	 * Analyses the result of a set of runs of the genetic algorithm feature selection.
 	 * 
 	 * @param args		The file system locations of the files and directories used in the GA feature selection.
 	 */
@@ -22,16 +22,7 @@ public class GAAnalysis
 	{
 		String inputFile = args[0];  // The location of the dataset used to grow the forests.
 		String resultsDir = args[1];  // The location where the results of the optimisation will be written.
-		runAnalysis(inputFile, resultsDir);
-	}
-	
-	
-	/**
-	 * @param inputFile		The location of the dataset used to grow the forests.
-	 * @param resultsDir	The location where the results of the feature selection will be written.
-	 */
-	private static final void runAnalysis(String inputFile, String resultsDir)
-	{
+
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================

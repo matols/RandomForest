@@ -18,7 +18,7 @@ import java.util.Random;
 
 import randomjyrest.Forest;
 import randomjyrest.PredictionAnalysis;
-import utilities.DetermineObservationProperties;
+import utilities.DetermineDatasetProperties;
 
 public class ForestSizeOptimisation
 {
@@ -212,10 +212,10 @@ public class ForestSizeOptimisation
 		}
 		
 		// Determine the class of each observation.
-		List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(inputFile);
+		List<String> classOfObservations = DetermineDatasetProperties.determineObservationClasses(inputFile);
 		
 		// Determine the vector of weights for the observations.
-		double[] weights = DetermineObservationProperties.determineObservationWeights(classOfObservations, "Positive", classWeights.get("Positive"), "Unlabelled",
+		double[] weights = DetermineDatasetProperties.determineObservationWeights(classOfObservations, "Positive", classWeights.get("Positive"), "Unlabelled",
 				classWeights.get("Unlabelled"));
 
 		for (int i : forestSizesToUse)

@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import utilities.DetermineObservationProperties;
+import utilities.DetermineDatasetProperties;
 
 public class GAFeatureSelection
 {
@@ -289,8 +289,8 @@ public class GAFeatureSelection
 			if (Integer.parseInt(s) >= Integer.parseInt(startingCutoff))
 			{
 				String inputFile = inputDir + "/NonRedundant-" + s + ".txt";
-				List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(inputFile);
-				double[] weights = DetermineObservationProperties.determineObservationWeights(classOfObservations, "Positive",
+				List<String> classOfObservations = DetermineDatasetProperties.determineObservationClasses(inputFile);
+				double[] weights = DetermineDatasetProperties.determineObservationWeights(classOfObservations, "Positive",
 						positiveWeights.get(s), "Unlabelled", 1.0);
 				featureselection.CHCGeneticAlgorithm.main(inputFile, resultsDir + "/" + s, populationSize, isVerboseOutput, mtry,
 						numberOfTreesPerForest, numberOfThreads, weights, featuresToRemove, generationsWithoutChange);

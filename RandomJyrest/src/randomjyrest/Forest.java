@@ -15,7 +15,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import utilities.DetermineObservationProperties;
+import utilities.DetermineDatasetProperties;
 import utilities.ImmutableThreeValues;
 import utilities.ImmutableTwoValues;
 
@@ -228,7 +228,7 @@ public class Forest
 	{
 		
 		List<Double> baseOOBQualityMeasure = new ArrayList<Double>(this.forest.size());
-		List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(this.trainingDataset);
+		List<String> classOfObservations = DetermineDatasetProperties.determineObservationClasses(this.trainingDataset);
 		int numberOfObservations = classOfObservations.size();
 		int numberOfTrees = this.forest.size();
 		

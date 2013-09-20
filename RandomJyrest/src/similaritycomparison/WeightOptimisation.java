@@ -15,7 +15,7 @@ import java.util.Random;
 
 import randomjyrest.Forest;
 import randomjyrest.PredictionAnalysis;
-import utilities.DetermineObservationProperties;
+import utilities.DetermineDatasetProperties;
 
 public class WeightOptimisation
 {
@@ -138,7 +138,7 @@ public class WeightOptimisation
 			}
 
 			// Determine the class of each observation and the number of each class.
-			List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(inputFile);
+			List<String> classOfObservations = DetermineDatasetProperties.determineObservationClasses(inputFile);
 			
 			for (int mtry : mtryToUse)
 			{

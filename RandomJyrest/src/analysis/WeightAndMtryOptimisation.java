@@ -18,7 +18,7 @@ import java.util.Random;
 
 import randomjyrest.Forest;
 import randomjyrest.PredictionAnalysis;
-import utilities.DetermineObservationProperties;
+import utilities.DetermineDatasetProperties;
 
 public class WeightAndMtryOptimisation
 {
@@ -235,7 +235,7 @@ public class WeightAndMtryOptimisation
 		}
 		
 		// Determine the class of each observation.
-		List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(inputFile);
+		List<String> classOfObservations = DetermineDatasetProperties.determineObservationClasses(inputFile);
 
 		// Loop through all the mtry values to test.
 		for (int mtry : mtryToUse)
@@ -258,7 +258,7 @@ public class WeightAndMtryOptimisation
 				    System.out.format("Now testing pos/unl weight %d/%d at %s.\n", pWeight, uWeight, strDate);
 					
 					// Determine the weight vector for the observations for this positive/unlabelled weight combination.
-					double[] weights = DetermineObservationProperties.determineObservationWeights(classOfObservations, "Positive",
+					double[] weights = DetermineDatasetProperties.determineObservationWeights(classOfObservations, "Positive",
 							pWeight, "Unlabelled", uWeight);
 					
 					// Setup the aggregate confusion matrix.

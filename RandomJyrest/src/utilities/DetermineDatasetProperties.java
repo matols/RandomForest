@@ -7,15 +7,76 @@ import java.util.ArrayList;
 import java.util.List;
 
 
-public class DetermineObservationProperties
+public class DetermineDatasetProperties
 {
+	
+	/**
+	 * 
+	 * returns the features ordered in the order they appear in the header line of the dataset file
+	 * 
+	 * @param dataset
+	 * @param feauresToIgnore
+	 * @return
+	 */
+	public static final List<String> determineDatasetFeatures(String dataset, List<String> feauresToIgnore)
+	{
+		List<String> featuresInDataset = new ArrayList<String>();
+		BufferedReader reader = null;
+		try
+		{
+			reader = new BufferedReader(new FileReader(dataset));
+			String line = reader.readLine();
+			line = line.replaceAll("\n", "");
+			String[] featureNames = line.split("\t");
+			String classFeatureColumnName = "Classification";
+
+			for (String feature : featureNames)
+			{
+				if (feature.equals(classFeatureColumnName))
+				{
+					// Ignore the class column.
+					;
+				}
+				else if (!feauresToIgnore.contains(feature))
+				{
+					featuresInDataset.add(feature);
+				}
+			}
+		}
+		catch (IOException e)
+		{
+			// Caught an error while reading the file. Indicate this and exit.
+			System.out.println("An error occurred while determining the features to use.");
+			e.printStackTrace();
+			System.exit(0);
+		}
+		finally
+		{
+			try
+			{
+				if (reader != null)
+				{
+					reader.close();
+				}
+			}
+			catch (IOException e)
+			{
+				// Caught an error while closing the file. Indicate this and exit.
+				System.out.println("An error occurred while closing the input data file.");
+				e.printStackTrace();
+				System.exit(0);
+			}
+		}
+		
+		return featuresInDataset;
+	}
 	
 	/**
 	 * @param dataset
 	 * @param accessionColumnName
 	 * @param classFeatureColumnName
 	 */
-	public static final ImmutableTwoValues<List<String>, List<String>> determineAccessionsAndClasses(String dataset,
+	public static final ImmutableTwoValues<List<String>, List<String>> determineObservationAccessionsAndClasses(String dataset,
 			String accessionColumnName, String classFeatureColumnName)
 	{
 		List<String> proteinAccessions = new ArrayList<String>();
@@ -97,11 +158,22 @@ public class DetermineObservationProperties
 		return new ImmutableTwoValues<List<String>, List<String>>(proteinAccessions, proteinClasses);
 	}
 	
+	
 	/**
 	 * @param inputFile
 	 * @return
 	 */
 	public static final List<String> determineObservationClasses(String inputFile)
+	{
+		String classFeatureColumnName = "Classification";
+		return determineObservationClasses(inputFile, classFeatureColumnName);
+	}
+	
+	/**
+	 * @param inputFile
+	 * @return
+	 */
+	public static final List<String> determineObservationClasses(String inputFile, String classFeatureColumnName)
 	{
 		List<String> classOfObservations = new ArrayList<String>();
 		BufferedReader reader = null;
@@ -114,7 +186,6 @@ public class DetermineObservationProperties
 			line = reader.readLine();
 			line = line.replaceAll("\n", "");
 			String[] featureNames = line.split("\t");
-			String classFeatureColumnName = "Classification";
 			int classIndex = -1;
 			int featureIndex = 0;
 			for (String feature : featureNames)

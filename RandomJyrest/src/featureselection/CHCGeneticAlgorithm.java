@@ -21,7 +21,7 @@ import java.util.Set;
 
 import randomjyrest.Forest;
 import randomjyrest.PredictionAnalysis;
-import utilities.DetermineObservationProperties;
+import utilities.DetermineDatasetProperties;
 import utilities.ImmutableFourValues;
 import utilities.ImmutableTwoValues;
 import utilities.IndexedDoubleData;
@@ -73,7 +73,7 @@ public class CHCGeneticAlgorithm
 		}
 		
 		// Determine the class of each observation.
-		List<String> observationClasses = DetermineObservationProperties.determineObservationClasses(inputFile);
+		List<String> observationClasses = DetermineDatasetProperties.determineObservationClasses(inputFile);
 		
 		// Determine the features that are to be used in the growing of the forest.
 		List<String> featuresInDataset = new ArrayList<String>();
