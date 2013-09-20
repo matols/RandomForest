@@ -10,6 +10,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import utilities.DetermineDatasetProperties;
+
 public class GAAnalysis
 {
 
@@ -41,53 +43,7 @@ public class GAAnalysis
 		}
 		
 		// Determine the features in the dataset.
-		List<String> featuresInDataset = new ArrayList<String>();
-		BufferedReader reader = null;
-		try
-		{
-			reader = new BufferedReader(new FileReader(inputFile));
-			String line = reader.readLine();
-			line = line.replaceAll("\n", "");
-			String[] featureNames = line.split("\t");
-			String classFeatureColumnName = "Classification";
-
-			for (String feature : featureNames)
-			{
-				if (feature.equals(classFeatureColumnName))
-				{
-					// Ignore the class column.
-					;
-				}
-				else if (!featuresToRemove.contains(feature))
-				{
-					featuresInDataset.add(feature);
-				}
-			}
-		}
-		catch (IOException e)
-		{
-			// Caught an error while reading the file. Indicate this and exit.
-			System.out.println("An error occurred while determining the features to use.");
-			e.printStackTrace();
-			System.exit(0);
-		}
-		finally
-		{
-			try
-			{
-				if (reader != null)
-				{
-					reader.close();
-				}
-			}
-			catch (IOException e)
-			{
-				// Caught an error while closing the file. Indicate this and exit.
-				System.out.println("An error occurred while closing the file used to determine the features in the dataset.");
-				e.printStackTrace();
-				System.exit(0);
-			}
-		}
+		List<String> featuresInDataset = DetermineDatasetProperties.determineDatasetFeatures(inputFile, featuresToRemove);
 
 		// Get the best individuals from the GA runs.
 		List<List<String>> bestIndividuals = new ArrayList<List<String>>();
@@ -114,7 +70,7 @@ public class GAAnalysis
 				}
 				
 				// Extract the information about the fitness, seed and feature set used.
-				reader = null;
+				BufferedReader reader = null;
 				try
 				{
 					reader = new BufferedReader(new FileReader(finalGenerationLocation));

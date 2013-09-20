@@ -76,53 +76,7 @@ public class CHCGeneticAlgorithm
 		List<String> observationClasses = DetermineDatasetProperties.determineObservationClasses(inputFile);
 		
 		// Determine the features that are to be used in the growing of the forest.
-		List<String> featuresInDataset = new ArrayList<String>();
-		BufferedReader reader = null;
-		try
-		{
-			reader = new BufferedReader(new FileReader(inputFile));
-			String line = reader.readLine();
-			line = line.replaceAll("\n", "");
-			String[] featureNames = line.split("\t");
-			String classFeatureColumnName = "Classification";
-
-			for (String feature : featureNames)
-			{
-				if (feature.equals(classFeatureColumnName))
-				{
-					// Ignore the class column.
-					;
-				}
-				else if (!featuresToRemove.contains(feature))
-				{
-					featuresInDataset.add(feature);
-				}
-			}
-		}
-		catch (IOException e)
-		{
-			// Caught an error while reading the file. Indicate this and exit.
-			System.out.println("An error occurred while determining the features to use.");
-			e.printStackTrace();
-			System.exit(0);
-		}
-		finally
-		{
-			try
-			{
-				if (reader != null)
-				{
-					reader.close();
-				}
-			}
-			catch (IOException e)
-			{
-				// Caught an error while closing the file. Indicate this and exit.
-				System.out.println("An error occurred while closing the file used to determine the features in the dataset.");
-				e.printStackTrace();
-				System.exit(0);
-			}
-		}
+		List<String> featuresInDataset = DetermineDatasetProperties.determineDatasetFeatures(inputFile, featuresToRemove);
 		
 		
 		// Determine the threshold Hamming distance between two individual that must be met before the individuals can undergo
