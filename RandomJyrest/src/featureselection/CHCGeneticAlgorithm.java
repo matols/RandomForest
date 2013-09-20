@@ -33,12 +33,12 @@ public class CHCGeneticAlgorithm
 	 * Run the CHC genetic algorithm.
 	 * 
 	 * @param inputFile			The location of the dataset used to grow the forests.
-	 * @param resultsDir		The location where the results of the optimisation will be written.
+	 * @param resultsDir		The location where the results of the feature selection will be written.
 	 * @param populationSize	The size of the population to use for the GA.
 	 * @param isVerboseOutput	Whether status updates should be displayed.
 	 * @param mtry				The number of features to consider at each split in a tree.
 	 * @param numberOfTrees		The number of trees to grow in each forest.
-	 * @param numberOfThreads	The number of threads to use when growing the trees.
+	 * @param numberOfThreads	The number of threads to use when growing a forest.
 	 * @param weights			The weights of the individual observations.
 	 * @param featuresToRemove	The features in the dataset that should be removed (not used in growing the forest).
 	 */
@@ -81,7 +81,7 @@ public class CHCGeneticAlgorithm
 		
 		// Determine the threshold Hamming distance between two individual that must be met before the individuals can undergo
 		// crossover. This is a form of incest prevention, and ensures that the individuals only undergo crossover with other
-		// individuals that are at least a certain amount different than themselves.
+		// individuals that are not too similar to themselves.
 		int threshold = featuresInDataset.size() / 4;
 		
 		// Generate the initial population.
@@ -91,6 +91,7 @@ public class CHCGeneticAlgorithm
 	    List<Long> seedsOfPopulation = null;
 		if (isRunContinued)
 		{
+			// Get the state of the GA when it was stopped previously.
 			if (isVerboseOutput)
 		    {
 		    	System.out.println("Now retrieving the population from the last generation of the previous run");
@@ -103,6 +104,7 @@ public class CHCGeneticAlgorithm
 		}
 		else
 		{
+			// Generate an initial population and evaluate its fitness.
 		    if (isVerboseOutput)
 		    {
 		    	System.out.println("Now generating the initial population");
@@ -128,14 +130,14 @@ public class CHCGeneticAlgorithm
 	    	}
 	    	
 	    	// Attempt to generate an offspring that is better than at least one of the parents. Make generationsWithoutChange attempts,
-	    	// and if no offspring that meets the criterion is generated, then decrease the threshold.
-	    	int numberOfAttemptsToImprovePopulation = 0;
-	    	boolean isPopulationUpdated = false;
-	    	while (numberOfAttemptsToImprovePopulation < generationsWithoutChange & !isPopulationUpdated)
+	    	// and decrease the threshold if no offspring that meets the criterion is generated.
+	    	int numberOfAttemptsMadeToImprovePopulation = 0;
+	    	boolean isPopulationChangedOrThresholdDropped = false;
+	    	while (numberOfAttemptsMadeToImprovePopulation < generationsWithoutChange & !isPopulationChangedOrThresholdDropped)
 	    	{
 	    		// Generate offspring for potential inclusion in the next generation. This list may be empty if there were no
 		    	// offspring created.
-		    	List<List<String>> offspring = generateOffspring(population, populationSize, threshold);
+		    	List<List<String>> offspring = generateOffspring(population, threshold);
 		    	
 		    	if (!offspring.isEmpty())
 		    	{
@@ -146,7 +148,10 @@ public class CHCGeneticAlgorithm
 			    	List<Double> fitnessOfOffspring = offspringFitness.first;
 				    List<Long> seedsOfOffspring = offspringFitness.second;
 			    	
-			    	// Update the population.
+			    	// Update the population. The population is updated by first pooling the parents and the offspring, and then selecting
+				    // the populationSize most fit individuals from the pooled population. The population is only considered to have been
+				    // changed if one of the offspring is fitter than a parent, and therefore displaces a parent in the set of
+				    // populationSize most fit individuals.
 				    population.addAll(offspring);
 				    fitnessOfPopulation.addAll(fitnessOfOffspring);
 				    seedsOfPopulation.addAll(seedsOfOffspring);
@@ -155,29 +160,31 @@ public class CHCGeneticAlgorithm
 				    population = updatedPopulation.first;
 				    fitnessOfPopulation = updatedPopulation.second;
 				    seedsOfPopulation = updatedPopulation.third;
-				    isPopulationUpdated = updatedPopulation.fourth;
+				    isPopulationChangedOrThresholdDropped = updatedPopulation.fourth;  // True if an offspring is fitter than a parent.
 		    	}
 		    	else
 		    	{
 		    		// No offspring were created.
-		    		isPopulationUpdated = true; 
+		    		isPopulationChangedOrThresholdDropped = true;  // he threshold is being dropped
 		    		threshold -= 1;
 		    		if (threshold == 0)
 		    		{
+		    			// Convergence occurs when the threshold reaches 0.
 		    			isConvergenceReached = true;
 		    		}
 		    	}
 		    	
-	    		numberOfAttemptsToImprovePopulation++;
+	    		numberOfAttemptsMadeToImprovePopulation++;
 	    	}
 	    	
-	    	// If the population was not updated in the numberOfAttemptsToImprovePopulation attempts at generating offspring, then
-	    	// decrease he threshold.
-	    	if (!isPopulationUpdated)
+	    	// If the population did not change in the numberOfAttemptsToImprovePopulation attempts at generating offspring, and
+	    	// offspring were generated in each of the generationsWithoutChange attempts, then decrease the threshold.
+	    	if (!isPopulationChangedOrThresholdDropped)
 	    	{
 	    		threshold -= 1;
 	    		if (threshold == 0)
 	    		{
+	    			// Convergence occurs when the threshold reaches 0.
 	    			isConvergenceReached = true;
 	    		}
 	    	}
@@ -187,7 +194,7 @@ public class CHCGeneticAlgorithm
 	    	
 	    	// Write out the population.
 	    	recordPopulation(resultsDir, population, fitnessOfPopulation, seedsOfPopulation, generationsElapsed, populationSize,
-	    			threshold, numberOfAttemptsToImprovePopulation);
+	    			threshold, numberOfAttemptsMadeToImprovePopulation);
 	    }
 	}
 	
@@ -199,68 +206,96 @@ public class CHCGeneticAlgorithm
 	 * 		double individualFitness = PredictionAnalysis.calculate...
 	 * In built measures include the G mean, MCC, F measure, accuracy and error.
 	 * 
-	 * @param population
-	 * @param dataset
-	 * @param numberOfTrees
-	 * @param mtry
-	 * @param numberOfThreads
-	 * @param weights
-	 * @param observationClasses
-	 * @return
+	 * The return values are ordered as the population is, so the ith individual in the population list will have their fitness
+	 * and seed used be the ith values in the fitness and seed lists returned.
+	 * 
+	 * @param population			The population of individuals that will have their fitness evaluated.
+	 * @param dataset				The dataset that each individual's fitness will be evaluated on.
+	 * @param numberOfTrees			The number of trees to grow in each forest.
+	 * @param mtry					The number of features to evaluate at each split in a tree.
+	 * @param numberOfThreads		The number of threads to use when growing a forest.
+	 * @param weights				The vector of observation weights.
+	 * @param observationClasses	The classes of each observation.
+	 * @return						The fitness of each individual and the seed used to grow each forest.
 	 */
 	private static final ImmutableTwoValues<List<Double>, List<Long>> calculateFitness(List<List<String>> population, String dataset, int numberOfTrees, int mtry,
 			int numberOfThreads, double[] weights, List<String> observationClasses)
 	{
-		List<Double> fitness = new ArrayList<Double>();
-		List<Long> seeds = new ArrayList<Long>();
+		List<Double> fitness = new ArrayList<Double>();  // The fitnesses of the individuals.
+		List<Long> seeds = new ArrayList<Long>();  // The seeds used to grow the forests evaluating each individual.
+		
+		// Grow a forest to determine the fitnes of each individual in the population.
 	    for (List<String> p : population)
 	    {
+	    	// Grow the forest and generate the OB predictions.
 	    	Forest forest = new Forest();
 	    	Map<String, double[]> predictions = forest.main(dataset, numberOfTrees, mtry, p, weights, numberOfThreads, true);
 	    	Map<String, Map<String, Double>> confusionMatrix = PredictionAnalysis.calculateConfusionMatrix(observationClasses, predictions);
 
+	    	// Evaluate the fitness.
 	    	double individualFitness = PredictionAnalysis.calculateGMean(confusionMatrix, observationClasses);
 	    	
 	    	fitness.add(individualFitness);
 	    	seeds.add(forest.getSeed());
 	    }
+	    
 	    return new ImmutableTwoValues<List<Double>, List<Long>>(fitness, seeds);
 	}
 	
 	
 	/**
-	 * @param population
-	 * @param populationSize
-	 * @param threshold
-	 * @return
+	 * Generates offspring of a population.
+	 * 
+	 * If all pairs of parents chosen are too similar, then the list of offspring returned will be empty.
+	 * 
+	 * @param population	The population from which the parents should be taken.
+	 * @param threshold		The dissimilarity (in Hamming distance) required between pairs of parents before they can produce offspring.
+	 * @return				The offspring generated.
 	 */
-	private static final List<List<String>> generateOffspring(List<List<String>> population, int populationSize, int threshold)
+	private static final List<List<String>> generateOffspring(List<List<String>> population, int threshold)
 	{
-		List<List<String>> offspring = new ArrayList<List<String>>();
+		List<List<String>> offspring = new ArrayList<List<String>>();  // The generated offspring.
+		int populationSize = population.size();  // he number of indivudals in the parent population.
+		int parentPairsToGenerate = populationSize / 2;  // The number of pairs of parents to select.  
 		
-		List<List<String>> shuffleablePopulation = new ArrayList<List<String>>(population);
-    	for (int i = 0; i < populationSize / 2; i++)
+		Random parentPicker = new Random();
+    	for (int i = 0; i < parentPairsToGenerate; i++)
     	{
     		// Select the parents (no preference given to fitter parents).
-    		Collections.shuffle(shuffleablePopulation);
-    		List<String> parentOne = shuffleablePopulation.get(0);
-    		List<String> parentTwo = shuffleablePopulation.get(1);
+    		int indexParentOne = parentPicker.nextInt(populationSize);
+    		int indexParentTwo = parentPicker.nextInt(populationSize);
+    		while (indexParentOne == indexParentTwo)
+    		{
+    			indexParentTwo = parentPicker.nextInt(populationSize);
+    		}
+    		List<String> parentOne = population.get(indexParentOne);
+    		List<String> parentTwo = population.get(indexParentTwo);
 
-    		// Determine if the selected parents can undergo combination.
-    		ImmutableTwoValues<Set<String>, Set<String>> uniqueParentFeatures = hammingDistance(parentOne, parentTwo);
+    		// Determine the features unique to each parent, and the set of features unqie to one parent or the other (e.g. if the
+    		// parents are A and B, determine A-B, B-A and ((A-B) union (B-A))).
+    		ImmutableTwoValues<Set<String>, Set<String>> uniqueParentFeatures = uniqueFeatures(parentOne, parentTwo);
     		Set<String> uniqueToParentOne = uniqueParentFeatures.first;
     		Set<String> uniqueToParentTwo = uniqueParentFeatures.second;
     		List<String> uniqueFeatures = new ArrayList<String>(uniqueToParentOne);
     		uniqueFeatures.addAll(uniqueToParentTwo);
-    		int distanceBetweenParents = uniqueFeatures.size();
-    		if (distanceBetweenParents > threshold)
+    		
+    		// Determine whether the parents are dissimilar enough to undergo crossover.
+    		int hammingDistanceBetweenParents = uniqueFeatures.size();
+    		if (hammingDistanceBetweenParents > threshold)
     		{
+    			// The parents are dissimilar enough to undergo crossover. Peform half uniform crossover (HUX). Select a random subset
+    			// of half the features that are unique to one parent or the other, and cross them over. This may result in one parent
+    			// having many features and the other only a few, and therefore can provide a fluctuation in the size of individuals.
     			Collections.shuffle(uniqueFeatures);
-    			List<String> toCrossover = new ArrayList<String>(uniqueFeatures.subList(0, distanceBetweenParents / 2));
+    			List<String> toCrossover = new ArrayList<String>(uniqueFeatures.subList(0, hammingDistanceBetweenParents / 2));
+    			
+    			// Initialise both children to be the same as their corresponding parent.
     			List<String> childOne = new ArrayList<String>(parentOne);
     			List<String> childTwo = new ArrayList<String>(parentTwo);
     			for (String s : toCrossover)
     			{
+    				// For each feature that should be crossed over, determine which parent, Pp, it is in and which, Pq, is isn't.
+    				// Set child Cp to not have the feature and child Cq to have it.
     				if (uniqueToParentOne.contains(s))
     				{
     					childOne.remove(s);
@@ -282,46 +317,62 @@ public class CHCGeneticAlgorithm
 	
 	
 	/**
-	 * Calculate the Hamming distance between two individuals.
+	 * Calculate the features unique to each of two individuals.
 	 * 
-	 * @param parentOne
-	 * @param parentTwo
-	 * @return
+	 * This method can be used to determine the Hamming distance between two individuals. Given two individuals A and B, this method
+	 * determines Ua = A - B and Ub = B - A. The Hamming distance between the two is then Ua + Ub.
+	 * 
+	 * @param parentOne		One of the parents.
+	 * @param parentTwo		The other parent.
+	 * @return				Two sets of features. The first set being the features unique to parentOne, and the second unique to parentTwo.
 	 */
-	private static final ImmutableTwoValues<Set<String>, Set<String>> hammingDistance(List<String> parentOne, List<String> parentTwo)
+	private static final ImmutableTwoValues<Set<String>, Set<String>> uniqueFeatures(List<String> parentOne, List<String> parentTwo)
 	{
+		// Determine the features unique to parentOne.
 		Set<String> uniqueToParentOne = new HashSet<String>();
-		Set<String> uniqueToParentTwo = new HashSet<String>();
 		for (String s : parentOne)
 		{
 			if (!parentTwo.contains(s))
 			{
+				// If parentTwo does not contain feature s, then add the feature to the set of features unique to parentOne.
 				uniqueToParentOne.add(s);
 			}
 		}
+		
+		// Determine the features unique to parentTwo.
+		Set<String> uniqueToParentTwo = new HashSet<String>();
 		for (String s : parentTwo)
 		{
 			if (!parentOne.contains(s))
 			{
+				// If parentOne does not contain feature s, then add the feature to the set of features unique to parentTwo.
 				uniqueToParentTwo.add(s);
 			}
 		}
+		
 		return new ImmutableTwoValues<Set<String>, Set<String>>(uniqueToParentOne, uniqueToParentTwo);
 	}
 	
 	
 	/**
-	 * @param resultsDir
-	 * @param population
-	 * @param fitnesses
-	 * @param seeds
-	 * @param generationsElapsed
-	 * @param populationSize
+	 * Write out the information about a generation.
+	 * 
+	 * @param resultsDir					The directory where the generational information will be written.
+	 * @param population					The population that is being recorded.
+	 * @param fitnesses						The fitness of the individuals in the population.
+	 * @param seeds							The seeds used to evaluate the individuals in the population.
+	 * @param generationsElapsed			The number of this generation.
+	 * @param populationSize				The size of the population.
+	 * @param threshold						The dissimilarity threshold that must be met before crossover can be performed.
+	 * @param attemptsAtImprovementMade		The number of attempts at crossover made before an offspring was fitter than a parent, or you gave up.
 	 */
 	private static final void recordPopulation(String resultsDir, List<List<String>> population, List<Double> fitnesses,
 			List<Long> seeds, int generationsElapsed, int populationSize, int threshold, int attemptsAtImprovementMade)
 	{
-		String resultsLocation = resultsDir + "/" + String.format("%09d", generationsElapsed);
+		String resultsLocation = resultsDir + "/" + String.format("%09d", generationsElapsed);  // The file where the population data will be recorded.
+		
+		// Write out the individuals in the population, along with their fitness and the seed used to evaluate their fitness.
+		// Also record the threshold and number of attempts made at generating an offspring that is more fit than a parent.
 		try
 		{
 			FileWriter resultsOutputFile = new FileWriter(resultsLocation);
@@ -362,27 +413,42 @@ public class CHCGeneticAlgorithm
 	 * Additionally, if the feature selected most often is selected n times, then the feature selected the fewest number
 	 * of times will be selected no less than n - 1 times.
 	 * 
-	 * @param features			The list of the features in the dataset that are to be used for growing the forest.
+	 * @param features			The list of all the features in the dataset that can be used for growing the forest.
 	 * @param removedFeatures	The list of features that should never be considered for growing the forest.
 	 * @param populationSize	The number of individuals in the population
-	 * @return					A list of the chosen feature sets.
+	 * @return					A list of the chosen feature sets (the individuals in the initial population).
 	 */
 	private static final List<List<String>> initialisePopulation(List<String> features, List<String> removedFeatures, int populationSize)
 	{
-		List<List<String>> population = new ArrayList<List<String>>(populationSize);
+		List<List<String>> population = new ArrayList<List<String>>(populationSize);  // The initial population
+		List<String> featuresAvailableForSelection = new ArrayList<String>(features);  // All features are initially available for selection.
+		int numberOfFeatures = features.size();  // The total number of features available for selection.
 		
-		List<String> featuresAvailableForSelection = new ArrayList<String>(features);
-		int numberOfFeatures = features.size();
+		// Initialise the object that will be used to randomly select from among the features.
 		Random featureSelector = new Random();
+		
+		// For each individual that should be created, generate a random set of features.
 		for (int i = 0; i < populationSize; i++)
 		{
-			List<String> newPopMember = new ArrayList<String>();
-			for (int j = 0; j < (numberOfFeatures / 2.0); j++)
+			List<String> newPopMember = new ArrayList<String>();  // The individual.
+			
+			// Generate an individual consisting of half the total number of features.
+			while (newPopMember.size() < (numberOfFeatures / 2.0))
 			{
-				// Select a random available observation from class s.
+				// Select a random feature from the available features.
 				String chosenFeature = featuresAvailableForSelection.get(featureSelector.nextInt(featuresAvailableForSelection.size()));
+				while (newPopMember.contains(chosenFeature))
+				{
+					// If the chosen feature is already in the individual, then select another. This can only happened if the list of
+					// available features had to be refilled while an individual was being generated.
+					chosenFeature = featuresAvailableForSelection.get(featureSelector.nextInt(featuresAvailableForSelection.size()));
+				}
+				
+				// Add the feature to the individual, and remove the feature from the set of available features.
 				newPopMember.add(chosenFeature);
 				featuresAvailableForSelection.remove(chosenFeature);
+				
+				// If there are no available features left, then refill the list of available features with all potential features. 
 				if (featuresAvailableForSelection.isEmpty())
 				{
 					featuresAvailableForSelection = new ArrayList<String>(features);
@@ -412,15 +478,24 @@ public class CHCGeneticAlgorithm
 	 * must be changed to
 	 * 		Collections.sort(sortedByFitness);
 	 * 
-	 * @param population
-	 * @param fitness
-	 * @param seeds
-	 * @param populationSize
-	 * @return
+	 * The fitness and seed for the ith individual in the population can be found at fitness.get(i) and seeds.get(i) respectively.
+	 * The returned lists are also ordered in this manner.
+	 * 
+	 * The population, fitness and seeds lists are all ordered so that the parents values have indices less than the indices of the
+	 * offspring, and therefore the parents values are the first populationSize values and the offspring's values occur with
+	 * and index >= populationSize.
+	 * 
+	 * @param population		The pooled list of parents and offspring.
+	 * @param fitness			The pooled list of fitnesses of the parents and offspring.
+	 * @param seeds				The pooled list of seeds used for evaluating the fitnesses of the parents and offspring.
+	 * @param populationSize	The number of individuals that should be selected from the pooled set of parents and offspring.
+	 * @return					The populationSize fittest individuals, along with their fitnesses and seeds.
 	 */
 	private static final ImmutableFourValues<List<List<String>>, List<Double>, List<Long>, Boolean> updatePopulation(
 			List<List<String>> population, List<Double> fitness, List<Long> seeds, int populationSize)
 	{
+		// Sorted the fitnesses in such a way that the original index of the individual can be retrieved along with its rank according
+		// to its fitness.
 		List<IndexedDoubleData> sortedByFitness = new ArrayList<IndexedDoubleData>();
 	    for (int j = 0; j < population.size(); j++)
 	    {
@@ -428,18 +503,22 @@ public class CHCGeneticAlgorithm
 	    }
 	    Collections.sort(sortedByFitness, Collections.reverseOrder());  // Sort in descending order by fitness.
 	    
+	    // Determine the populationSize most fit individuals, and record their fitnesses and seeds along with them.
+	    // Add the first populationSize individuals in the sortedByFitness list, as they are the fittest.
 	    List<List<String>> fittestIndividuals = new ArrayList<List<String>>();
 	    List<Double> fittestIndividualsFitness = new ArrayList<Double>();
 	    List<Long> fittestIndividualsSeeds = new ArrayList<Long>();
 	    boolean isPopulationUpdated = false;
 	    for (int j = 0; j < populationSize; j ++)
 	    {
-	    	// Add the first populationSize individuals as the are the fittest.
-	    	int indexToAddFrom = sortedByFitness.get(j).getIndex();
-	    	fittestIndividuals.add(population.get(indexToAddFrom));
-	    	fittestIndividualsFitness.add(fitness.get(indexToAddFrom));
-	    	fittestIndividualsSeeds.add(seeds.get(indexToAddFrom));
+	    	int indexToAddFrom = sortedByFitness.get(j).getIndex();  // Determine the original index of the jth most fit individual.
+	    	fittestIndividuals.add(population.get(indexToAddFrom));  // Get the jth most fit individual.
+	    	fittestIndividualsFitness.add(fitness.get(indexToAddFrom));  // Get the fitness of the jth most fit individual.
+	    	fittestIndividualsSeeds.add(seeds.get(indexToAddFrom));  // Get the seed of the jth most fit indivudal.
 	    	
+	    	// If the original index of the jth most fit individual is >= populationSize, then the indivual being added is one of the
+	    	// offspring (as the offspring are at the end of te population list after the parents, and therefore have original indices
+	    	// >= populationSize.
 	    	if (indexToAddFrom >= populationSize)
 	    	{
 	    		// One of the offspring has been added to the population.
@@ -451,21 +530,30 @@ public class CHCGeneticAlgorithm
 	    		fittestIndividualsFitness, fittestIndividualsSeeds, isPopulationUpdated);
 	}
 	
+	
 	/**
-	 * @param populationDir
-	 * @return
+	 * Used to retrieve the initial population for a run continuation.
+	 * 
+	 * The threshold that had been reached before the run was stopped previously is not extracted. This does not make much difference
+	 * as the homogeneity of the population ensures that the threshold from the stopped run is reached quickly (in only a few generations).
+	 * 
+	 * @param populationDir		The directory where the population is saved.
+	 * @return					The population to use as a starting point for the run continuation (along with the fitnesses and seeds
+	 * 							of the population and the generation in the run where the run was stopped previously).
 	 */
-	private static final ImmutableFourValues<List<List<String>>, List<Double>, List<Long>, Integer> retrieveInitialPopulation(String populationDir)
+	private static final ImmutableFourValues<List<List<String>>, List<Double>, List<Long>, Integer> retrieveInitialPopulation(
+			String populationDir)
 	{
-		List<List<String>> population = new ArrayList<List<String>>();
-		List<Double> fitnesses = new ArrayList<Double>();
-		List<Long> seeds =new ArrayList<Long>();
-		int lastGeneration = 0;
+		List<List<String>> population = new ArrayList<List<String>>();  // The population to use as the starting point for the continuation.
+		List<Double> fitnesses = new ArrayList<Double>();  // The fitness of each starting population individual.
+		List<Long> seeds =new ArrayList<Long>();  // The seed of each starting population individual.
+		int lastGeneration = 0;  // The number of the generation that will be used as the starting generation for the continuation.
 		
+		// Get the files recording the population at all the generations performed so far.
 		File populationDirectory = new File(populationDir);
 		File[] generationRecords = populationDirectory.listFiles();
 
-		// Determine the final generation from the previous run.
+		// Determine the final generation from the previous run (this will be the starting generation for the current run).
 		String finalGenerationLocation = "";
 		for (File f : generationRecords)
 		{
@@ -477,7 +565,7 @@ public class CHCGeneticAlgorithm
 			}
 		}
 		
-		// Read in the population from the last generation record.
+		// Read in the population from the record of the last generation.
 		BufferedReader reader = null;
 		try
 		{
