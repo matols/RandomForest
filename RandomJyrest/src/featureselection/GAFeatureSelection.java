@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import utilities.DetermineObservationProperties;
+import utilities.DetermineDatasetProperties;
 
 public class GAFeatureSelection
 {
@@ -43,12 +43,13 @@ public class GAFeatureSelection
 		Map<String, Double> classWeights = new HashMap<String, Double>();
 		
 		int numberOfRepetitionsToPerform = 20;  // The number of runs of the GA feature selection to perform.
-		boolean isNewRunBeingPerformed = false;  // Whether the run should be a continuation of a previous run or not.
+		boolean isNewRunBeingPerformed = false;  // Whether the runs should continue on from a previous set of runs.
 		
 		// Specify the genetic algorithm control parameters.
 		int populationSize = 50;  // The number of individuals in the population.
 		boolean isVerboseOutput = false;  // Whether status updates should be printed.
-		int generationsWithoutChange = 10;  // The maximum number of attempts that will be made in each generation to generate an offspring that is fitter than at least one member of the parent population.
+		int generationsWithoutChange = 10;  // The maximum number of attempts that will be made in each generation to generate an
+											// offspring that is fitter than at least one member of the parent population.
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
@@ -68,35 +69,42 @@ public class GAFeatureSelection
 					continue;
 				}
 				
-				// Enter the feature values for this observation into the mapping of the temporary processing of the data.
 				String[] chunks = line.split("\t");
 				if (chunks[0].equals("Trees"))
 				{
+					// If the first entry on the line is Trees, then the line records the number of trees to use in each forest.
 					numberOfTreesPerForest = Integer.parseInt(chunks[1]);
 				}
 				else if (chunks[0].equals("Mtry"))
 				{
+					// If the first entry on the line is Mtry, then the line contains the value of the mtry parameter.
 					mtry = Integer.parseInt(chunks[1]);
 				}
 				else if (chunks[0].equals("Threads"))
 				{
+					// If the first entry on the line is Threads, then the line contains the number of threads to use when growing a forest.
 					numberOfThreads = Integer.parseInt(chunks[1]);
 				}
 				else if (chunks[0].equals("Features"))
 				{
+					// If the first entry on the line is Features, then the line contains the features in the dataset to ignore.
 					String[] features = chunks[1].split(",");
 					featuresToRemove = Arrays.asList(features);
 				}
 				else if (chunks[0].equals("Weight"))
 				{
+					// If the first entry on the line is Weight, then the line contains a weight (third entry) for a class (second entry).
 					classWeights.put(chunks[1], Double.parseDouble(chunks[2]));
 				}
 				else if (chunks[0].equals("Repetitions"))
 				{
+					// If the first entry on the line is Repetitions, then the line contains the number of GA runs to perform.
 					numberOfRepetitionsToPerform = Integer.parseInt(chunks[1]);
 				}
 				else if (chunks[0].equals("NewRun"))
 				{
+					// If the first entry on the line is NewRun and the second is True, then a new set of runs is being performed,
+					// else a previous set of runs is being continued from.
 					if (chunks[1].equals("True"))
 					{
 						isNewRunBeingPerformed = true;
@@ -104,10 +112,13 @@ public class GAFeatureSelection
 				}
 				else if (chunks[0].equals("Population"))
 				{
+					// If the first entry on the line is Population, then the line contains the number of individuals in the population.
 					populationSize = Integer.parseInt(chunks[1]);
 				}
 				else if (chunks[0].equals("Verbose"))
 				{
+					// If the first entry on the line is Verbose and the second is True, then status updates should be printed,
+					// else no status updates should be printed.
 					if (chunks[1].equals("True"))
 					{
 						isVerboseOutput = true;
@@ -115,6 +126,8 @@ public class GAFeatureSelection
 				}
 				else if (chunks[0].equals("Attempts"))
 				{
+					// If the first entry on the line is Attempts, then the line contains the number of attempts that should be made
+					// per generation at improving on a member of the parent population.
 					generationsWithoutChange = Integer.parseInt(chunks[1]);
 				}
 				else
@@ -151,15 +164,14 @@ public class GAFeatureSelection
 			}
 		}
 
-		// Mandatory control parameters for running the GA.
 		int startingIterationNumber = 0;  // The number of the directory for the first iteration.
 		
-		// Setup the directory for the results.
+		// Setup the directory for the results and write out the parameters, or setup the continuation from a previous run.
 		File resultsDirectory = new File(resultsDir);
 		String parameterLocation = resultsDir + "/Parameters.txt";
 		if (isNewRunBeingPerformed)
 		{
-			// A previous run is not being continued.
+			// A previous set of runs is not being continued.
 			if (!resultsDirectory.exists())
 			{
 				// The results directory does not exist.
@@ -217,7 +229,7 @@ public class GAFeatureSelection
 				System.exit(0);
 			}
 			
-			// Determine the last iteration performed (this will be the iteration that is started from).
+			// Determine the last run iteration performed (this will be the iteration that is started from).
 			startingIterationNumber = 0;
 			File[] previousIteratations = resultsDirectory.listFiles();
 			for (File f : previousIteratations)
@@ -232,7 +244,10 @@ public class GAFeatureSelection
 				}
 			}
 			
-			// Load the parameters from the run that is being continued.
+			// Load the parameters from the run that is being continued. Only need the parameters that directly affect the GA or the
+			// forest growing process. For example, the number of trees and the number of attempts at improving on the parent
+			// population are needed, but the number of threads or runs to perform are not. The parameters not specified here are taken
+			// from the input file of parameters, and can be changed between the first attempt at the set of runs and the continuation.
 			classWeights = new HashMap<String, Double>();
 			reader = null;
 			try
@@ -251,28 +266,35 @@ public class GAFeatureSelection
 					String[] chunks = line.split("\t");
 					if (chunks[0].equals("Trees"))
 					{
+						// If the first entry on the line is Trees, then the line records the number of trees to use in each forest.
 						numberOfTreesPerForest = Integer.parseInt(chunks[1]);
-					}
-					else if (chunks[0].equals("Population"))
-					{
-						populationSize = Integer.parseInt(chunks[1]);
 					}
 					else if (chunks[0].equals("Mtry"))
 					{
+						// If the first entry on the line is Mtry, then the line contains the value of the mtry parameter.
 						mtry = Integer.parseInt(chunks[1]);
 					}
 					else if (chunks[0].equals("Features"))
 					{
+						// If the first entry on the line is Features, then the line contains the features in the dataset to ignore.
 						String features = chunks[1].substring(1, chunks[1].length() - 1);  // String off the enclosing [...].
 						String[] individualFeatures = features.split(", ");
 						featuresToRemove = Arrays.asList(individualFeatures);
 					}
 					else if (chunks[0].equals("Weight"))
 					{
+						// If the first entry on the line is Weight, then the line contains a weight (third entry) for a class (second entry).
 						classWeights.put(chunks[1], Double.parseDouble(chunks[2]));
+					}
+					else if (chunks[0].equals("Population"))
+					{
+						// If the first entry on the line is Population, then the line contains the number of individuals in the population.
+						populationSize = Integer.parseInt(chunks[1]);
 					}
 					else if (chunks[0].equals("Attempts"))
 					{
+						// If the first entry on the line is Attempts, then the line contains the number of attempts that should be made
+						// per generation at improving on a member of the parent population.
 						generationsWithoutChange = Integer.parseInt(chunks[1]);
 					}
 					else
@@ -310,11 +332,15 @@ public class GAFeatureSelection
 			}
 		}
 		
-		// Determine the weight vector.
-		List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(inputFile);
-		double[] weights = DetermineObservationProperties.determineObservationWeights(classOfObservations, "Positive",
+		// Determine the class of each observation.
+		List<String> classOfObservations = DetermineDatasetProperties.determineObservationClasses(inputFile);
+		
+		// Determine the vector of weights for the observations.
+		double[] weights = DetermineDatasetProperties.determineObservationWeights(classOfObservations, "Positive",
 				classWeights.get("Positive"), "Unlabelled", classWeights.get("Unlabelled"));
 		
+		// Run the GA feature selection the specified number of times. If the startingIterationumber is not 0, then a continuation
+		// is being performed.
 		for (int i = startingIterationNumber; i < numberOfRepetitionsToPerform; i++)
 		{
 			CHCGeneticAlgorithm.main(inputFile, resultsDir + "/" + Integer.toString(i), populationSize, isVerboseOutput, mtry,

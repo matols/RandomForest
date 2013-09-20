@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.Random;
 
 import randomjyrest.Forest;
-import utilities.DetermineObservationProperties;
+import utilities.DetermineDatasetProperties;
 import utilities.StringsSortedByDoubles;
 
 public class VariableImportance
@@ -68,31 +68,36 @@ public class VariableImportance
 					continue;
 				}
 				
-				// Enter the feature values for this observation into the mapping of the temporary processing of the data.
 				String[] chunks = line.split("\t");
 				if (chunks[0].equals("Forests"))
 				{
+					// If the first entry on the line is Forests, then the line records the number of forests to evaluate the variable importance for.
 					numberOfForestsToCreate = Integer.parseInt(chunks[1]);
 				}
 				else if (chunks[0].equals("Trees"))
 				{
+					// If the first entry on the line is Trees, then the line records the number of trees to use in each forest.
 					numberOfTreesPerForest = Integer.parseInt(chunks[1]);
 				}
 				else if (chunks[0].equals("Mtry"))
 				{
+					// If the first entry on the line is Mtry, then the line contains the value of the mtry parameter.
 					mtry = Integer.parseInt(chunks[1]);
 				}
 				else if (chunks[0].equals("Threads"))
 				{
+					// If the first entry on the line is Threads, then the line contains the number of threads to use when growing a forest.
 					numberOfThreads = Integer.parseInt(chunks[1]);
 				}
 				else if (chunks[0].equals("Features"))
 				{
+					// If the first entry on the line is Features, then the line contains the features in the dataset to ignore.
 					String[] features = chunks[1].split(",");
 					featuresToRemove = Arrays.asList(features);
 				}
 				else if (chunks[0].equals("Weight"))
 				{
+					// If the first entry on the line is Weight, then the line contains a weight (third entry) for a class (second entry).
 					classWeights.put(chunks[1], Double.parseDouble(chunks[2]));
 				}
 				else
@@ -129,7 +134,6 @@ public class VariableImportance
 			}
 		}
 
-		// Mandatory controls for the forest growth.
 		boolean isCalculateOOB = true;  // OOB error is being calculated.
 		
 		// Setup the directory for the results.
@@ -179,55 +183,9 @@ public class VariableImportance
 		}
 
 		// Determine the features in the dataset.
-		List<String> featuresInDataset = new ArrayList<String>();
-		reader = null;
-		try
-		{
-			reader = new BufferedReader(new FileReader(inputFile));
-			String line = reader.readLine();
-			line = line.replaceAll("\n", "");
-			String[] featureNames = line.split("\t");
-			String classFeatureColumnName = "Classification";
+		List<String> featuresInDataset = DetermineDatasetProperties.determineDatasetFeatures(inputFile, featuresToRemove);
 
-			for (String feature : featureNames)
-			{
-				if (feature.equals(classFeatureColumnName))
-				{
-					// Ignore the class column.
-					;
-				}
-				else if (!featuresToRemove.contains(feature))
-				{
-					featuresInDataset.add(feature);
-				}
-			}
-		}
-		catch (IOException e)
-		{
-			// Caught an error while reading the file. Indicate this and exit.
-			System.out.println("An error occurred while determining the features to use.");
-			e.printStackTrace();
-			System.exit(0);
-		}
-		finally
-		{
-			try
-			{
-				if (reader != null)
-				{
-					reader.close();
-				}
-			}
-			catch (IOException e)
-			{
-				// Caught an error while closing the file. Indicate this and exit.
-				System.out.println("An error occurred while closing the input data file.");
-				e.printStackTrace();
-				System.exit(0);
-			}
-		}
-
-		// Write out the importance header
+		// Write out the importance header (the features not being removed in the order that they appear in the dataset).
 		String variableImportanceLocation = resultsDir + "/VariableImportances.txt";
 		try
 		{
@@ -249,7 +207,8 @@ public class VariableImportance
 			System.exit(0);
 		}
 
-		// Determine the seeds that will be used.
+		// Generate all the unique random seeds to use in growing the forests. Using a unique seed for each tree ensures that
+		// numberOfForestsToCreate different forests will be created (or at least ensures this to the best of our ability).
 		String seedsLocation = resultsDir + "/SeedsUsed.txt";
 		Random randGen = new Random();
 		List<Long> seeds = new ArrayList<Long>();
@@ -263,11 +222,14 @@ public class VariableImportance
 			seeds.add(seedToUse);
 		}
 		
-		// Determine the weight vector.
-		List<String> classOfObservations = DetermineObservationProperties.determineObservationClasses(inputFile);
-		double[] weights = DetermineObservationProperties.determineObservationWeights(classOfObservations, "Positive",
+		// Determine the class of each observation.
+		List<String> classOfObservations = DetermineDatasetProperties.determineObservationClasses(inputFile);
+		
+		// Determine the vector of weights for the observations.
+		double[] weights = DetermineDatasetProperties.determineObservationWeights(classOfObservations, "Positive",
 				classWeights.get("Positive"), "Unlabelled", classWeights.get("Unlabelled"));
 
+		// Generate each forest, and determine the importance of the variables used to grow the forest.
 		for (int i = 0; i < numberOfForestsToCreate; i++)
 		{
 			Date startTime = new Date();
