@@ -222,12 +222,8 @@ public class VariableImportance
 			seeds.add(seedToUse);
 		}
 		
-		// Determine the class of each observation.
-		List<String> classOfObservations = DetermineDatasetProperties.determineObservationClasses(inputFile);
-		
 		// Determine the vector of weights for the observations.
-		double[] weights = DetermineDatasetProperties.determineObservationWeights(classOfObservations, "Positive",
-				classWeights.get("Positive"), "Unlabelled", classWeights.get("Unlabelled"));
+		double[] weights = DetermineDatasetProperties.determineObservationWeights(inputFile, classWeights);
 
 		// Generate each forest, and determine the importance of the variables used to grow the forest.
 		for (int i = 0; i < numberOfForestsToCreate; i++)

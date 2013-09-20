@@ -215,8 +215,7 @@ public class ForestSizeOptimisation
 		List<String> classOfObservations = DetermineDatasetProperties.determineObservationClasses(inputFile);
 		
 		// Determine the vector of weights for the observations.
-		double[] weights = DetermineDatasetProperties.determineObservationWeights(classOfObservations, "Positive", classWeights.get("Positive"), "Unlabelled",
-				classWeights.get("Unlabelled"));
+		double[] weights = DetermineDatasetProperties.determineObservationWeights(inputFile, classWeights);
 
 		for (int i : forestSizesToUse)
 		{

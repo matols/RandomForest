@@ -332,12 +332,8 @@ public class GAFeatureSelection
 			}
 		}
 		
-		// Determine the class of each observation.
-		List<String> classOfObservations = DetermineDatasetProperties.determineObservationClasses(inputFile);
-		
 		// Determine the vector of weights for the observations.
-		double[] weights = DetermineDatasetProperties.determineObservationWeights(classOfObservations, "Positive",
-				classWeights.get("Positive"), "Unlabelled", classWeights.get("Unlabelled"));
+		double[] weights = DetermineDatasetProperties.determineObservationWeights(inputFile, classWeights);
 		
 		// Run the GA feature selection the specified number of times. If the startingIterationumber is not 0, then a continuation
 		// is being performed.

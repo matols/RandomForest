@@ -161,6 +161,11 @@ public class WeightAndMtryOptimisation
 		}
 
 		boolean isCalculateOOB = true;  // OOB error is being calculated.
+		
+		// Setup the mapping of class names to weights.
+		Map<String, Double> classWeights = new HashMap<String, Double>();
+		classWeights.put("Positive", 1.0);
+		classWeights.put("Unlabelled", 1.0);
 
 		// Setup the directory for the results.
 		File resultsDirectory = new File(resultsDir);
@@ -248,6 +253,7 @@ public class WeightAndMtryOptimisation
 		    // Loop through all the positive class weights to test.
 			for (double pWeight : positiveWeightsToTest)
 			{
+				classWeights.put("Positive", pWeight);
 				
 				// Loop through all the unlabelled class weights to test.
 				for (double uWeight : unlabelledWeightsToTest)
@@ -256,10 +262,11 @@ public class WeightAndMtryOptimisation
 				    currentTime = new Date();
 				    strDate = sdfDate.format(currentTime);
 				    System.out.format("Now testing pos/unl weight %d/%d at %s.\n", pWeight, uWeight, strDate);
+				    
+				    classWeights.put("Unlabelled", uWeight);
 					
 					// Determine the weight vector for the observations for this positive/unlabelled weight combination.
-					double[] weights = DetermineDatasetProperties.determineObservationWeights(classOfObservations, "Positive",
-							pWeight, "Unlabelled", uWeight);
+					double[] weights = DetermineDatasetProperties.determineObservationWeights(inputFile, classWeights);
 					
 					// Setup the aggregate confusion matrix.
 					Map<String, Map<String, Double>> aggregateConfusionMatrix = new HashMap<String, Map<String, Double>>();

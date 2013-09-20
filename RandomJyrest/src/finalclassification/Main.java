@@ -11,7 +11,6 @@ import java.util.Map;
 
 import randomjyrest.Forest;
 import utilities.DetermineDatasetProperties;
-import utilities.ImmutableTwoValues;
 
 public class Main
 {
@@ -105,12 +104,8 @@ public class Main
 			System.exit(0);
 		}
 		
-		// Determine the class of each observation.
-		List<String> classOfObservations = DetermineDatasetProperties.determineObservationClasses(trainingDataset);
-		
 		// Determine the vector of weights for the observations.
-		double[] weights = DetermineDatasetProperties.determineObservationWeights(classOfObservations, "Positive", classWeights.get("Positive"), "Unlabelled",
-				classWeights.get("Unlabelled"));
+		double[] weights = DetermineDatasetProperties.determineObservationWeights(trainingDataset, classWeights);
 		
 		// Determine the OOB predictions (predictions for the training set) and the test set predictions (if there is a test set).
 		Forest forest = new Forest();
@@ -127,20 +122,16 @@ public class Main
 		String accessionColumnName = "UPAccession";
 
 		// Determine the accessions and classes of the proteins in the training dataset.
-		ImmutableTwoValues<List<String>, List<String>> accessionsAndClasses =
-				DetermineDatasetProperties.determineObservationAccessionsAndClasses(trainingDataset, accessionColumnName, classFeatureColumnName);
-		List<String> trainingDatasetAccessions = accessionsAndClasses.first;
-		List<String> trainingDatasetClasses = accessionsAndClasses.second;
+		List<String> trainingDatasetAccessions = DetermineDatasetProperties.determineObservationAccessions(trainingDataset, accessionColumnName);
+		List<String> trainingDatasetClasses = DetermineDatasetProperties.determineObservationClasses(trainingDataset, classFeatureColumnName);
 		
 		// Determine the accessions and classes of the proteins in the test set (if there is one).
 		List<String> testingDatasetAccessions = new ArrayList<String>();
 		List<String> testingDatasetClasses = new ArrayList<String>();
 		if (testingDataset != null)
 		{
-			accessionsAndClasses = DetermineDatasetProperties.determineObservationAccessionsAndClasses(testingDataset, accessionColumnName,
-					classFeatureColumnName);
-			testingDatasetAccessions = accessionsAndClasses.first;
-			testingDatasetClasses = accessionsAndClasses.second;
+			testingDatasetAccessions = DetermineDatasetProperties.determineObservationAccessions(testingDataset, accessionColumnName);
+			testingDatasetClasses = DetermineDatasetProperties.determineObservationClasses(testingDataset, classFeatureColumnName);
 		}
 
 		// Write out the protein accessions, their classes and their predictions.

@@ -283,15 +283,19 @@ public class GAFeatureSelection
 			}
 		}
 		
+		// Setup the mapping of cass names to weights.
+		Map<String, Double> classWeights = new HashMap<String, Double>();
+		classWeights.put("Positive", 1.0);
+		classWeights.put("Unlabelled", 1.0);
+		
 		// Run the GA for each cutoff.
 		for (String s : cutoffsToUse)
 		{
+			classWeights.put("Positive", positiveWeights.get(s));
 			if (Integer.parseInt(s) >= Integer.parseInt(startingCutoff))
 			{
 				String inputFile = inputDir + "/NonRedundant-" + s + ".txt";
-				List<String> classOfObservations = DetermineDatasetProperties.determineObservationClasses(inputFile);
-				double[] weights = DetermineDatasetProperties.determineObservationWeights(classOfObservations, "Positive",
-						positiveWeights.get(s), "Unlabelled", 1.0);
+				double[] weights = DetermineDatasetProperties.determineObservationWeights(inputFile, classWeights);
 				featureselection.CHCGeneticAlgorithm.main(inputFile, resultsDir + "/" + s, populationSize, isVerboseOutput, mtry,
 						numberOfTreesPerForest, numberOfThreads, weights, featuresToRemove, generationsWithoutChange);
 			}
