@@ -106,9 +106,24 @@ public final class PredictionAnalysis
 	 * @param fType
 	 * @return
 	 */
-	public static final double calculateFMeasure(Map<String, Map<String, Double>> confusionMatrix, List<String> observationClasses, double fType)
+	public static final double calculateFMeasure(Map<String, Map<String, Double>> confusionMatrix, List<String> observationClasses,
+			double fType)
 	{
-		Map<String, Integer> countsOfEachClass = determineCountsOfEachClass(confusionMatrix, observationClasses);
+		return calculateFMeasure(confusionMatrix, observationClasses, fType, 1);
+	}
+	
+	/**
+	 * @param confusionMatrix
+	 * @param observationClasses
+	 * @param fType
+	 * @param numberOfTimesEachObsAppearsInConfMat
+	 * @return
+	 */
+	public static final double calculateFMeasure(Map<String, Map<String, Double>> confusionMatrix, List<String> observationClasses,
+			double fType, int numberOfTimesEachObsAppearsInConfMat)
+	{
+		Map<String, Integer> countsOfEachClass = determineCountsOfEachClass(confusionMatrix, observationClasses,
+				numberOfTimesEachObsAppearsInConfMat);
 		
 		double recall = 0.0;
 		double precision = 0.0;
@@ -133,7 +148,20 @@ public final class PredictionAnalysis
 	 */
 	public static final double calculateGMean(Map<String, Map<String, Double>> confusionMatrix, List<String> observationClasses)
 	{
-		Map<String, Integer> countsOfEachClass = determineCountsOfEachClass(confusionMatrix, observationClasses);
+		return calculateGMean(confusionMatrix, observationClasses, 1);
+	}
+	
+	/**
+	 * @param confusionMatrix
+	 * @param observationClasses
+	 * @param numberOfTimesEachObsAppearsInConfMat
+	 * @return
+	 */
+	public static final double calculateGMean(Map<String, Map<String, Double>> confusionMatrix, List<String> observationClasses,
+			int numberOfTimesEachObsAppearsInConfMat)
+	{
+		Map<String, Integer> countsOfEachClass = determineCountsOfEachClass(confusionMatrix, observationClasses,
+				numberOfTimesEachObsAppearsInConfMat);
 		
 		double gMean = 1.0;
 		for (Map.Entry<String, Map<String, Double>> entry : confusionMatrix.entrySet())
@@ -205,14 +233,16 @@ public final class PredictionAnalysis
 	/**
 	 * @param confusionMatrix
 	 * @param observationClasses
+	 * @param numberOfTimesEachObsAppearsInConfMat
 	 * @return
 	 */
-	private static Map<String, Integer> determineCountsOfEachClass(Map<String, Map<String, Double>> confusionMatrix, List<String> observationClasses)
+	private static Map<String, Integer> determineCountsOfEachClass(Map<String, Map<String, Double>> confusionMatrix,
+			List<String> observationClasses, int numberOfTimesEachObsAppearsInConfMat)
 	{
 		Map<String, Integer> countsOfEachClass = new HashMap<String, Integer>();
 		for (String s : confusionMatrix.keySet())
 		{
-			countsOfEachClass.put(s, Collections.frequency(observationClasses, s));
+			countsOfEachClass.put(s, Collections.frequency(observationClasses, s) * numberOfTimesEachObsAppearsInConfMat);
 		}
 		return countsOfEachClass;
 	}
