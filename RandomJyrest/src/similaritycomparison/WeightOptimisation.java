@@ -1,8 +1,11 @@
 package similaritycomparison;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -24,6 +27,7 @@ public class WeightOptimisation
 	{
 		String inputDir = args[0];  // The location of the datasets used to grow the forests.
 		String resultsDir = args[1];  // The location where the results of the optimisation will be written.
+		String parameterFile = args[2];  // The location where the parameters for the optimisation are recorded.
 		
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
@@ -33,13 +37,11 @@ public class WeightOptimisation
 		int[] mtryToUse = {10};  // The different values of mtry to test.
 		
 		// Specify the features in the input dataset that should be ignored.
-		String[] unwantedFeatures = new String[]{"UPAccession"};
-		List<String> featuresToRemove = Arrays.asList(unwantedFeatures);
+		List<String> featuresToRemove = new ArrayList<String>();
 		
 		int numberOfThreads = 3;  // The number of threads to use when growing the trees.
 		
-		double[] positiveWeightsToTest = new double[]{0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9,
-				2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0};
+		double[] positiveWeightsToTest = new double[]{1.0};
 		double[] unlabelledWeightsToTest = new double[]{1.0};
 		
 		boolean isCalculateOOB = true;  // OOB error is being calculated.
@@ -48,6 +50,110 @@ public class WeightOptimisation
 		//===================================================================
 		//==================== CONTROL PARAMETER SETTING ====================
 		//===================================================================
+		
+		// Parse the parameters.
+		BufferedReader reader = null;
+		try
+		{
+			reader = new BufferedReader(new FileReader(parameterFile));
+			String line = null;
+			while ((line = reader.readLine()) != null)
+			{
+				line = line.trim();
+				if (line.length() == 0)
+				{
+					// If the line is made up of all whitespace, then ignore the line.
+					continue;
+				}
+
+				String[] chunks = line.split("\t");
+				if (chunks[0].equals("Forests"))
+				{
+					// If the first entry on the line is Forests, then the line records the number of forests to create for each forest size.
+					numberOfForestsToCreate = Integer.parseInt(chunks[1]);
+				}
+				else if (chunks[0].equals("Trees"))
+				{
+					// If the first entry on the line is Trees, then the line records the number of trees to use in each forest.
+					numberOfTreesPerForest = Integer.parseInt(chunks[1]);
+				}
+				else if (chunks[0].equals("Mtry"))
+				{
+					// If the first entry on the line is Mtry, then the line contains the values of the mtry parameter to test.
+					String[] mtrys = chunks[1].split(",");
+					mtryToUse = new int[mtrys.length];
+					for (int i = 0; i < mtrys.length; i++)
+					{
+						mtryToUse[i] = Integer.parseInt(mtrys[i]);
+					}
+				}
+				else if (chunks[0].equals("Features"))
+				{
+					// If the first entry on the line is Features, then the line contains the features in the dataset to ignore.
+					String[] features = chunks[1].split(",");
+					featuresToRemove = Arrays.asList(features);
+				}
+				else if (chunks[0].equals("Threads"))
+				{
+					// If the first entry on the line is Threads, then the line contains the number of threads to use when growing a forest.
+					numberOfThreads = Integer.parseInt(chunks[1]);
+				}
+				else if (chunks[0].equals("Weight"))
+				{
+					// If the first entry on the line is Weight, then the line contains the weights (third entry) to test
+					// for a class (second entry).
+					if (chunks[1].equals("Positive"))
+					{
+						String[] positiveWeights = chunks[2].split(",");
+						positiveWeightsToTest = new double[positiveWeights.length];
+						for (int i = 0; i < positiveWeights.length; i++)
+						{
+							positiveWeightsToTest[i] = Double.parseDouble(positiveWeights[i]);
+						}
+					}
+					else if (chunks[1].equals("Unlabelled"))
+					{
+						String[] unlabelledWeights = chunks[2].split(",");
+						unlabelledWeightsToTest = new double[unlabelledWeights.length];
+						for (int i = 0; i < unlabelledWeights.length; i++)
+						{
+							unlabelledWeightsToTest[i] = Double.parseDouble(unlabelledWeights[i]);
+						}
+					}
+				}
+				else
+				{
+					// Got an unexpected line in the parameter file.
+					System.out.println("An unexpected argument was found in the file of the parameters:");
+					System.out.println(line);
+					System.exit(0);
+				}
+			}
+		}
+		catch (IOException e)
+		{
+			// Caught an error while reading the file. Indicate this and exit.
+			System.out.println("An error occurred while extracting the parameters.");
+			e.printStackTrace();
+			System.exit(0);
+		}
+		finally
+		{
+			try
+			{
+				if (reader != null)
+				{
+					reader.close();
+				}
+			}
+			catch (IOException e)
+			{
+				// Caught an error while closing the file. Indicate this and exit.
+				System.out.println("An error occurred while closing the parameters file.");
+				e.printStackTrace();
+				System.exit(0);
+			}
+		}
 		
 		// Setup the directory for the results.
 		File resultsDirectory = new File(resultsDir);
@@ -118,8 +224,8 @@ public class WeightOptimisation
 		    System.out.format("at %s.\n", strDate);
 		    
 		    // Set up the files needed for the input and output for this cutoff.
-			String inputFile = inputDir + "/NonRedundant-" + c + ".txt";
-			String resultsLocation = resultsDir + "/Results-" + c + ".txt";
+			String inputFile = inputDir + "/NonRedundant_" + c + ".txt";
+			String resultsLocation = resultsDir + "/Results_" + c + ".txt";
 			try
 			{
 				// Setup the results file.
