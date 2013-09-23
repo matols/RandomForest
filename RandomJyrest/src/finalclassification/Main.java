@@ -38,7 +38,6 @@ public class Main
 		//===================================================================
 		int numberOfTrees = 1000;  // The number of trees in the forest.
 		long seed = 0L;  // The seed used for growing the forest.
-
 		int mtry = 10;  // The number of features to consider at each split in a tree.
 		
 		// Specify the features in the input dataset that should be ignored.
