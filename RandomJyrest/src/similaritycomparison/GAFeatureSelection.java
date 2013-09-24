@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -27,43 +28,18 @@ public class GAFeatureSelection
 		String resultsDir = args[1];  // The location where the results of the optimisation will be written.
 		String parameterFile = args[2];  // The location where the parameters for the optimisation are recorded.
 		
-		//===================================================================
-		//==================== CONTROL PARAMETER SETTING ====================
-		//===================================================================
-		// Specify the random forest control parameters.
+		// Parse the parameters.
 		int numberOfTreesPerForest = 1000;  // The number of trees to grow in each forest.
 		int mtry = 10;  // The number of features to consider at each split in a tree.
 		int numberOfThreads = 1;  // The number of threads to use when growing the trees.
-		
-		// Specify the features in the input dataset that should be ignored.
-		String[] unwantedFeatures = new String[]{"UPAccession"};
-		List<String> featuresToRemove = Arrays.asList(unwantedFeatures);
-		
-		// Define the weights for each class in the input dataset.
-		String[] cutoffsToUse = new String[]{"20", "30", "40", "50", "60", "70", "80", "90", "100"};
-		Map<String, Double> positiveWeights = new HashMap<String, Double>();
-		positiveWeights.put("20", 1.0);
-		positiveWeights.put("30", 1.0);
-		positiveWeights.put("40", 1.0);
-		positiveWeights.put("50", 1.0);
-		positiveWeights.put("60", 1.0);
-		positiveWeights.put("70", 1.0);
-		positiveWeights.put("80", 1.0);
-		positiveWeights.put("90", 1.0);
-		positiveWeights.put("100", 1.0);
-		
-		// Define whether a previous run should be continued or not.
-		boolean isNewRunBeingPerformed = false;
-		
-		// Specify the genetic algorithm control parameters.
+		Map<String, Double> positiveWeights = new HashMap<String, Double>();  // The weight for the positive class observations for each cutoff.
+		List<String> cutoffsToUse = new ArrayList<String>();  // The cutoffs to use ordered as they are found in the parameter file.
+															  // If a run continuation is used, then the ordering in the parameter file must be the same as the first run, or the ordering will be different and the continuation will fail.
+		List<String> featuresToRemove = new ArrayList<String>();  // The features to not consider.
+		boolean isNewRunBeingPerformed = false;  // Whether a previous run should be continued or not.
 		int populationSize = 50;  // The number of individuals in the population.
 		boolean isVerboseOutput = false;  // Whether status updates should be printed.
 		int generationsWithoutChange = 10;  // The maximum number of attempts that will be made in each generation to generate an offspring that is fitter than at least one member of the parent population.
-		//===================================================================
-		//==================== CONTROL PARAMETER SETTING ====================
-		//===================================================================
-		
-		// Parse the parameters.
 		BufferedReader reader = null;
 		try
 		{
@@ -77,12 +53,33 @@ public class GAFeatureSelection
 					// If the line is made up of all whitespace, then ignore the line.
 					continue;
 				}
-				
-				// Enter the feature values for this observation into the mapping of the temporary processing of the data.
+
 				String[] chunks = line.split("\t");
-				if (chunks[0].equals("Weight"))
+				if (chunks[0].equals("Trees"))
+				{
+					// If the first entry on the line is Trees, then the line records the number of trees to use in each forest.
+					numberOfTreesPerForest = Integer.parseInt(chunks[1]);
+				}
+				else if (chunks[0].equals("Mtry"))
+				{
+					// If the first entry on the line is Mtry, then the line contains the value of the mtry parameter.
+					mtry = Integer.parseInt(chunks[1]);
+				}
+				else if (chunks[0].equals("Threads"))
+				{
+					// If the first entry on the line is Threads, then the line contains the number of threads to use when growing a forest.
+					numberOfThreads = Integer.parseInt(chunks[1]);
+				}
+				else if (chunks[0].equals("Features"))
+				{
+					// If the first entry on the line is Features, then the line contains the features in the dataset to ignore.
+					String[] features = chunks[1].split(",");
+					featuresToRemove = Arrays.asList(features);
+				}
+				else if (chunks[0].equals("Weight"))
 				{
 					positiveWeights.put(chunks[1], Double.parseDouble(chunks[2]));
+					cutoffsToUse.add(chunks[1]);
 				}
 				else if (chunks[0].equals("NewRun"))
 				{
@@ -90,6 +87,35 @@ public class GAFeatureSelection
 					{
 						isNewRunBeingPerformed = true;
 					}
+				}
+				else if (chunks[0].equals("NewRun"))
+				{
+					// If the first entry on the line is NewRun and the second is True, then a new set of runs is being performed,
+					// else a previous set of runs is being continued from.
+					if (chunks[1].equals("True"))
+					{
+						isNewRunBeingPerformed = true;
+					}
+				}
+				else if (chunks[0].equals("Population"))
+				{
+					// If the first entry on the line is Population, then the line contains the number of individuals in the population.
+					populationSize = Integer.parseInt(chunks[1]);
+				}
+				else if (chunks[0].equals("Verbose"))
+				{
+					// If the first entry on the line is Verbose and the second is True, then status updates should be printed,
+					// else no status updates should be printed.
+					if (chunks[1].equals("True"))
+					{
+						isVerboseOutput = true;
+					}
+				}
+				else if (chunks[0].equals("Attempts"))
+				{
+					// If the first entry on the line is Attempts, then the line contains the number of attempts that should be made
+					// per generation at improving on a member of the parent population.
+					generationsWithoutChange = Integer.parseInt(chunks[1]);
 				}
 				else
 				{
@@ -126,7 +152,7 @@ public class GAFeatureSelection
 		}
 		
 		// Define the starting cutoff.
-		String startingCutoff = cutoffsToUse[0];
+		String startingCutoff = cutoffsToUse.get(0);
 		
 		// Setup the directory for the results.
 		File resultsDirectory = new File(resultsDir);
@@ -283,7 +309,7 @@ public class GAFeatureSelection
 			}
 		}
 		
-		// Setup the mapping of cass names to weights.
+		// Setup the mapping of class names to weights.
 		Map<String, Double> classWeights = new HashMap<String, Double>();
 		classWeights.put("Positive", 1.0);
 		classWeights.put("Unlabelled", 1.0);
@@ -294,7 +320,7 @@ public class GAFeatureSelection
 			classWeights.put("Positive", positiveWeights.get(s));
 			if (Integer.parseInt(s) >= Integer.parseInt(startingCutoff))
 			{
-				String inputFile = inputDir + "/NonRedundant-" + s + ".txt";
+				String inputFile = inputDir + "/NonRedundant_" + s + ".txt";
 				double[] weights = DetermineDatasetProperties.determineObservationWeights(inputFile, classWeights);
 				featureselection.CHCGeneticAlgorithm.main(inputFile, resultsDir + "/" + s, populationSize, isVerboseOutput, mtry,
 						numberOfTreesPerForest, numberOfThreads, weights, featuresToRemove, generationsWithoutChange);
