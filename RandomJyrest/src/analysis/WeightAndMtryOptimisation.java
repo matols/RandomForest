@@ -261,7 +261,7 @@ public class WeightAndMtryOptimisation
 					sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 				    currentTime = new Date();
 				    strDate = sdfDate.format(currentTime);
-				    System.out.format("Now testing pos/unl weight %d/%d at %s.\n", pWeight, uWeight, strDate);
+				    System.out.format("\tNow testing pos/unl weight %f/%f at %s.\n", pWeight, uWeight, strDate);
 				    
 				    classWeights.put("Unlabelled", uWeight);
 					
