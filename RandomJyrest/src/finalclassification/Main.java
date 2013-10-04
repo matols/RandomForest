@@ -1,8 +1,11 @@
 package finalclassification;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -27,32 +30,101 @@ public class Main
 		// Parse the input arguments.
 		String trainingDataset = args[0];  // The dataset that is to be used to grow the forest.
 		String resultsDirLocation = args[1];  // The location where the results will be written.
+		String parameterFile = args[2];  // The location where the parameters for the classification are recorded.
 		String testingDataset = null;  // An optional dataset that will be predicted.
-		if (args.length > 2)
+		if (args.length > 3)
 		{
-			testingDataset = args[2];
+			testingDataset = args[3];
 		}
-
-		//===================================================================
-		//==================== CONTROL PARAMETER SETTING ====================
-		//===================================================================
+		
+		// Parse the parameters.
 		int numberOfTrees = 1000;  // The number of trees in the forest.
-		long seed = 0L;  // The seed used for growing the forest.
 		int mtry = 10;  // The number of features to consider at each split in a tree.
-		
-		// Specify the features in the input dataset that should be ignored.
-		String[] featuresToIgnore = new String[]{};
-		List<String> featuresToRemove = Arrays.asList(featuresToIgnore);
-		
-		int numberOfThreads = 1;  // The number of threads to use when growing the forest.
+		int numberOfThreads = 3;  // The number of threads to use when growing the forest.
+		long seed = 0L;  // The seed used for growing the forest.
+		Map<String, Double> classWeights = new HashMap<String, Double>();  // The weights for each class in the input dataset.
+		List<String> featuresToRemove = new ArrayList<String>();  // The features in the input dataset that should be ignored.
+		BufferedReader reader = null;
+		try
+		{
+			reader = new BufferedReader(new FileReader(parameterFile));
+			String line = null;
+			while ((line = reader.readLine()) != null)
+			{
+				line = line.trim();
+				if (line.length() == 0)
+				{
+					// If the line is made up of all whitespace, then ignore the line.
+					continue;
+				}
 
-		// Define the weights for each class in the input dataset.
-		Map<String, Double> classWeights = new HashMap<String, Double>();
-		classWeights.put("Positive", 1.0);
-		classWeights.put("Unlabelled", 1.0);
-		//===================================================================
-		//==================== CONTROL PARAMETER SETTING ====================
-		//===================================================================
+				String[] chunks = line.split("\t");
+				if (chunks[0].equals("Trees"))
+				{
+					// If the first entry on the line is Trees, then the line records the number of trees to use in each forest.
+					numberOfTrees = Integer.parseInt(chunks[1]);
+				}
+				else if (chunks[0].equals("Mtry"))
+				{
+					// If the first entry on the line is Mtry, then the line contains the values of the mtry parameter to use.
+					mtry = Integer.parseInt(chunks[1]);
+				}
+				else if (chunks[0].equals("Threads"))
+				{
+					// If the first entry on the line is Threads, then the line contains the number of threads to use when growing a forest.
+					numberOfThreads = Integer.parseInt(chunks[1]);
+				}
+				else if (chunks[0].equals("Features"))
+				{
+					// If the first entry on the line is Features, then the line contains the features in the dataset to ignore.
+					String[] features = chunks[1].split(",");
+					featuresToRemove = Arrays.asList(features);
+				}
+				else if (chunks[0].equals("Weight"))
+				{
+					// If the first entry on the line is Weight, then the line contains the weight to use for a class.
+					String classification = chunks[1];
+					Double weight = Double.parseDouble(chunks[2]);
+					classWeights.put(classification, weight);
+				}
+				else if (chunks[0].equals("Seed"))
+				{
+					// If the first entry on the line is Seed, then the line contains the seed to use.
+					seed = Long.parseLong(chunks[1]);
+				}
+				else
+				{
+					// Got an unexpected line in the parameter file.
+					System.out.println("An unexpected argument was found in the file of the parameters:");
+					System.out.println(line);
+					System.exit(0);
+				}
+			}
+		}
+		catch (IOException e)
+		{
+			// Caught an error while reading the file. Indicate this and exit.
+			System.out.println("An error occurred while extracting the parameters.");
+			e.printStackTrace();
+			System.exit(0);
+		}
+		finally
+		{
+			try
+			{
+				if (reader != null)
+				{
+					reader.close();
+				}
+			}
+			catch (IOException e)
+			{
+				// Caught an error while closing the file. Indicate this and exit.
+				System.out.println("An error occurred while closing the parameters file.");
+				e.printStackTrace();
+				System.exit(0);
+			}
+		}
 		
 		boolean isCalculateOOB = true;  // OOB error is being calculated.
 
