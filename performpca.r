@@ -8,7 +8,7 @@ header <- colnames(read.table(inputFile, sep='\t', header=TRUE))
 
 # Read in the dataset (excluding the header line), and drop the columns that are not to be used (in this case the UniProt accession, half life,
 # instability index and classification columns).
-proteinData <- read.table(inputFile, sep='\t', skip=1, col.names=header)[c(-1, -106, -107, -108)]
+proteinData <- read.table(inputFile, sep='\t', skip=1, col.names=header)[c(-1, -105, -106, -107)]
 
 # The number of features is the number of columns in proteinData.
 numberOfFeatures = length(proteinData)
