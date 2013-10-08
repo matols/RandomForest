@@ -320,8 +320,7 @@ public class Forest
 			for (int i = 0; i < numberOfTrees; i++)
 			{
 				// Permute the data.
-				double[] permutedFeatureValues = PermuteData.main(this.trainingDataset, this.oobObservations.get(i),
-						this.featuresRemoved, s, copyOfOriginalValuesForFeatureS);
+				double[] permutedFeatureValues = PermuteData.main(this.oobObservations.get(i), copyOfOriginalValuesForFeatureS);
 				datasetToPredict.put(s, permutedFeatureValues);
 				
 				// Setup the prediction output.

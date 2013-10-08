@@ -9,44 +9,38 @@ public class PermuteData
 {
 
 	/**
-	 * Generate a permutation of the prediction data.
-	 * 
-	 * The permutation is made for one set of observation indices and one feature.
+	 * Generate a permutation of a feature's observation data.
 	 * 
 	 * Example:
-	 * 		Original data is			[a, b, c, d, e]
-	 * 		oobOnThisTree is			[0, 1, 3, 5, 8]
-	 * 		permutedOobOnThisTree is	[5, 0, 3, 8, 1]
-	 * 		Permuted data is			[d, a, c, e, b]
+	 * 		Original data is			[a, b, c, d, e] (featureValues)
+	 * 		Indices to permute is		[1, 3, 4]		(observationsToPermute)
+	 * 		Re-ordered indices are		[4, 3, 1]
+	 * 		Permuted data is			[a, e, c, d, b]	(return)
 	 * 
-	 * @param dataset
-	 * @param observationsToPermute
-	 * @param featuresRemoved
-	 * @param featureToPermute
-	 * @return
+	 * @param observationsToPermute		The indices of the features values that should be permuted.
+	 * @param featureValues				The feature values.
+	 * @return							An array of the permuted observation data for the feature.
 	 */
-	public static final double[] main(String dataset, Set<Integer> observationsToPermute, List<String> featuresRemoved,
-			String featureToPermute, double[] originalFeatureValues)
+	public static final double[] main(Set<Integer> observationsToPermute, double[] featureValues)
 	{
-		// Generate the permutation of the OOB observation indices. The permuting will take place so that the value of the observation
-		// with index oobOnThisTree.get(i) is set to the value that was at permutedOobOnThisTree.get(i).
-		List<Integer> oobOnThisTree = new ArrayList<Integer>(observationsToPermute);
-		List<Integer> permutedOobOnThisTree = new ArrayList<Integer>(observationsToPermute);
-		Collections.shuffle(permutedOobOnThisTree);
-		int numberOfOOBObservations = oobOnThisTree.size();
+		// Permute the indices.
+		List<Integer> originalIndices = new ArrayList<Integer>(observationsToPermute);
+		List<Integer> permutedIndices = new ArrayList<Integer>(observationsToPermute);
+		Collections.shuffle(permutedIndices);
 		
-		// Make a copy of the data for the feature that is to be permuted.
-		double[] permutedFeatureData = new double[originalFeatureValues.length];
-		for (int i = 0; i < originalFeatureValues.length; i++)
+		// Make a copy of the data that is to be permuted.
+		double[] permutedFeatureData = new double[featureValues.length];
+		for (int i = 0; i < featureValues.length; i++)
 		{
-			permutedFeatureData[i] = originalFeatureValues[i];
+			permutedFeatureData[i] = featureValues[i];
 		}
 		
 		// Permute the data.
-		for (int i = 0; i < numberOfOOBObservations; i++)
+		int numberOfObservations = originalIndices.size();
+		for (int i = 0; i < numberOfObservations; i++)
 		{
-			int observationIndex = oobOnThisTree.get(i);
-			double permutedValue = permutedFeatureData[permutedOobOnThisTree.get(i)];
+			int observationIndex = originalIndices.get(i);
+			double permutedValue = permutedFeatureData[permutedIndices.get(i)];
 			permutedFeatureData[observationIndex] = permutedValue;
 		}
 
