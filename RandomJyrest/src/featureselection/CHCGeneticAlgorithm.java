@@ -26,6 +26,9 @@ import utilities.ImmutableFourValues;
 import utilities.ImmutableTwoValues;
 import utilities.IndexedDoubleData;
 
+/**
+ * Implements a CHC genetic algorithm.
+ */
 public class CHCGeneticAlgorithm
 {
 

@@ -7,10 +7,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * @author Simon Bull
- *
- */
 public class NodeNonTerminal extends Node
 {
 

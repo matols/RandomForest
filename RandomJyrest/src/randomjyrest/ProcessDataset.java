@@ -15,6 +15,9 @@ import java.util.Set;
 import utilities.ImmutableThreeValues;
 import utilities.IndexedDoubleData;
 
+/**
+ * Implements the processing of a dataset in order to use it to grow a random forest.
+ */
 public final class ProcessDataset
 {
 

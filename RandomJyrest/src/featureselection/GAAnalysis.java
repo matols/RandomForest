@@ -12,6 +12,9 @@ import java.util.List;
 
 import utilities.DetermineDatasetProperties;
 
+/**
+ * Implements the analysis of the feature selection performed using a genetic algorithm.
+ */
 public class GAAnalysis
 {
 

@@ -14,6 +14,9 @@ import java.util.Map;
 
 import utilities.DetermineDatasetProperties;
 
+/**
+ * Implements the feature selection using a genetic algorithm.
+ */
 public class GAFeatureSelection
 {
 

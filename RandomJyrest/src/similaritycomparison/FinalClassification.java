@@ -15,6 +15,9 @@ import java.util.Map;
 import randomjyrest.Forest;
 import utilities.DetermineDatasetProperties;
 
+/**
+ * Implements the classification of the observations in a dataset using a set of specific random forests.
+ */
 public class FinalClassification
 {
 

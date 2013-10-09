@@ -5,6 +5,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Implements the ability to permute the values of a feature in a dataset.
+ */
 public class PermuteData
 {
 

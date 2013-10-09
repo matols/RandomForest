@@ -10,6 +10,9 @@ import java.util.Map;
 
 import utilities.ImmutableTwoValues;
 
+/**
+ * Implements the processing of a dataset in order to predict the classes of the observations.
+ */
 public class ProcessPredictionData
 {
 

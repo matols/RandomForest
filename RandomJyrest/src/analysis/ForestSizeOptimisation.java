@@ -20,6 +20,9 @@ import randomjyrest.Forest;
 import randomjyrest.PredictionAnalysis;
 import utilities.DetermineDatasetProperties;
 
+/**
+ * Implements the testing of different forest sizes.
+ */
 public class ForestSizeOptimisation
 {
 

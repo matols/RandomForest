@@ -6,10 +6,6 @@ package randomjyrest;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * @author Simon Bull
- *
- */
 public class NodeTerminal extends Node
 {
 	private String classPresent;

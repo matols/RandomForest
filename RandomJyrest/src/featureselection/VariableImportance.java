@@ -21,6 +21,9 @@ import randomjyrest.Forest;
 import utilities.DetermineDatasetProperties;
 import utilities.StringsSortedByDoubles;
 
+/**
+ * Implements the evaluation of the importance of the features in a dataset.
+ */
 public class VariableImportance
 {
 	
