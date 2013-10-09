@@ -3,6 +3,7 @@ package randomjyrest;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -31,7 +32,8 @@ public class Tree
 		// Create a terminal node if there are only observations of one class remaining.
 		if (classesPresent.size() < 2)
 		{
-			return new NodeTerminal(classesPresent, classData, inBagObservations);
+			Iterator<String> it = classesPresent.iterator();
+			return new NodeTerminal(it.next(), classData, inBagObservations);
 		}
 		
 		// Determine the best split that can be made.
