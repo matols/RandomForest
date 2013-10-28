@@ -1,72 +1,86 @@
+import argparse
 import sys
 
 def main(args):
+    """Collects the results of the three feature importance measures in one file.
+
     """
-    """
 
-    statsFile = args[0]
-    variableImportanceFile = args[1]
-    gaAnalysisFile = None
-    resultsLocation = None
-    if len(args) == 3:
-        resultsLocation = args[2]
-    elif len(args) == 4:
-        gaAnalysisFile = args[2]
-        resultsLocation = args[3]
-    else:
-        print('Incorrect number of arguments')
-        sys.exit(0)
+    parser = argparse.ArgumentParser(description='Process the command line input for the feature collation.')
+    parser.add_argument('statTest', help='the location containing the results of the statistical significance testing')
+    parser.add_argument('varImp', help='the location containing the results of the variable importance calculations')
+    parser.add_argument('output', help='the location to save the results')
+    parser.add_argument('-g', '--ga', default=None, help='the location containing the results of the genetic algorithm runs')
+    args = parser.parse_args()
 
-    featureDict = {}
+    # Parse the command line arguments.
+    statisticalTestFile = args.statTest  # The file containing the results of the statistical testing.
+    variableImportanceFile = args.varImp  # The file containing the results of the random forest variable importance calculations.
+    gaAnalysisFile = args.ga  # The file containing the results of the repeated genetic algorithm runs.
+    resultsLocation = args.output  # The location of the file where the collated feature importance measures should be written.
 
-    readStats = open(statsFile, 'r')
+    featureDict = {}  # A dictionary containing the feature importanc measures for each feature.
+
+    # Parse the results of the statistical testing.
+    readStats = open(statisticalTestFile, 'r')
     header = readStats.readline()
     for line in readStats:
         chunks = (line.strip()).split('\t')
         feature = chunks[0]
-        featureDict[feature] = feature + '\t' + '{0:f}'.format(float(chunks[10])) + '\t' + chunks[11] + '\t' + chunks[12] + '\t' + chunks[13] + '\t'
+        featureDict[feature] = feature + '\t' + '{0:.10f}'.format(float(chunks[10])) + '\t' + chunks[11] + '\t' + chunks[12] + '\t' + chunks[13] + '\t'
     readStats.close()
-    
-    variableImpRanks = dict([(i, []) for i in featureDict])
+
+    # Parse the results of the variable importance calculations.
     readImp = open(variableImportanceFile, 'r')
-    features = (readImp.readline()).strip().split('\t')
+    varImpFeaturesTested = (readImp.readline()).strip().split('\t')
+    variableImpRanks = dict([(i, []) for i in varImpFeaturesTested])  # Dictionary to hold the variable immportance ranks for each feature.
     for line in readImp:
         chunks = (line.strip()).split('\t')
         for i in range(len(chunks)):
-            try:
-                variableImpRanks[features[i]].append(chunks[i])
-            except KeyError:
-                # Some features are not tested for sgnificance, but are in the variable importance.
-                featureDict[features[i]] = features[i] + '\t-\t-\t-\t-\t'
-                variableImpRanks[features[i]] = [chunks[i]]
+            variableImpRanks[varImpFeaturesTested[i]].append(chunks[i])
     readImp.close()
+
+    # Update featureDict to contain any features that were not tested for statistical significance, but do have a variable importance.
+    featureDict = dict([(i, featureDict[i] if i in featureDict else i + '\t-\t-\t-\t-\t') for i in varImpFeaturesTested])
+
+    # Update featureDict with the variable importances.
     for i in variableImpRanks:
         meanRank, medianRank, maxRank, minRank, stdDevRank, rangeRank = calculate_rank_stats(variableImpRanks[i])
         featureDict[i] += str(meanRank) + '\t' + str(medianRank) + '\t' + str(maxRank) + '\t' + str(minRank) + '\t' + str(stdDevRank) + '\t' + str(rangeRank) + '\t'
 
+    # Parse the genetic algorithm run results. The genetic algorithm and variable improtance claculations are assumed to have been done with the same
+    # set of features.
     if gaAnalysisFile:
         readGA = open(gaAnalysisFile, 'r')
         for line in readGA:
-            chunks = (line.strip()).split('\t')
+            line = line.strip()
+            if not line:
+                # If the line is blank, then skip it.
+                continue
+            chunks = line.split('\t')
             feature = chunks[0]
-            try:
-                featureDict[feature] += chunks[-1] + '\n'
-            except KeyError:
-                # Some features are not tested for sgnificance, but are in the genetic algorithm analysis.
-                featureDict[feature] = chunks[-1] + '\n'
+            if feature in ['Fitness', 'Seed']:
+                # If the first entry on the line is Fitness or Seed, then the line does not contain information about a feature.
+                continue
+            featureDict[feature] += chunks[-1] + '\n'
         readGA.close()
     else:
         for feature in featureDict:
             featureDict[feature] += 'X\n'
 
+    # Write out the collated feature importance.
     writeTo = open(resultsLocation, 'w')
     writeTo.write('Feature\tPValue\tSignificantAt-0.05\tSignificantAt-0.01\tCorrectedSignificantAt-0.05\tMeanImpRank\tMedianImpRank\tMaxImpRank\tMinImpRank\tStdDevImpRank\tRangeImpRank\tFractionOfGARuns\n')
-    for i in features:
+    for i in varImpFeaturesTested:
         writeTo.write(featureDict[i])
     writeTo.close()
 
 def calculate_rank_stats(ranks):
-    """
+    """Calculate the statistics of the variable importance ranks for a given feature.
+
+    :parma ranks: the importance ranks of a feature
+    :type ranks: list
+
     """
 
     ranks = [int(i) for i in ranks]
@@ -74,10 +88,10 @@ def calculate_rank_stats(ranks):
     maxRank = max(ranks)
     minRank = min(ranks)
     rangeRank = maxRank - minRank
-    
+
     ranks = sorted(ranks)
     numberRanks = len(ranks)
-    
+
     medianRank = 0
     if numberRanks % 2 == 0:
         midPointOne = numberRanks // 2
@@ -91,8 +105,8 @@ def calculate_rank_stats(ranks):
         stdDevRank += (i - meanRank) ** 2
     stdDevRank /= numberRanks
     stdDevRank = stdDevRank ** 0.5
-    
+
     return meanRank, medianRank, maxRank, minRank, stdDevRank, rangeRank
 
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    main(sys.argv)
