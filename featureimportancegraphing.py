@@ -44,12 +44,15 @@ def graph_entire_dataset_features(collatedFeatureImportances, resultsLocation):
     featureData = [[i, float(collatedFeatureImportances[i]['PValue']), collatedFeatureImportances[i]['Significant'],
                     float(collatedFeatureImportances[i]['VarImp']), float(collatedFeatureImportances[i]['GA'])]
                     for i in collatedFeatureImportances if collatedFeatureImportances[i]['PValue'] != '-']
-    featureData = sorted(featureData, key=lambda x : x[1])  # Sort the features by p value (smallest first).
     varImpFeatureData = sorted(featureData, key=lambda x : (x[1], x[3]))  # Sort the features by p value (smallest first), and then variable importance (smallest first).
     gaFeatureData = sorted(featureData, key=lambda x : (x[1], -x[4]))  # Sort the features by p value (smallest first), and then ga fraction (largest first).
     numberOfFeatures = len(featureData)
 
-    # Determine the x and y values for the scatter plot.
+    # Determine the x and y values for the scatter plot. Each feature is given an integer x value according to its p value. A lower p value corresponds
+	# to a lower rank. Each feature is gven two y values, one for the variable importance and one for the ga fraction. Using the variable importance as
+	# an example, the y value (variable importance rank) is determined by giving the feature a rank (where 0 is the smallest rank and most importance
+	# feature according to the variable importance) based on its variable importance. If the feature with the smallest p value (rank 0) has a variable
+	# importance that is the 5th smallest (rank 4), then the point in the scatter plot for this feature for the variable importance will be at (0, 4).
     xValues = np.array([i for i in range(numberOfFeatures)])
     numberOfSignificantFeatures = sum([1 for i in featureData if i[2] == 'True'])
     variableImportanceRanks = np.array([float(i[3]) for i in varImpFeatureData])
