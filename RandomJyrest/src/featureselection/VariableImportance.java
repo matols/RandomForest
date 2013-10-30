@@ -10,7 +10,6 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -19,7 +18,6 @@ import java.util.Random;
 
 import randomjyrest.Forest;
 import utilities.DetermineDatasetProperties;
-import utilities.StringsSortedByDoubles;
 
 /**
  * Implements the evaluation of the importance of the features in a dataset.
@@ -28,7 +26,7 @@ public class VariableImportance
 {
 	
 	/**
-	 * Calculates the importance of each feature in a dataset.
+	 * Calculates the relative importance of each feature in a dataset.
 	 * 
 	 * @param args		The file system locations of the files and directories used in the variable importance calculation.
 	 */
@@ -244,20 +242,17 @@ public class VariableImportance
 			System.out.println("\tNow determining variable importances.");
 			Map<String, Double> variableImportances = forest.variableImportance();
 
-			// Determine the importance ordering for the variables, largest importance first.
-			List<StringsSortedByDoubles> sortedVariableImportances = new ArrayList<StringsSortedByDoubles>();
+			// Determine the variable with the smallest importance.
+			double smallestImportance = 100.0;
 			for (Map.Entry<String, Double> entry : variableImportances.entrySet())
 			{
-				sortedVariableImportances.add(new StringsSortedByDoubles(entry.getValue(), entry.getKey()));
+				double importance = entry.getValue();
+				if (importance < smallestImportance)
+				{
+					smallestImportance = importance;
+				}
 			}
-			Collections.sort(sortedVariableImportances, Collections.reverseOrder());
-
-			// Rank the features by their importance.
-			Map<String, Integer> featureToImportanceRank = new HashMap<String, Integer>();
-			for (int j = 0; j < sortedVariableImportances.size(); j++)
-			{
-				featureToImportanceRank.put(sortedVariableImportances.get(j).getId(), j + 1);
-			}
+			smallestImportance = Math.abs(smallestImportance);
 
 			// Write out the results for this repetition.
 			try
@@ -265,7 +260,18 @@ public class VariableImportance
 				String importanceOutputString = "";
 				for (String s : featuresInDataset)
 				{
-					importanceOutputString += featureToImportanceRank.get(s) + "\t";
+					// Scale each importance. See Strobl et al. (2009) (http://www.ncbi.nlm.nih.gov/pubmed/19968396) for the rationale
+					// behind the scaling and ignoring of importances that are too small ("The rationale for this rule of thumb is that
+					// the importance of irrelevant variables varies randomly around zero").
+					double importance = variableImportances.get(s);
+					if (importance > smallestImportance)
+					{
+						importanceOutputString += (importance / smallestImportance) + "\t";
+					}
+					else
+					{
+						importanceOutputString += "-\t";
+					}
 				}
 
 				FileWriter accVarImpOutputFile = new FileWriter(variableImportanceLocation, true);

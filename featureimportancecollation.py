@@ -33,20 +33,20 @@ def main(args):
     # Parse the results of the variable importance calculations.
     readImp = open(variableImportanceFile, 'r')
     varImpFeaturesTested = (readImp.readline()).strip().split('\t')
-    variableImpRanks = dict([(i, []) for i in varImpFeaturesTested])  # Dictionary to hold the variable immportance ranks for each feature.
+    variableImpLevels = dict([(i, []) for i in varImpFeaturesTested])  # Dictionary to hold the variable immportance levels for each feature.
     for line in readImp:
         chunks = (line.strip()).split('\t')
         for i in range(len(chunks)):
-            variableImpRanks[varImpFeaturesTested[i]].append(chunks[i])
+            variableImpLevels[varImpFeaturesTested[i]].append(chunks[i])
     readImp.close()
 
     # Update featureDict to contain any features that were not tested for statistical significance, but do have a variable importance.
     featureDict = dict([(i, featureDict[i] if i in featureDict else i + '\t-\t-\t-\t-\t') for i in varImpFeaturesTested])
 
     # Update featureDict with the variable importances.
-    for i in variableImpRanks:
-        meanRank, medianRank, maxRank, minRank, stdDevRank, rangeRank = calculate_rank_stats(variableImpRanks[i])
-        featureDict[i] += str(meanRank) + '\t' + str(medianRank) + '\t' + str(maxRank) + '\t' + str(minRank) + '\t' + str(stdDevRank) + '\t' + str(rangeRank) + '\t'
+    for i in variableImpLevels:
+        meanLevel, medianLevel, maxLevel, minLevel, stdDevLevel, rangeLevel = calculate_level_stats(variableImpLevels[i])
+        featureDict[i] += str(meanLevel) + '\t' + str(medianLevel) + '\t' + str(maxLevel) + '\t' + str(minLevel) + '\t' + str(stdDevLevel) + '\t' + str(rangeLevel) + '\t'
 
     # Parse the genetic algorithm run results. The genetic algorithm and variable improtance claculations are assumed to have been done with the same
     # set of features.
@@ -70,43 +70,43 @@ def main(args):
 
     # Write out the collated feature importance.
     writeTo = open(resultsLocation, 'w')
-    writeTo.write('Feature\tPValue\tSignificantAt-0.05\tSignificantAt-0.01\tCorrectedSignificantAt-0.05\tMeanImpRank\tMedianImpRank\tMaxImpRank\tMinImpRank\tStdDevImpRank\tRangeImpRank\tFractionOfGARuns\n')
+    writeTo.write('Feature\tPValue\tSignificantAt-0.05\tSignificantAt-0.01\tCorrectedSignificantAt-0.05\tMeanImpLevel\tMedianImpLevel\tMaxImpLevel\tMinImpLevel\tStdDevImpLevel\tRangeImpLevel\tFractionOfGARuns\n')
     for i in varImpFeaturesTested:
         writeTo.write(featureDict[i])
     writeTo.close()
 
-def calculate_rank_stats(ranks):
-    """Calculate the statistics of the variable importance ranks for a given feature.
+def calculate_level_stats(levels):
+    """Calculate the statistics of the variable importance levels for a given feature.
 
-    :parma ranks: the importance ranks of a feature
-    :type ranks: list
+    :parma levels: the importance levels of a feature
+    :type levels: list
 
     """
 
-    ranks = [int(i) for i in ranks]
-    meanRank = sum(ranks) / len(ranks)
-    maxRank = max(ranks)
-    minRank = min(ranks)
-    rangeRank = maxRank - minRank
+    levels = [int(i) for i in levels if i != '-']
+    meanLevel = sum(levels) / len(levels)
+    maxLevel = max(levels)
+    minLevel = min(levels)
+    rangeLevel = maxLevel - minLevel
 
-    ranks = sorted(ranks)
-    numberRanks = len(ranks)
+    levels = sorted(levels)
+    numberLevels = len(levels)
 
-    medianRank = 0
-    if numberRanks % 2 == 0:
-        midPointOne = numberRanks // 2
+    medianLevel = 0
+    if numberLevels % 2 == 0:
+        midPointOne = numberLevels // 2
         midPointTwo = midPointOne - 1
-        medianRank = (ranks[midPointOne] + ranks[midPointTwo]) / 2
+        medianLevel = (levels[midPointOne] + levels[midPointTwo]) / 2
     else:
-        medianRank = ranks[numberRanks // 2]
+        medianLevel = levels[numberLevels // 2]
 
-    stdDevRank = 0
-    for i in ranks:
-        stdDevRank += (i - meanRank) ** 2
-    stdDevRank /= numberRanks
-    stdDevRank = stdDevRank ** 0.5
+    stdDevLevel = 0
+    for i in levels:
+        stdDevLevel += (i - meanLevel) ** 2
+    stdDevLevel /= numberLevels
+    stdDevLevel = stdDevLevel ** 0.5
 
-    return meanRank, medianRank, maxRank, minRank, stdDevRank, rangeRank
+    return meanLevel, medianLevel, maxLevel, minLevel, stdDevLevel, rangeLevel
 
 if __name__ == '__main__':
     main(sys.argv)
