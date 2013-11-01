@@ -228,17 +228,30 @@ public class Forest
 	{
 		
 		List<Double> baseOOBQualityMeasure = new ArrayList<Double>(this.forest.size());
-		List<String> classOfObservations = DetermineDatasetProperties.determineObservationClasses(this.trainingDataset);
-		int numberOfObservations = classOfObservations.size();
 		int numberOfTrees = this.forest.size();
 		
 		// Generate the original prediction data.
 		Map<String, double[]> datasetToPredict = ProcessPredictionData.main(this.trainingDataset, this.featuresRemoved).first;
+		
+		// Setup the record of the class of each oob observation for each tree.
+		List<String> classOfObservations = DetermineDatasetProperties.determineObservationClasses(this.trainingDataset);
+		List<List<String>> oobObservationClasses = new ArrayList<List<String>>();
+		
+		// Determine the number of observations in the dataset.
+		int numberOfObservations = classOfObservations.size();
 
 		// Determine the base quality measure for each tree in the forest.
 		{
 			for (int i = 0; i < numberOfTrees; i++)
 			{
+				// Determine the class of each observation that is oob on this tree.
+				List<String> classOfOOB = new ArrayList<String>();
+				for (Integer j : this.oobObservations.get(i))
+				{
+					classOfOOB.add(classOfObservations.get(j));
+				}
+				oobObservationClasses.add(classOfOOB);
+				
 				// Setup the prediction output.
 				Map<String, double[]> predictions = new HashMap<String, double[]>();
 				for (String s : this.classesInTrainingSet)
@@ -251,7 +264,7 @@ public class Forest
 				predictions = treeToPredictOn.predict(datasetToPredict, this.oobObservations.get(i), predictions);
 				Map<String, Map<String, Double>> confusionMatrix = PredictionAnalysis.calculateConfusionMatrix(classOfObservations,
 						predictions, this.oobObservations.get(i));
-				baseOOBQualityMeasure.add(PredictionAnalysis.calculateGMean(confusionMatrix, classOfObservations));
+				baseOOBQualityMeasure.add(PredictionAnalysis.calculateGMean(confusionMatrix, classOfOOB));
 			}
 		}
 		
@@ -336,7 +349,7 @@ public class Forest
 				// Determine the change in quality caused by permuting the data.
 				Map<String, Map<String, Double>> confusionMatrix = PredictionAnalysis.calculateConfusionMatrix(classOfObservations,
 						predictions, this.oobObservations.get(i));
-				double permutedQualityMeasure = PredictionAnalysis.calculateGMean(confusionMatrix, classOfObservations);
+				double permutedQualityMeasure = PredictionAnalysis.calculateGMean(confusionMatrix, oobObservationClasses.get(i));
 				cumulativeQualityMeasureChange += (baseOOBQualityMeasure.get(i) - permutedQualityMeasure);
 			}
 			cumulativeQualityMeasureChange /= numberOfTrees;
