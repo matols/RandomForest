@@ -242,36 +242,13 @@ public class VariableImportance
 			System.out.println("\tNow determining variable importances.");
 			Map<String, Double> variableImportances = forest.variableImportance();
 
-			// Determine the variable with the smallest importance.
-			double smallestImportance = 100.0;
-			for (Map.Entry<String, Double> entry : variableImportances.entrySet())
-			{
-				double importance = entry.getValue();
-				if (importance < smallestImportance)
-				{
-					smallestImportance = importance;
-				}
-			}
-			smallestImportance = Math.abs(smallestImportance);
-
 			// Write out the results for this repetition.
 			try
 			{
 				String importanceOutputString = "";
 				for (String s : featuresInDataset)
 				{
-					// Scale each importance. See Strobl et al. (2009) (http://www.ncbi.nlm.nih.gov/pubmed/19968396) for the rationale
-					// behind the scaling and ignoring of importances that are too small ("The rationale for this rule of thumb is that
-					// the importance of irrelevant variables varies randomly around zero").
-					double importance = variableImportances.get(s);
-					if (importance > smallestImportance)
-					{
-						importanceOutputString += (importance / smallestImportance) + "\t";
-					}
-					else
-					{
-						importanceOutputString += "-\t";
-					}
+					importanceOutputString += variableImportances.get(s) + "\t";
 				}
 
 				FileWriter accVarImpOutputFile = new FileWriter(variableImportanceLocation, true);
