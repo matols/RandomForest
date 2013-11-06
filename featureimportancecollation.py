@@ -2,7 +2,7 @@ import argparse
 import sys
 
 def main(args):
-    """Collects the results of the three feature importance measures in one file.
+    """Collects the results of the two feature importance measures in one file.
 
     """
 
