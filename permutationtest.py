@@ -50,8 +50,9 @@ def main(args):
     # Determine the ranks for the observations in the dataset.
     indicesToRanks = {}
     for i in [j for j in dataset.dtype.names if j != 'Classification']:
+        # Go through each feature.
         featureData = list(dataset[i])
-        sortedFeatureData = sorted(zip(featureData, range(len(dataset))))
+        sortedFeatureData = sorted(zip(featureData, range(len(dataset))))  # A list of tuples of (value, index) pairs sorted by values.
         ranks = {}
         featureValuesToIndices = {}
         for j in zip(sortedFeatureData, [j + 1 for j in range(len(sortedFeatureData))]):

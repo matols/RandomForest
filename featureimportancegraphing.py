@@ -148,10 +148,6 @@ def main(args):
     dividingLines.append(currentXValue  - 0.5)
     partitionLabelXValues = [sum(dividingLines[i:i+2]) / 2 for i in range(0, len(dividingLines), 1)[:-1]]
     partitionLabelYValues = [maxBoundary - 0.01 for i in partitionLabels]
-    print(partitionLineXValues)
-    print(partitionLineYValues)
-    print(partitionLabelXValues)
-    print(partitionLabelYValues)
 
     # Create the figure.
     currentFigure = plt.figure()
