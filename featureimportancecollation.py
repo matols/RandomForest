@@ -50,19 +50,19 @@ def main(args):
     writeTo = open(resultsLocation, 'w')
     writeTo.write('Feature\tPValue\tSignificantAt-0.05\tSignificantAt-0.01\tCorrectedSignificantAt-0.05\tMeanImportance\tMaxImportance\tMinImportance\tStdDevImportance\tRangeImportance\n')
     for i in varImpFeaturesTested:
-        writeTo.write(featureDict[i])
+        writeTo.write(featureDict[i] + '\n')
     writeTo.close()
 
 def calculate_level_stats(importances):
     """Calculate the statistics of the variable importances for a given feature.
 
-    :parma importances: the importances of a feature
+    :param importances: the importances of a feature
     :type importances: list
 
     """
 
     importances = sorted([float(i) for i in importances])
-	importanceRepetitions = len(importances)
+    importanceRepetitions = len(importances)
     meanImportance = sum(importances) / importanceRepetitions
     maxImportance = importances[-1]
     minImportance = importances[0]

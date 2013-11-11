@@ -63,7 +63,9 @@ def main(args):
             xValuesNotSig.append(currentXValue)
             yValuesNotSig.append(importance)
         currentXValue += 1
-    dividingLines.append(currentXValue  - 0.5)
+    currentXValue += 1  # Pad the division after the current section.
+    dividingLines.append(currentXValue)
+    currentXValue += 2  # Pad the division before the next section.
     for i in postTransModification:
         significant = featureImportances[i][0]
         importance = featureImportances[i][1]
@@ -74,7 +76,9 @@ def main(args):
             xValuesNotSig.append(currentXValue)
             yValuesNotSig.append(importance)
         currentXValue += 1
-    dividingLines.append(currentXValue  - 0.5)
+    currentXValue += 1  # Pad the division after the current section.
+    dividingLines.append(currentXValue)
+    currentXValue += 2  # Pad the division before the next section.
     for i in secondaryStructure:
         significant = featureImportances[i][0]
         importance = featureImportances[i][1]
@@ -85,7 +89,9 @@ def main(args):
             xValuesNotSig.append(currentXValue)
             yValuesNotSig.append(importance)
         currentXValue += 1
-    dividingLines.append(currentXValue  - 0.5)
+    currentXValue += 1  # Pad the division after the current section.
+    dividingLines.append(currentXValue)
+    currentXValue += 2  # Pad the division before the next section.
     for i in variants:
         significant = featureImportances[i][0]
         importance = featureImportances[i][1]
@@ -96,7 +102,9 @@ def main(args):
             xValuesNotSig.append(currentXValue)
             yValuesNotSig.append(importance)
         currentXValue += 1
-    dividingLines.append(currentXValue  - 0.5)
+    currentXValue += 1  # Pad the division after the current section.
+    dividingLines.append(currentXValue)
+    currentXValue += 2  # Pad the division before the next section.
     for i in expression:
         significant = featureImportances[i][0]
         importance = featureImportances[i][1]
@@ -107,7 +115,9 @@ def main(args):
             xValuesNotSig.append(currentXValue)
             yValuesNotSig.append(importance)
         currentXValue += 1
-    dividingLines.append(currentXValue  - 0.5)
+    currentXValue += 1  # Pad the division after the current section.
+    dividingLines.append(currentXValue)
+    currentXValue += 2  # Pad the division before the next section.
     for i in miscMeasured:
         significant = featureImportances[i][0]
         importance = featureImportances[i][1]
@@ -118,7 +128,9 @@ def main(args):
             xValuesNotSig.append(currentXValue)
             yValuesNotSig.append(importance)
         currentXValue += 1
-    dividingLines.append(currentXValue  - 0.5)
+    currentXValue += 1  # Pad the division after the current section.
+    dividingLines.append(currentXValue)
+    currentXValue += 2  # Pad the division before the next section.
     for i in miscCalculated:
         significant = featureImportances[i][0]
         importance = featureImportances[i][1]
@@ -132,22 +144,18 @@ def main(args):
 
     # Determine the boundaries for the y axis.
     minImportance = min(min(yValuesNotSig), min(yValuesSig))
-    minBoundary = 0
-    if minImportance < 0:
-        roundedMinImportance = round(minImportance, 2)
-        minBoundary = roundedMinImportance if roundedMinImportance < minImportance else roundedMinImportance - 0.01
+    minBoundary = minImportance - 0.0025
     maxImportance = max(max(yValuesNotSig), max(yValuesSig))
-    roundedMaxImportance = round(maxImportance, 2)
-    maxBoundary = roundedMaxImportance if roundedMaxImportance > maxImportance else roundedMaxImportance + 0.01
+    maxBoundary = maxImportance + 0.0025
 
     # Determine the partition coordinates.
     partitionLabels = ['(a)', '(b)', '(c)', '(d)', '(e)', '(f)', '(g)']
     partitionLineXValues = [np.array([i, i]) for i in dividingLines]
     partitionLineYValues = [np.array([minBoundary, maxBoundary]) for i in dividingLines]
-    dividingLines = [0.5] + dividingLines
-    dividingLines.append(currentXValue  - 0.5)
+    dividingLines = [0] + dividingLines
+    dividingLines.append(currentXValue)
     partitionLabelXValues = [sum(dividingLines[i:i+2]) / 2 for i in range(0, len(dividingLines), 1)[:-1]]
-    partitionLabelYValues = [maxBoundary - 0.01 for i in partitionLabels]
+    partitionLabelYValues = [maxBoundary - 0.002 for i in partitionLabels]
 
     # Create the figure.
     currentFigure = plt.figure()
@@ -155,13 +163,13 @@ def main(args):
     gs.update(left=0, right=1, bottom=0, top=1, wspace=0.05, hspace=0.05)
     scatterPlot = plt.subplot(gs[1:-1, 1:-1])
     axes = currentFigure.gca()
-    axes.set_xlim(left=0, right=len(featureImportances) + 1)
+    axes.set_xlim(left=0, right=dividingLines[-1])
     axes.set_ylim(bottom=minBoundary, top=maxBoundary)
     axes.set_ylabel("Variable Importance", fontsize=15)
 
     # Plot the points.
-    axes.scatter(xValuesNotSig, yValuesNotSig, s=10, c='black', marker='o', edgecolor='none', zorder=2)
-    axes.scatter(xValuesSig, yValuesSig, s=40, c='red', marker='*', edgecolor='none', zorder=2)
+    axes.scatter(xValuesNotSig, yValuesNotSig, s=15, c='white', marker='o', edgecolor='black', zorder=2)
+    axes.scatter(xValuesSig, yValuesSig, s=15, c='black', marker='o', edgecolor='none', zorder=2)
 
     # Plot the partitions.
     for i in range(len(partitionLabels) - 1):
@@ -170,8 +178,12 @@ def main(args):
         axes.text(partitionLabelXValues[i], partitionLabelYValues[i], partitionLabels[i], size=10, color='black', horizontalalignment='center',
             verticalalignment='center', zorder=1)
 
-    # Hide the x ticks.
+    # Add the horizontal line at the origin.
+    axes.plot([0, dividingLines[-1]], [0, 0], markersize=0, color='black', linestyle='-', linewidth=1, zorder=0)
+
+    # Hide the x ticks, and make the y axis ticks only on the left.
     axes.set_xticks([])
+    axes.yaxis.tick_left()
 
     # Save the figure.
     plt.savefig(resultsLocation, bbox_inches='tight', transparent=True)
