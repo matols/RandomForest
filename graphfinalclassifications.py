@@ -23,16 +23,16 @@ def main(args):
     # Parse the protein predictions.
     proteinData = parse_predictions(predictionsFile)
 
-    # Determine the non-redundat and redundant proteins accessions.
+    # Determine the non-redundant and redundant proteins accessions.
     nonredundantAccessions = determine_proteins_in_dataset(nonredundantProteinDataset)
     redundantAccessions = determine_proteins_in_dataset(redundantProteinDataset)
 
-    # Generate the predictions and graph for the non-redudnant proteins.
+    # Generate the predictions and graph for the non-redundant proteins.
     nonRedundantDirectory = outputDirectory + '/Non-Redundant'
     os.mkdir(nonRedundantDirectory)
     parse_input(proteinData, nonredundantAccessions, nonRedundantDirectory, numberOfBins)
 
-    # Generate the predictions and graph for the redudnant proteins.
+    # Generate the predictions and graph for the redundant proteins.
     redundantDirectory = outputDirectory + '/Redundant'
     os.mkdir(redundantDirectory)
     parse_input(proteinData, redundantAccessions, redundantDirectory, numberOfBins)
@@ -117,7 +117,7 @@ def parse_input(proteinData, proteinAccessions, outputDirectory, numberOfBins=30
     generate_histogram(unlabelledPosWeightFraction, positivePosWeightFraction, outputDirectory + '/ProteinPredictions.png', numberOfBins)
 
 def generate_confusion_matrix(truePositives, falseNegatives, falsePositives, trueNegatives, figureSaveLocation):
-    """Create a cofusion matrix image.
+    """Create a confusion matrix image.
 
     @type figureSaveLocation - str
     @use  figureSaveLocation - The location where the figure will be saved.
@@ -238,10 +238,10 @@ def generate_histogram(unlabelledPosWeightFraction, positivePosWeightFraction, s
     # Create the legend.
     axes.legend(loc='upper center', bbox_to_anchor=(0.5, 1.1), fancybox=True, shadow=True, ncol=2)
 
-    # Set the maxium y axis value by:
+    # Set the maximum y axis value by:
     #    Finding the height of the tallest bar, x
-    #    Finding the smallest factor of 0.05 greater than x.
-    #    Adding 0.05 to the smallest factor.
+    #    Finding the smallest multiple of 0.05 greater than x.
+    #    Adding 0.05 to the multiple factor.
     # For example, this will give 0.7 when x = 0.64 and 0.3 when x = 0.21.
     axes.set_ylim(bottom=0.0, top=(math.ceil(max(maxUnlabelledCount, maxPositiveCount) / 0.05) * 0.05) + 0.05)
 
