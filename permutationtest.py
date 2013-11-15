@@ -13,19 +13,20 @@ def main(args):
     parser.add_argument('output', help='the location to save the results')
     parser.add_argument('-f', '--features', default='', help='the features to remove (csv)')
     parser.add_argument('-N', '--permutations', default=1000, type=int, help='the number of permutations to perform')
-    parser.add_argument('-t', '--statistic', default='mean', choices=['mean', 'median', 'ranksum'], help='the test statistic')
+    parser.add_argument('-t', '--statistic', default='mean', choices=['mean', 'median', 'meanrank', 'medianrank'], help='the test statistic')
     parser.add_argument('-s', '--alpha', default=[], action='append', help='the significance level(s) to use')
     parser.add_argument('-c', '--correct', default=0.0, type=float, help='the alpha level for the multiple comparison correction')
     args = parser.parse_args()
-    
+
     # Parse the command line arguments.
     dataset = data_processing(args.dataset, args.features.split(','))
     resultsLocation = args.output
     numberOfPermutations = args.permutations
-    testStatistic = test_statistic_mean if args.statistic == 'mean' else (test_statistic_median if args.statistic == 'median' else test_statistic_ranksum)
+    testStatistic = test_statistic_mean if args.statistic == 'mean' else (test_statistic_median if args.statistic == 'median' else
+        (test_statistic_meanranksum if args.statistic == 'meanrank' else test_statistic_medianranksum))
     alphaLevels = [0.05] if not args.alpha else [float(i) for i in args.alpha]
     correctionAlpha = args.correct
-    
+
     # Setup the results directory and record the parameters.
     statsFile = resultsLocation + '/StatisticalTesting.txt'
     parameterFile = resultsLocation + '/ParametersUsed.txt'
@@ -41,12 +42,12 @@ def main(args):
     writeParams.write('Alpha Levels - ' + ('0.05' if not args.alpha else ','.join(args.alpha)) + '\n')
     writeParams.write('Multiple Comparison Correction - ' + ('Performed With Alpha = ' + str(correctionAlpha)) if correctionAlpha else 'Not Performed' + '\n')
     writeParams.close()
-    
+
     # Determine the original permutation and number of positive proteins.
     originalPositiveProteins = [i for i in range(len(dataset)) if dataset['Classification'][i] == b'Positive']
     originalUnlabelledProteins = [i for i in range(len(dataset)) if i not in originalPositiveProteins]
     numberOfPositiveProteins = len(originalPositiveProteins)
-    
+
     # Determine the ranks for the observations in the dataset.
     indicesToRanks = {}
     for i in [j for j in dataset.dtype.names if j != 'Classification']:
@@ -71,11 +72,6 @@ def main(args):
             for k in featureValuesToIndices[key]:
                 indicesToRanks[i][k] = averageRank
 
-    # Calculate statistics about the dataset.
-    originalPositiveMeans, originalUnlabelledMeans = test_statistic_mean(dataset, originalPositiveProteins, originalUnlabelledProteins)
-    originalPositiveMedians, originalUnlabelledMedians = test_statistic_median(dataset, originalPositiveProteins, originalUnlabelledProteins)
-    originalPositiveRankSums, originalUnlabelledRankSums = test_statistic_ranksum(dataset, originalPositiveProteins, originalUnlabelledProteins, indicesToRanks)
-
     # Determine the original test statistic for each feature, along with its sign.
     originalPositiveStat, originalUnlabelledStat = testStatistic(dataset, originalPositiveProteins, originalUnlabelledProteins, indicesToRanks)
     originalStatistic = dict([(i, originalPositiveStat[i] - originalUnlabelledStat[i]) for i in originalPositiveStat])
@@ -90,7 +86,7 @@ def main(args):
         if len(permutationsToCheck)  % 10000 == 0:
             print(str(len(permutationsToCheck)) + ' permutations created')
         permutation = sorted(random.sample(permutationIndices, numberOfPositiveProteins))
-        permutationAsStr = ','.join([str(i) for i in permutation])      
+        permutationAsStr = ','.join([str(i) for i in permutation])
         permutationsToCheck.add(permutationAsStr)
 
     # Calculate the test statistic for each permutation.
@@ -133,7 +129,7 @@ def main(args):
                 isNoneFailed = False
 
     writeResults = open(statsFile, 'w')
-    writeResults.write('Feature\tPositiveMean\tPositiveMedian\tPositiveMeanRankSum\tUnlabelledMean\tUnlabelledMedian\tUnlabelledMeanRankSum\tPermutations\tOriginalStatistic\tStatsNoLessExtreme\tPValue')
+    writeResults.write('Feature\tPermutations\tOriginalStatistic\tStatsNoLessExtreme\tPValue')
     for i in alphaLevels:
         writeResults.write('\tSignificantAt-' + str(i))
     if correctionAlpha:
@@ -141,8 +137,6 @@ def main(args):
     writeResults.write('\n')
     for i in [j for j in dataset.dtype.names if j != 'Classification']:
         writeResults.write(i + '\t')
-        writeResults.write(str(originalPositiveMeans[i]) + '\t' + str(originalPositiveMedians[i]) + '\t' + str(originalPositiveRankSums[i]) + '\t')
-        writeResults.write(str(originalUnlabelledMeans[i]) + '\t' + str(originalUnlabelledMedians[i]) + '\t' + str(originalUnlabelledRankSums[i]) + '\t')
         writeResults.write(str(numberOfPermutations + 1) + '\t' + str(originalStatistic[i]) + '\t' + str(largerEffectPermutations[i]) + '\t' + str(pValues[i]))
         for j in alphaLevels:
             writeResults.write('\t' + str(pValues[i] <= j))
@@ -162,7 +156,7 @@ def test_statistic_mean(dataset, indicesOfPositiveClass, indicesOfUnlabelledClas
         unlabelledProteinValues = dataset[i][indicesOfUnlabelledClass]
         resultsPositive[i] = numpy.mean(positiveProteinValues)
         resultsUnlabelled[i] = numpy.mean(unlabelledProteinValues)
-    
+
     return resultsPositive, resultsUnlabelled
 
 def test_statistic_median(dataset, indicesOfPositiveClass, indicesOfUnlabelledClass, dummyInput=None):
@@ -176,10 +170,10 @@ def test_statistic_median(dataset, indicesOfPositiveClass, indicesOfUnlabelledCl
         unlabelledProteinValues = dataset[i][indicesOfUnlabelledClass]
         resultsPositive[i] = numpy.median(positiveProteinValues)
         resultsUnlabelled[i] = numpy.median(unlabelledProteinValues)
-    
+
     return resultsPositive, resultsUnlabelled
 
-def test_statistic_ranksum(dataset, indicesOfPositiveClass, indicesOfUnlabelledClass, indicesToRanks):
+def test_statistic_meanranksum(dataset, indicesOfPositiveClass, indicesOfUnlabelledClass, indicesToRanks):
     """Returns the mean rank sum of each feature for the Positive and Unlabelled classes.
     """
 
@@ -194,7 +188,23 @@ def test_statistic_ranksum(dataset, indicesOfPositiveClass, indicesOfUnlabelledC
         sumOfUnlabelledRanks = sum([ranks[j] for j in indicesOfUnlabelledClass])
         resultsPositive[i] = sumOfPositiveRanks / numberOfPositiveProteins
         resultsUnlabelled[i] = sumOfUnlabelledRanks / numberOfUnlabelledProteins
-    
+
+    return resultsPositive, resultsUnlabelled
+
+def test_statistic_medianranksum(dataset, indicesOfPositiveClass, indicesOfUnlabelledClass, indicesToRanks):
+    """Returns the median rank sum of each feature for the Positive and Unlabelled classes.
+    """
+
+    numberOfPositiveProteins = len(indicesOfPositiveClass)
+    numberOfUnlabelledProteins = len(indicesOfUnlabelledClass)
+
+    resultsPositive = {}
+    resultsUnlabelled = {}
+    for i in indicesToRanks:
+        ranks = indicesToRanks[i]
+        resultsPositive[i] = numpy.median([ranks[j] for j in indicesOfPositiveClass])
+        resultsUnlabelled[i] = numpy.median([ranks[j] for j in indicesOfUnlabelledClass])
+
     return resultsPositive, resultsUnlabelled
 
 def data_processing(dataFileLocation, featuresToRemove=[]):
