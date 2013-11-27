@@ -11,7 +11,7 @@ header <- colnames(read.table(inputFile, sep='\t', header=TRUE))
 proteinData <- read.table(inputFile, sep='\t', skip=1, col.names=header)[c(-1, -105, -106, -107)]
 
 # The number of features is the number of columns in proteinData.
-numberOfFeatures = length(proteinData)
+numberOfFeatures <- length(proteinData)
 
 # Determine the features that should be dropped (in addition to the features that were not read in when the dataset was). Features should be dropped
 # if there is no variance in the value of the feature (i.e. a feature is dropped if all observations have the same value for it).
