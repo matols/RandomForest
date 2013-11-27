@@ -37,12 +37,6 @@ for (i in 1:(numberOfFeatures - 1))
 	positiveData <- proteinData[positiveMask, i]
 	unlabelledData <- proteinData[unlabelledMask, i]
 	
-	if (grepl('BS_', feature) || grepl('DS_', feature))
-	{
-		positiveData <- (positiveData > 0) * 1
-		unlabelledData <- (unlabelledData > 0) * 1
-	}
-	
 	# Only test the feature if there is more than one value for the positive and unlabelled observations.
 	if (length(unique(positiveData)) != 1 || length(unique(unlabelledData)) != 1)
 	{
