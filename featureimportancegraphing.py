@@ -12,11 +12,15 @@ def main(args):
     parser = argparse.ArgumentParser(description='Process the command line input for the feature collation graphing.')
     parser.add_argument('featureImportances', help='the location containing the collated featre importance data')
     parser.add_argument('output', help='the location to save the graph')
+    parser.add_argument('-i', '--impCol', type=int, default=3, help='the column index of the record of the variable importance')
+    parser.add_argument('-s', '--sigCol', type=int, default=2, help='the column index of the record of significance')
     args = parser.parse_args()
 
     # Parse the command line arguments.
     featureImportancesFile = args.featureImportances  # The file containing the collated feature importance data.
     resultsLocation = args.output  # The location where the graph will be saved.
+    variableImportanceColumn = args.impCol  # The index of the column in the feature importance file recording a feature's variable importance.
+    significanceColumn = args.sigCol  # The index of the column in the feature importance file recording whether a feature is significant.
 
     # Extract the variable importance and significance for each feature in the dataset.
     featureImportances = {}
@@ -25,8 +29,8 @@ def main(args):
     for line in readIn:
         chunks = (line.strip()).split('\t')
         feature = chunks[0]
-        significance = chunks[4] == 'True'
-        importance = float(chunks[5])
+        significance = chunks[significanceColumn] == 'TRUE'
+        importance = float(chunks[variableImportanceColumn])
         featureImportances[feature] = [significance, importance]
     readIn.close()
 
@@ -44,7 +48,7 @@ def main(args):
                   'BS_Skin', 'BS_Spleen', 'BS_Stomach', 'BS_Testis', 'BS_Thymus', 'BS_Thyroid', 'BS_Tonsil', 'BS_Trachea', 'BS_Umbilical_Cord',
                   'BS_Uterus', 'BS_Vascular']
     miscMeasured = ['Sequence', 'PESTMotif', 'SignalPeptide', 'Paralogs', 'BinaryPPI', 'AlternativeTranscripts']
-    miscCalculated = ['LowComplexity', 'Hydrophobicity', 'Isoelectric', 'HalfLife', 'InstabilityIndex']
+    miscCalculated = ['LowComplexity', 'Hydrophobicity', 'Isoelectric']
 
     # Generate the coordinates for the points.
     xValuesNotSig = []
