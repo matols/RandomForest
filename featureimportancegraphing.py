@@ -148,16 +148,16 @@ def main(args):
 
     # Determine the boundaries for the y axis.
     minImportance = min(min(yValuesNotSig), min(yValuesSig))
-    minBoundary = minImportance - 0.0025
+    minBoundary = -0.005#minImportance - 0.0025
     maxImportance = max(max(yValuesNotSig), max(yValuesSig))
-    maxBoundary = maxImportance + 0.0025
+    maxBoundary = 0.06#maxImportance + 0.0025
 
     # Determine the partition coordinates.
     partitionLabels = ['(a)', '(b)', '(c)', '(d)', '(e)', '(f)', '(g)']
     partitionLineXValues = [np.array([i, i]) for i in dividingLines]
     partitionLineYValues = [np.array([minBoundary, maxBoundary]) for i in dividingLines]
     dividingLines = [0] + dividingLines
-    dividingLines.append(currentXValue)
+    dividingLines.append(currentXValue + 1)
     partitionLabelXValues = [sum(dividingLines[i:i+2]) / 2 for i in range(0, len(dividingLines), 1)[:-1]]
     partitionLabelYValues = [maxBoundary - 0.002 for i in partitionLabels]
 
@@ -187,6 +187,7 @@ def main(args):
 
     # Hide the x ticks, and make the y axis ticks only on the left.
     axes.set_xticks([])
+    axes.set_yticks([-0.005, 0.0, 0.005, 0.01, 0.015, 0.02, 0.025, 0.03, 0.035, 0.04, 0.045, 0.05, 0.055, 0.06])
     axes.yaxis.tick_left()
 
     # Save the figure.
