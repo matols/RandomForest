@@ -199,8 +199,8 @@ def generate_histogram(unlabelledPosWeightFraction, positivePosWeightFraction, s
 
     # Plot the protein predictions.
     bins = [i / float(numberOfBins) for i in range(numberOfBins + 1)]
-    axes.set_xticks(bins)
-    axes.set_yticks([0.0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0])
+    axes.set_xticks(bins[1:])
+    axes.set_yticks([0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0])
     binRelativeWidth = 0.9
     labelOffsetFromBinCentre = (0.5 * binRelativeWidth) * 0.5
 
@@ -244,6 +244,10 @@ def generate_histogram(unlabelledPosWeightFraction, positivePosWeightFraction, s
     #    Adding 0.05 to the multiple factor.
     # For example, this will give 0.7 when x = 0.64 and 0.3 when x = 0.21.
     axes.set_ylim(bottom=0.0, top=(math.ceil(max(maxUnlabelledCount, maxPositiveCount) / 0.05) * 0.05) + 0.05)
+
+    # Add the 0 at the intersection of the x and y axes.
+    axes.annotate('0', xy=(0, 0), xycoords='axes fraction', xytext=(-7, -4), textcoords='offset points',
+        verticalalignment='top', horizontalalignment='center', size=13)
 
     # Save the figure.
     plt.savefig(saveLocation, bbox_inches='tight', transparent=True)
