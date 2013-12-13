@@ -193,7 +193,7 @@ def generate_histogram(unlabelledPosWeightFraction, positivePosWeightFraction, s
     gs.update(left=0, right=1, bottom=0, top=1, wspace=0.05, hspace=0.05)
     histPlot = plt.subplot(gs[1:-1, 1:-1])
     axes = currentFigure.gca()
-    axes.set_xlabel('Fraction of Positive Weight', fontsize=15)
+    axes.set_xlabel('Positive Similarity', fontsize=15)
     axes.set_ylabel('Frequency', fontsize=15)
     axes.set_xlim(left=0.0, right=1.0)
 
