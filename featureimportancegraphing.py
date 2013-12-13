@@ -12,7 +12,7 @@ def main(args):
     parser = argparse.ArgumentParser(description='Process the command line input for the feature collation graphing.')
     parser.add_argument('featureImportances', help='the location containing the collated featre importance data')
     parser.add_argument('output', help='the location to save the graph')
-    parser.add_argument('-i', '--impCol', type=int, default=3, help='the column index of the record of the variable importance')
+    parser.add_argument('-i', '--impCol', type=int, default=4, help='the column index of the record of the variable importance')
     parser.add_argument('-s', '--sigCol', type=int, default=2, help='the column index of the record of significance')
     args = parser.parse_args()
 
@@ -47,8 +47,8 @@ def main(args):
                   'BS_Ovary', 'BS_Pancreas', 'BS_Parathyroid', 'BS_Pharynx', 'BS_Pituitary_Gland', 'BS_Placenta', 'BS_Prostate', 'BS_Salivary_Gland',
                   'BS_Skin', 'BS_Spleen', 'BS_Stomach', 'BS_Testis', 'BS_Thymus', 'BS_Thyroid', 'BS_Tonsil', 'BS_Trachea', 'BS_Umbilical_Cord',
                   'BS_Uterus', 'BS_Vascular']
-    miscMeasured = ['Sequence', 'PESTMotif', 'SignalPeptide', 'Paralogs', 'BinaryPPI', 'AlternativeTranscripts']
-    miscCalculated = ['LowComplexity', 'Hydrophobicity', 'Isoelectric']
+    sequenceProperties = ['Sequence', 'PESTMotif', 'SignalPeptide', 'LowComplexity', 'Hydrophobicity', 'Isoelectric']
+    interProteinRelationships = ['Paralogs', 'BinaryPPI', 'AlternativeTranscripts']
 
     # Generate the coordinates for the points.
     xValuesNotSig = []
@@ -122,7 +122,7 @@ def main(args):
     currentXValue += 1  # Pad the division after the current section.
     dividingLines.append(currentXValue)
     currentXValue += 2  # Pad the division before the next section.
-    for i in miscMeasured:
+    for i in sequenceProperties:
         significant = featureImportances[i][0]
         importance = featureImportances[i][1]
         if significant:
@@ -135,7 +135,7 @@ def main(args):
     currentXValue += 1  # Pad the division after the current section.
     dividingLines.append(currentXValue)
     currentXValue += 2  # Pad the division before the next section.
-    for i in miscCalculated:
+    for i in interProteinRelationships:
         significant = featureImportances[i][0]
         importance = featureImportances[i][1]
         if significant:
@@ -157,7 +157,7 @@ def main(args):
     partitionLineXValues = [np.array([i, i]) for i in dividingLines]
     partitionLineYValues = [np.array([minBoundary, maxBoundary]) for i in dividingLines]
     dividingLines = [0] + dividingLines
-    dividingLines.append(currentXValue + 1)
+    dividingLines.append(currentXValue)# + 1)
     partitionLabelXValues = [sum(dividingLines[i:i+2]) / 2 for i in range(0, len(dividingLines), 1)[:-1]]
     partitionLabelYValues = [maxBoundary - 0.002 for i in partitionLabels]
 
@@ -179,7 +179,7 @@ def main(args):
     for i in range(len(partitionLabels) - 1):
         axes.plot(partitionLineXValues[i], partitionLineYValues[i], markersize=0, color='black', linestyle='--', linewidth=1, zorder=1)
     for i in range(len(partitionLabels)):
-        axes.text(partitionLabelXValues[i], partitionLabelYValues[i], partitionLabels[i], size=10, color='black', horizontalalignment='center',
+        axes.text(partitionLabelXValues[i], partitionLabelYValues[i], partitionLabels[i], size=12, color='black', horizontalalignment='center',
             verticalalignment='center', zorder=1)
 
     # Add the horizontal line at the origin.
