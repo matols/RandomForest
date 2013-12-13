@@ -39,7 +39,7 @@ for (i in 1:(numberOfFeatures - 1))
 	unlabelledData <- proteinData[unlabelledMask, i]
 	
 	# Only test the feature if there is more than one value for the positive and unlabelled observations.
-	if (length(unique(positiveData)) != 1 || length(unique(unlabelledData)) != 1)
+	if (length(unique(proteinData[,i])) != 1)
 	{
 		g <- factor(c(rep("Unlabelled", length(unlabelledData)), rep("Positive", length(positiveData))))
 		v <- c(unlabelledData, positiveData)
