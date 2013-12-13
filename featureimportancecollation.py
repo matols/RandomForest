@@ -11,7 +11,8 @@ def main(args):
     parser.add_argument('varImp', help='the location containing the results of the variable importance calculations')
     parser.add_argument('output', help='the location to save the results')
     parser.add_argument('-p', '--pValCol', type=int, default=1, help='the column index of the record of the p value')
-    parser.add_argument('-s', '--sigCol', type=int, default=-1, help='the column index of the record of significance')
+    parser.add_argument('-s', '--sigLevel', type=float, default=0.05, help='the significance level to use')
+    parser.add_argument('-r', '--relationCol', type=int, default=-1, help='the column index of the record of the positive rank sum compared to expected')
     args = parser.parse_args()
 
     # Parse the command line arguments.
@@ -19,7 +20,8 @@ def main(args):
     variableImportanceFile = args.varImp  # The file containing the results of the random forest variable importance calculations.
     resultsLocation = args.output  # The location of the file where the collated feature importance measures should be written.
     pValueColumn = args.pValCol  # The index of the column in the statistical results file recording a feature's p value.
-    significanceColumn = args.sigCol  # The index of the column in the statistical results file recording whether a feature is significant.
+    relationColumn = args.relationCol  # The index of the column in the statistical results file recording the positive measure relative to the unlabelled (i.e. rank sums).
+    significanceLevel = args.sigLevel  # The level of significance to use.
 
     featureDict = {}  # A dictionary containing the feature importance measures for each feature.
 
@@ -27,10 +29,23 @@ def main(args):
     readStats = open(statisticalTestFile, 'r')
     header = readStats.readline()
     for line in readStats:
-        chunks = (line.strip()).split('\t')
+        chunks = (line.strip()).split(',')
         feature = chunks[0]
-        featureDict[feature] = feature + '\t' + '{0:.10f}'.format(float(chunks[pValueColumn])) + '\t' + chunks[significanceColumn] + '\t'
+        if chunks[pValueColumn] != '-':
+            # If the p value could be calculated for the feature.
+            featureDict[feature] = {}
+            featureDict[feature]['PValue'] = float(chunks[pValueColumn])
+            featureDict[feature]['Relative'] = chunks[relationColumn]
     readStats.close()
+
+    # Determine the number of features tested for significance.
+    numberOfFeaturesTested = len(featureDict)
+
+    for i in featureDict:
+        if featureDict[i]['PValue'] <= (significanceLevel / numberOfFeaturesTested):
+            featureDict[i]['Significance'] = 'TRUE'
+        else:
+            featureDict[i]['Significance'] = 'FALSE'
 
     # Parse the results of the variable importance calculations.
     readImp = open(variableImportanceFile, 'r')
@@ -43,18 +58,24 @@ def main(args):
     readImp.close()
 
     # Update featureDict to contain any features that were not tested for statistical significance, but do have a variable importance.
-    featureDict = dict([(i, featureDict[i] if i in featureDict else i + '\t-\t-\t') for i in varImpFeaturesTested])
+    for i in varImpFeaturesTested:
+        if not i in featureDict:
+            featureDict[i] = {}
+            featureDict[i]['PValue'] = 1.0
+            featureDict[i]['Relative'] = '-'
+            featureDict[i]['Significance'] = '-'
 
     # Update featureDict with the variable importances.
     for i in variableImportances:
         meanImportance, maxImportance, minImportance, stdDevImportance, rangeImportance = calculate_level_stats(variableImportances[i])
-        featureDict[i] += str(meanImportance) + '\t' + str(maxImportance) + '\t' + str(minImportance) + '\t' + str(stdDevImportance) + '\t' + str(rangeImportance) + '\t'
+        featureDict[i]['Importance'] = meanImportance
 
     # Write out the collated feature importance.
     writeTo = open(resultsLocation, 'w')
-    writeTo.write('Feature\tPValue\tSignificant\tMeanImportance\tMaxImportance\tMinImportance\tStdDevImportance\tRangeImportance\n')
+    writeTo.write('Feature\tPValue\tSignificant\tPositiveRankSumComparedToExpected\tMeanImportance\n')
     for i in varImpFeaturesTested:
-        writeTo.write(featureDict[i] + '\n')
+        writeTo.write(i + '\t' + '{0:.10f}'.format(featureDict[i]['PValue']) + '\t' + featureDict[i]['Significance'] + '\t' +
+            featureDict[i]['Relative'] + '\t' + str(featureDict[i]['Importance']) + '\n')
     writeTo.close()
 
 def calculate_level_stats(importances):

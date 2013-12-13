@@ -26,6 +26,7 @@ unlabelledVariance <- c()
 positiveMean <- c()
 positiveMedian <- c()
 positiveVariance <- c()
+positiveRankSum <- c()
 
 # Perform the statistical significance tests.
 for (i in 1:(numberOfFeatures - 1))
@@ -42,7 +43,11 @@ for (i in 1:(numberOfFeatures - 1))
 	{
 		g <- factor(c(rep("Unlabelled", length(unlabelledData)), rep("Positive", length(positiveData))))
 		v <- c(unlabelledData, positiveData)
-		
+
+		# Calculate the expected and actual rank sums for the positive class.
+		actualRankSum <- sum(rank(v)[g=='Positive'])
+		expectedRankSum <- length(positiveData) * (length(unlabelledData) + length(positiveData) + 1) / 2
+	
 		# Calculate the exact p value when there aren't enough observations to use an approximation.
 		if (min(length(unlabelledData), length(positiveData)) > 300)
 		{
@@ -57,6 +62,8 @@ for (i in 1:(numberOfFeatures - 1))
 	else
 	{
 		pValue[i] <- '-'
+		actualRankSum <- 0
+		expectedRankSum <- 0
 	}
 	
 	# Calculate descriptive statistics for the feature.
@@ -66,8 +73,16 @@ for (i in 1:(numberOfFeatures - 1))
 	positiveMean[i] <- mean(positiveData)
 	positiveMedian[i] <- median(positiveData)
 	positiveVariance[i] <- var(positiveData)
+	if (actualRankSum <= expectedRankSum)
+	{
+		positiveRankSum[i] <- 'Lower'
+	}
+	else
+	{
+		positiveRankSum[i] <- 'Higher'
+	}
 }
 
-results <- data.frame(pValue, unlabelledMean, unlabelledMedian, unlabelledVariance, positiveMean, positiveMedian, positiveVariance, row.names=header[2:numberOfFeatures])
+results <- data.frame(pValue, unlabelledMean, unlabelledMedian, unlabelledVariance, positiveMean, positiveMedian, positiveVariance, positiveRankSum, row.names=header[2:numberOfFeatures])
 
 write.csv(results, file=outputFile, quote=FALSE)
