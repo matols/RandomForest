@@ -111,7 +111,7 @@ def parse_input(proteinData, proteinAccessions, outputDirectory, numberOfBins=30
 
     # Create the confusion matrix.
     generate_confusion_matrix(len(positivePosWeightFraction) - len(positivePredictedUnlabelled), len(positivePredictedUnlabelled),
-	    len(unlabelledPredictedPositive), len(unlabelledPosWeightFraction) - len(unlabelledPredictedPositive), outputDirectory + '/ConfusionMatrix')
+        len(unlabelledPredictedPositive), len(unlabelledPosWeightFraction) - len(unlabelledPredictedPositive), outputDirectory + '/ConfusionMatrix')
 
     # Create the histogram for the predictions of all the proteins.
     generate_histogram(unlabelledPosWeightFraction, positivePosWeightFraction, outputDirectory + '/ProteinPredictions.png', numberOfBins)
@@ -220,8 +220,18 @@ def generate_histogram(unlabelledPosWeightFraction, positivePosWeightFraction, s
         # Label the bar with the number of observations in the bin.
         numberOfObservations = int(round(count * numberOfUnlabelledObservations))
         if numberOfObservations:
-            axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 10), textcoords='offset points',
-                verticalalignment='top', horizontalalignment='center', size=10, weight='bold')
+            if numberOfObservations >= 10000:
+                axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(5, 30), textcoords='offset points',
+                    verticalalignment='top', horizontalalignment='center', rotation=35, size=10, weight='bold')
+            elif numberOfObservations >= 1000:
+                axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 25), textcoords='offset points',
+                    verticalalignment='top', horizontalalignment='center', rotation=35, size=10, weight='bold')
+            elif numberOfObservations >= 100:
+                axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 20), textcoords='offset points',
+                    verticalalignment='top', horizontalalignment='center', rotation=35, size=10, weight='bold')
+            else:
+                axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 15), textcoords='offset points',
+                    verticalalignment='top', horizontalalignment='center', rotation=35, size=10, weight='bold')
 
     maxPositiveCount = 0.0
     positiveCounts = counts[1]
@@ -232,8 +242,18 @@ def generate_histogram(unlabelledPosWeightFraction, positivePosWeightFraction, s
         # Label the bar with the number of observations in the bin.
         numberOfObservations = int(round(count * numberOfPositiveObservations))
         if numberOfObservations:
-            axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 10), textcoords='offset points',
-                verticalalignment='top', horizontalalignment='center', size=10, weight='bold')
+            if numberOfObservations >= 10000:
+                axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 30), textcoords='offset points',
+                    verticalalignment='top', horizontalalignment='center', rotation=35, size=10, weight='bold')
+            elif numberOfObservations >= 1000:
+                axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 25), textcoords='offset points',
+                    verticalalignment='top', horizontalalignment='center', rotation=35, size=10, weight='bold')
+            elif numberOfObservations >= 100:
+                axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 20), textcoords='offset points',
+                    verticalalignment='top', horizontalalignment='center', rotation=35, size=10, weight='bold')
+            else:
+                axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 15), textcoords='offset points',
+                    verticalalignment='top', horizontalalignment='center', rotation=35, size=10, weight='bold')
 
     # Create the legend.
     axes.legend(loc='upper center', bbox_to_anchor=(0.5, 1.1), fancybox=True, shadow=True, ncol=2)

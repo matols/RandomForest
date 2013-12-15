@@ -48,7 +48,7 @@ def main(args):
                   'BS_Larynx', 'BS_Liver', 'BS_Lung', 'BS_Lymph', 'BS_Lymph_Node', 'BS_Mammary_Gland', 'BS_Mouth', 'BS_Muscle', 'BS_Nerve',
                   'BS_Ovary', 'BS_Pancreas', 'BS_Parathyroid', 'BS_Pharynx', 'BS_Pituitary_Gland', 'BS_Placenta', 'BS_Prostate', 'BS_Salivary_Gland',
                   'BS_Skin', 'BS_Spleen', 'BS_Stomach', 'BS_Testis', 'BS_Thymus', 'BS_Thyroid', 'BS_Tonsil', 'BS_Trachea', 'BS_Umbilical_Cord',
-                  'BS_Uterus', 'BS_Vascular']
+                  'BS_Uterus', 'BS_Vascular', 'Expression']
 
     # Generate the coordinates for the points.
     xValuesNotSig = []
