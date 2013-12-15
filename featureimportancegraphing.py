@@ -37,9 +37,11 @@ def main(args):
     # Define the different feature classes.
     aminoAcidComps = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'P', 'N', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', 'NegativelyCharged',
                       'PositivelyCharged', 'Charged', 'Polar', 'NonPolar', 'Aromatic', 'Aliphatic', 'Small', 'Tiny']
+    sequenceProperties = ['Sequence', 'PESTMotif', 'SignalPeptide', 'LowComplexity', 'Hydrophobicity', 'Isoelectric', 'InstabilityIndex', 'HalfLife']
     postTransModification = ['OGlycosylation', 'NGlycosylation', 'Phosphoserine', 'Phosphothreonine', 'Phosphotyrosine']
     secondaryStructure = ['TransmembraneHelices', 'AlphaHelices', 'BetaStrands', 'Turns']
     variants = ['3Untranslated', '5Untranslated', 'NonSynonymousCoding', 'SynonymousCoding']
+    interProteinRelationships = ['Paralogs', 'BinaryPPI', 'AlternativeTranscripts']
     expression = ['DS_Embryoid_Body', 'DS_Blastocyst', 'DS_Fetus', 'DS_Neonate', 'DS_Infant', 'DS_Juvenile', 'DS_Adult', 'BS_Adipose_Tissue',
                   'BS_Adrenal_Gland', 'BS_Ascites', 'BS_Bladder', 'BS_Blood', 'BS_Bone', 'BS_Bone_Marrow', 'BS_Brain', 'BS_Cervix',
                   'BS_Connective_Tissue', 'BS_Ear', 'BS_Embryonic_Tissue', 'BS_Esophagus', 'BS_Eye', 'BS_Heart', 'BS_Intestine', 'BS_Kidney',
@@ -47,8 +49,6 @@ def main(args):
                   'BS_Ovary', 'BS_Pancreas', 'BS_Parathyroid', 'BS_Pharynx', 'BS_Pituitary_Gland', 'BS_Placenta', 'BS_Prostate', 'BS_Salivary_Gland',
                   'BS_Skin', 'BS_Spleen', 'BS_Stomach', 'BS_Testis', 'BS_Thymus', 'BS_Thyroid', 'BS_Tonsil', 'BS_Trachea', 'BS_Umbilical_Cord',
                   'BS_Uterus', 'BS_Vascular']
-    sequenceProperties = ['Sequence', 'PESTMotif', 'SignalPeptide', 'LowComplexity', 'Hydrophobicity', 'Isoelectric']
-    interProteinRelationships = ['Paralogs', 'BinaryPPI', 'AlternativeTranscripts']
 
     # Generate the coordinates for the points.
     xValuesNotSig = []
@@ -58,6 +58,19 @@ def main(args):
     dividingLines = []
     currentXValue = 1
     for i in aminoAcidComps:
+        significant = featureImportances[i][0]
+        importance = featureImportances[i][1]
+        if significant:
+            xValuesSig.append(currentXValue)
+            yValuesSig.append(importance)
+        else:
+            xValuesNotSig.append(currentXValue)
+            yValuesNotSig.append(importance)
+        currentXValue += 1
+    currentXValue += 1  # Pad the division after the current section.
+    dividingLines.append(currentXValue)
+    currentXValue += 2  # Pad the division before the next section.
+    for i in sequenceProperties:
         significant = featureImportances[i][0]
         importance = featureImportances[i][1]
         if significant:
@@ -109,33 +122,20 @@ def main(args):
     currentXValue += 1  # Pad the division after the current section.
     dividingLines.append(currentXValue)
     currentXValue += 2  # Pad the division before the next section.
-    for i in expression:
-        significant = featureImportances[i][0]
-        importance = featureImportances[i][1]
-        if significant:
-            xValuesSig.append(currentXValue)
-            yValuesSig.append(importance)
-        else:
-            xValuesNotSig.append(currentXValue)
-            yValuesNotSig.append(importance)
-        currentXValue += 1
-    currentXValue += 1  # Pad the division after the current section.
-    dividingLines.append(currentXValue)
-    currentXValue += 2  # Pad the division before the next section.
-    for i in sequenceProperties:
-        significant = featureImportances[i][0]
-        importance = featureImportances[i][1]
-        if significant:
-            xValuesSig.append(currentXValue)
-            yValuesSig.append(importance)
-        else:
-            xValuesNotSig.append(currentXValue)
-            yValuesNotSig.append(importance)
-        currentXValue += 1
-    currentXValue += 1  # Pad the division after the current section.
-    dividingLines.append(currentXValue)
-    currentXValue += 2  # Pad the division before the next section.
     for i in interProteinRelationships:
+        significant = featureImportances[i][0]
+        importance = featureImportances[i][1]
+        if significant:
+            xValuesSig.append(currentXValue)
+            yValuesSig.append(importance)
+        else:
+            xValuesNotSig.append(currentXValue)
+            yValuesNotSig.append(importance)
+        currentXValue += 1
+    currentXValue += 1  # Pad the division after the current section.
+    dividingLines.append(currentXValue)
+    currentXValue += 2  # Pad the division before the next section.
+    for i in expression:
         significant = featureImportances[i][0]
         importance = featureImportances[i][1]
         if significant:

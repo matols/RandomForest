@@ -31,8 +31,8 @@ def main(args):
     for line in readStats:
         chunks = (line.strip()).split(',')
         feature = chunks[0]
-        if chunks[pValueColumn] != '-':
-            # If the p value could be calculated for the feature.
+        if chunks[pValueColumn] != '-' or '_' in feature:
+            # If the p value could be calculated for the feature and the feature is not an expression level.
             featureDict[feature] = {}
             featureDict[feature]['PValue'] = float(chunks[pValueColumn])
             featureDict[feature]['Relative'] = chunks[relationColumn]
