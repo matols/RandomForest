@@ -211,49 +211,48 @@ def generate_histogram(unlabelledPosWeightFraction, positivePosWeightFraction, s
     counts, bins, patches = axes.hist([unlabelledPosWeightFraction, positivePosWeightFraction], bins, color=['#808080', '#000000'], label=['Unlabelled', 'Positive'],
         align='mid', rwidth=binRelativeWidth, linewidth=0.0, weights=[unlabelledWeights, positiveWeights])
 
-    maxUnlabelledCount = 0.0
+    # Determine the largest number of proteins in a bar.
     unlabelledCounts = counts[0]
+    positiveCounts = counts[1]
+    maxFraction = max(max(unlabelledCounts), max(positiveCounts))
+    unlabeledMaxCount = max([int(round(i * numberOfUnlabelledObservations)) for i in unlabelledCounts])
+    positiveMaxCount = max([int(round(i * numberOfPositiveObservations)) for i in positiveCounts])
+    maxCount = max(
+                   max([int(round(i * numberOfUnlabelledObservations)) for i in unlabelledCounts]),
+                   max([int(round(i * numberOfPositiveObservations)) for i in positiveCounts])
+                  )
+    unlabelledDivideBy = 1
+    if unlabeledMaxCount > 10000:
+        unlabelledDivideBy = 1000
+    elif unlabeledMaxCount > 1000:
+        unlabelledDivideBy = 100
+    positiveDivideBy = 1
+    if positiveMaxCount > 10000:
+        positiveDivideBy = 1000
+    elif positiveMaxCount > 1000:
+        positiveDivideBy = 100
+
     unlabelledBinCentres = (0.5 - labelOffsetFromBinCentre) * np.diff(bins) + bins[:-1]
     for count, x in zip(unlabelledCounts, unlabelledBinCentres):
-        if count > maxUnlabelledCount:
-            maxUnlabelledCount = count
         # Label the bar with the number of observations in the bin.
-        numberOfObservations = int(round(count * numberOfUnlabelledObservations))
-        if numberOfObservations:
-            if numberOfObservations >= 10000:
-                axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(5, 30), textcoords='offset points',
-                    verticalalignment='top', horizontalalignment='center', rotation=35, size=10, weight='bold')
-            elif numberOfObservations >= 1000:
-                axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 25), textcoords='offset points',
-                    verticalalignment='top', horizontalalignment='center', rotation=35, size=10, weight='bold')
-            elif numberOfObservations >= 100:
-                axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 20), textcoords='offset points',
-                    verticalalignment='top', horizontalalignment='center', rotation=35, size=10, weight='bold')
-            else:
-                axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 15), textcoords='offset points',
-                    verticalalignment='top', horizontalalignment='center', rotation=35, size=10, weight='bold')
+        numberOfObservations = count * numberOfUnlabelledObservations / unlabelledDivideBy
+        if unlabelledDivideBy == 1:
+            axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 15), textcoords='offset points',
+                verticalalignment='top', horizontalalignment='center', size=10, weight='bold')
+        else:            
+            axes.annotate("{0:.1f}".format(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 15), textcoords='offset points',
+                verticalalignment='top', horizontalalignment='center', size=10, weight='bold')
 
-    maxPositiveCount = 0.0
-    positiveCounts = counts[1]
     positiveBinCentres = (0.5 + labelOffsetFromBinCentre) * np.diff(bins) + bins[:-1]
     for count, x in zip(positiveCounts, positiveBinCentres):
-        if count > maxPositiveCount:
-            maxPositiveCount = count
         # Label the bar with the number of observations in the bin.
-        numberOfObservations = int(round(count * numberOfPositiveObservations))
-        if numberOfObservations:
-            if numberOfObservations >= 10000:
-                axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 30), textcoords='offset points',
-                    verticalalignment='top', horizontalalignment='center', rotation=35, size=10, weight='bold')
-            elif numberOfObservations >= 1000:
-                axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 25), textcoords='offset points',
-                    verticalalignment='top', horizontalalignment='center', rotation=35, size=10, weight='bold')
-            elif numberOfObservations >= 100:
-                axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 20), textcoords='offset points',
-                    verticalalignment='top', horizontalalignment='center', rotation=35, size=10, weight='bold')
-            else:
-                axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 15), textcoords='offset points',
-                    verticalalignment='top', horizontalalignment='center', rotation=35, size=10, weight='bold')
+        numberOfObservations = count * numberOfPositiveObservations / positiveDivideBy
+        if positiveDivideBy == 1:
+            axes.annotate(str(int(numberOfObservations)), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 15), textcoords='offset points',
+                verticalalignment='top', horizontalalignment='center', size=10, weight='bold')
+        else:            
+            axes.annotate("{0:.1f}".format(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 15), textcoords='offset points',
+                verticalalignment='top', horizontalalignment='center', size=10, weight='bold')
 
     # Create the legend.
     axes.legend(loc='upper center', bbox_to_anchor=(0.5, 1.1), fancybox=True, shadow=True, ncol=2)
@@ -263,7 +262,7 @@ def generate_histogram(unlabelledPosWeightFraction, positivePosWeightFraction, s
     #    Finding the smallest multiple of 0.05 greater than x.
     #    Adding 0.05 to the multiple factor.
     # For example, this will give 0.7 when x = 0.64 and 0.3 when x = 0.21.
-    axes.set_ylim(bottom=0.0, top=(math.ceil(max(maxUnlabelledCount, maxPositiveCount) / 0.05) * 0.05) + 0.05)
+    axes.set_ylim(bottom=0.0, top=(math.ceil(maxFraction / 0.05) * 0.05) + 0.05)
 
     # Add the 0 at the intersection of the x and y axes.
     axes.annotate('0', xy=(0, 0), xycoords='axes fraction', xytext=(-7, -4), textcoords='offset points',
