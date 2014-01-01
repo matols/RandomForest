@@ -37,7 +37,7 @@ def main(args):
     # Define the different feature classes.
     aminoAcidComps = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'P', 'N', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', 'NegativelyCharged',
                       'PositivelyCharged', 'Charged', 'Polar', 'NonPolar', 'Aromatic', 'Aliphatic', 'Small', 'Tiny']
-    sequenceProperties = ['Sequence', 'PESTMotif', 'SignalPeptide', 'LowComplexity', 'Hydrophobicity', 'Isoelectric', 'InstabilityIndex', 'HalfLife']
+    sequenceProperties = ['Sequence', 'PESTMotif', 'SignalPeptide', 'LowComplexity', 'Hydrophobicity', 'Isoelectric']
     postTransModification = ['OGlycosylation', 'NGlycosylation', 'Phosphoserine', 'Phosphothreonine', 'Phosphotyrosine']
     secondaryStructure = ['TransmembraneHelices', 'AlphaHelices', 'BetaStrands', 'Turns']
     variants = ['3Untranslated', '5Untranslated', 'NonSynonymousCoding', 'SynonymousCoding']

@@ -31,8 +31,9 @@ def main(args):
     for line in readStats:
         chunks = (line.strip()).split(',')
         feature = chunks[0]
-        if chunks[pValueColumn] != '-' and not '_' in feature:
-            # If the p value could be calculated for the feature and the feature is not an expression level.
+        if chunks[pValueColumn] != '-' and not '_' in feature and not feature in ['InstabilityIndex', 'HalfLife']:
+            # Only add the feature if its p value could be calculated, it is not an expression level, it is not the instability index and it is not
+            # the half life.
             featureDict[feature] = {}
             featureDict[feature]['PValue'] = float(chunks[pValueColumn])
             featureDict[feature]['Relative'] = chunks[relationColumn]
@@ -74,7 +75,7 @@ def main(args):
     writeTo = open(resultsLocation, 'w')
     writeTo.write('Feature\tPValue\tSignificant\tPositiveRankSumComparedToExpected\tMeanImportance\n')
     for i in varImpFeaturesTested:
-        writeTo.write(i + '\t' + '{0:.10f}'.format(featureDict[i]['PValue']) + '\t' + featureDict[i]['Significance'] + '\t' +
+        writeTo.write(i + '\t' + str(featureDict[i]['PValue']) + '\t' + featureDict[i]['Significance'] + '\t' +
             featureDict[i]['Relative'] + '\t' + str(featureDict[i]['Importance']) + '\n')
     writeTo.close()
 
