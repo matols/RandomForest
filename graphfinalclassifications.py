@@ -235,23 +235,23 @@ def generate_histogram(unlabelledPosWeightFraction, positivePosWeightFraction, s
     unlabelledBinCentres = (0.5 - labelOffsetFromBinCentre) * np.diff(bins) + bins[:-1]
     for count, x in zip(unlabelledCounts, unlabelledBinCentres):
         # Label the bar with the number of observations in the bin.
-        numberOfObservations = count * numberOfUnlabelledObservations / unlabelledDivideBy
+        numberOfObservations = count * numberOfUnlabelledObservations
         if unlabelledDivideBy == 1:
-            axes.annotate(str(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 15), textcoords='offset points',
+            axes.annotate(str(int(round(numberOfObservations))), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 15), textcoords='offset points',
                 verticalalignment='top', horizontalalignment='center', size=10, weight='bold')
         else:            
-            axes.annotate("{0:.1f}".format(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 15), textcoords='offset points',
+            axes.annotate("{0:.1f}".format(numberOfObservations / unlabelledDivideBy), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 15), textcoords='offset points',
                 verticalalignment='top', horizontalalignment='center', size=10, weight='bold')
 
     positiveBinCentres = (0.5 + labelOffsetFromBinCentre) * np.diff(bins) + bins[:-1]
     for count, x in zip(positiveCounts, positiveBinCentres):
         # Label the bar with the number of observations in the bin.
-        numberOfObservations = count * numberOfPositiveObservations / positiveDivideBy
+        numberOfObservations = count * numberOfPositiveObservations
         if positiveDivideBy == 1:
-            axes.annotate(str(int(numberOfObservations)), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 15), textcoords='offset points',
+            axes.annotate(str(int(round(numberOfObservations))), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 15), textcoords='offset points',
                 verticalalignment='top', horizontalalignment='center', size=10, weight='bold')
         else:            
-            axes.annotate("{0:.1f}".format(numberOfObservations), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 15), textcoords='offset points',
+            axes.annotate("{0:.1f}".format(numberOfObservations / positiveDivideBy), xy=(x, count), xycoords=('data', 'data'), xytext=(0, 15), textcoords='offset points',
                 verticalalignment='top', horizontalalignment='center', size=10, weight='bold')
 
     # Create the legend.
