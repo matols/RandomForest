@@ -11,6 +11,7 @@ def main(args):
     parser.add_argument('varImp', help='the location containing the results of the variable importance calculations')
     parser.add_argument('output', help='the location to save the results')
     parser.add_argument('-p', '--pValCol', type=int, default=1, help='the column index of the record of the p value')
+    parser.add_argument('-u', '--supCol', type=int, default=2, help='the column index of the record of the probability of superiority')
     parser.add_argument('-s', '--sigLevel', type=float, default=0.05, help='the significance level to use')
     parser.add_argument('-r', '--relationCol', type=int, default=-1, help='the column index of the record of the positive rank sum compared to expected')
     args = parser.parse_args()
@@ -21,6 +22,7 @@ def main(args):
     resultsLocation = args.output  # The location of the file where the collated feature importance measures should be written.
     pValueColumn = args.pValCol  # The index of the column in the statistical results file recording a feature's p value.
     relationColumn = args.relationCol  # The index of the column in the statistical results file recording the positive measure relative to the unlabelled (i.e. rank sums).
+    superiorityColumn = args.supCol  # The index of the column in the statistical results file recording the probability of superiority.
     significanceLevel = args.sigLevel  # The level of significance to use.
 
     featureDict = {}  # A dictionary containing the feature importance measures for each feature.
@@ -36,6 +38,7 @@ def main(args):
             # the half life.
             featureDict[feature] = {}
             featureDict[feature]['PValue'] = float(chunks[pValueColumn])
+            featureDict[feature]['Superiority'] = float(chunks[superiorityColumn])
             featureDict[feature]['Relative'] = chunks[relationColumn]
     readStats.close()
 
@@ -65,6 +68,7 @@ def main(args):
             featureDict[i]['PValue'] = 1.0
             featureDict[i]['Relative'] = '-'
             featureDict[i]['Significance'] = '-'
+            featureDict[i]['Superiority'] = '-'
 
     # Update featureDict with the variable importances.
     for i in variableImportances:
@@ -73,10 +77,10 @@ def main(args):
 
     # Write out the collated feature importance.
     writeTo = open(resultsLocation, 'w')
-    writeTo.write('Feature\tPValue\tSignificant\tPositiveRankSumComparedToExpected\tMeanImportance\n')
+    writeTo.write('Feature\tPValue\tSignificant\tPositiveRankSumComparedToExpected\tMeanImportance\tSuperiority\n')
     for i in varImpFeaturesTested:
         writeTo.write(i + '\t' + str(featureDict[i]['PValue']) + '\t' + featureDict[i]['Significance'] + '\t' +
-            featureDict[i]['Relative'] + '\t' + str(featureDict[i]['Importance']) + '\n')
+            featureDict[i]['Relative'] + '\t' + str(featureDict[i]['Importance']) + '\t' + str(featureDict[i]['Superiority']) + '\n')
     writeTo.close()
 
 def calculate_level_stats(importances):

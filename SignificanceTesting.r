@@ -27,6 +27,7 @@ positiveMean <- c()
 positiveMedian <- c()
 positiveVariance <- c()
 positiveRankSum <- c()
+superiority <- c()
 
 # Perform the statistical significance tests.
 for (i in 1:(numberOfFeatures - 1))
@@ -36,20 +37,22 @@ for (i in 1:(numberOfFeatures - 1))
 	
 	# Determine the values of the positive and unlabelled observations for the feature.
 	positiveData <- proteinData[positiveMask, i]
+	numberOfPositive <- length(positiveData)
 	unlabelledData <- proteinData[unlabelledMask, i]
+	numberOfUnlabelled <- length(unlabelledData)
 	
 	# Only test the feature if there is more than one value for the positive and unlabelled observations.
 	if (length(unique(proteinData[,i])) != 1)
 	{
-		g <- factor(c(rep("Unlabelled", length(unlabelledData)), rep("Positive", length(positiveData))))
+		g <- factor(c(rep("Unlabelled", numberOfUnlabelled), rep("Positive", numberOfPositive)))
 		v <- c(unlabelledData, positiveData)
 
 		# Calculate the expected and actual rank sums for the positive class.
 		actualRankSum <- sum(rank(v)[g=='Positive'])
-		expectedRankSum <- length(positiveData) * (length(unlabelledData) + length(positiveData) + 1) / 2
+		expectedRankSum <- numberOfPositive * (numberOfUnlabelled + numberOfPositive + 1) / 2
 	
 		# Calculate the exact p value when there aren't enough observations to use an approximation.
-		if (min(length(unlabelledData), length(positiveData)) > 300)
+		if (min(numberOfUnlabelled, numberOfPositive) > 300)
 		{
 			wt <- wilcox_test(v ~ g)
 		}
@@ -58,6 +61,8 @@ for (i in 1:(numberOfFeatures - 1))
 			wt <- wilcox_test(v ~ g, distribution="exact")
 		}
 		pValue[i] <- pvalue(wt)
+		U <- actualRankSum - (numberOfPositive * (numberOfPositive + 1) / 2)  # The rank sum of the observations minus the min rank sum they could obtain.
+		superiority[i] <- U / (numberOfPositive * numberOfUnlabelled)
 	}
 	else
 	{
@@ -83,6 +88,6 @@ for (i in 1:(numberOfFeatures - 1))
 	}
 }
 
-results <- data.frame(pValue, unlabelledMean, unlabelledMedian, unlabelledVariance, positiveMean, positiveMedian, positiveVariance, positiveRankSum, row.names=header[2:numberOfFeatures])
+results <- data.frame(pValue, superiority, unlabelledMean, unlabelledMedian, unlabelledVariance, positiveMean, positiveMedian, positiveVariance, positiveRankSum, row.names=header[2:numberOfFeatures])
 
 write.csv(results, file=outputFile, quote=FALSE)
