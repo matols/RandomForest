@@ -24,6 +24,7 @@ for (i in 1:numberOfFeatures)
         columnsToDrop <- c(colnames(proteinData)[i], columnsToDrop)
     }
 }
+columnsToDrop <- c('UPAccession', 'HalfLife', 'InstabilityIndex', 'Classification', columnsToDrop)
 proteinData <- proteinData[,!(colnames(proteinData) %in% columnsToDrop)]  # Remove the features with no variance from the dataset.
 capture.output(columnsToDrop, file=paste(outputFolder, 'DroppedColumns.txt', sep='/'))  # Write the names of the features with no variance to a file.
 

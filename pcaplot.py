@@ -26,6 +26,7 @@ def main(PCAResults, figureSaveDir, principalComponentsToPlot):
     PCAScores = np.genfromtxt(PCAResults, delimiter='\t', skip_header=1, autostrip=True, dtype=None)
 
     # Record the values of each PC of interest for each class.
+    principalComponentsToPlot = int(principalComponentsToPlot)
     class1PCValues = dict([(i, []) for i in range(principalComponentsToPlot)])
     class2PCValues = dict([(i, []) for i in range(principalComponentsToPlot)])
     for i in PCAScores:

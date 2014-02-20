@@ -34,7 +34,7 @@ def main(args):
     # Run the PCA, followed by the processing and the plotting.
     subprocess.call('Rscript.exe performpca.r ' + inputFile + ' ' + outputDirR)
     subprocess.call('python pcapostprocess.py ' + pcaScores + ' ' + inputFile + ' ' + pcaDataset)
-    subprocess.call('python pcaplot.py ' + pcaDataset + ' ' + plotDir + ' ' + int(pcsToPlot))
+    subprocess.call('python pcaplot.py ' + pcaDataset + ' ' + plotDir + ' ' + pcsToPlot)
 
 
 if __name__ == '__main__':
