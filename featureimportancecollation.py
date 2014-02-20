@@ -8,8 +8,8 @@ def main(args):
 
     parser = argparse.ArgumentParser(description='Process the command line input for the feature collation.')
     parser.add_argument('statTest', help='the location containing the results of the statistical significance testing')
-    parser.add_argument('varImp', help='the location containing the results of the variable importance calculations')
     parser.add_argument('output', help='the location to save the results')
+    parser.add_argument('-v', '--varImp', default=None, help='the location containing the results of the variable importance calculations')
     parser.add_argument('-p', '--pValCol', type=int, default=1, help='the column index of the record of the p value')
     parser.add_argument('-u', '--supCol', type=int, default=2, help='the column index of the record of the probability of superiority')
     parser.add_argument('-s', '--sigLevel', type=float, default=0.05, help='the significance level to use')
@@ -40,6 +40,7 @@ def main(args):
             featureDict[feature]['PValue'] = float(chunks[pValueColumn])
             featureDict[feature]['Superiority'] = float(chunks[superiorityColumn])
             featureDict[feature]['Relative'] = chunks[relationColumn]
+            featureDict[feature]['Importance'] = '-'
     readStats.close()
 
     # Determine the number of features tested for significance.
@@ -52,33 +53,34 @@ def main(args):
             featureDict[i]['Significance'] = 'FALSE'
 
     # Parse the results of the variable importance calculations.
-    readImp = open(variableImportanceFile, 'r')
-    varImpFeaturesTested = (readImp.readline()).strip().split('\t')
-    variableImportances = dict([(i, []) for i in varImpFeaturesTested])  # Dictionary to hold the variable importances for each feature.
-    for line in readImp:
-        chunks = (line.strip()).split('\t')
-        for i in range(len(chunks)):
-            variableImportances[varImpFeaturesTested[i]].append(chunks[i])
-    readImp.close()
+    if variableImportanceFile:
+        readImp = open(variableImportanceFile, 'r')
+        varImpFeaturesTested = (readImp.readline()).strip().split('\t')
+        variableImportances = dict([(i, []) for i in varImpFeaturesTested])  # Dictionary to hold the variable importances for each feature.
+        for line in readImp:
+            chunks = (line.strip()).split('\t')
+            for i in range(len(chunks)):
+                variableImportances[varImpFeaturesTested[i]].append(chunks[i])
+        readImp.close()
 
-    # Update featureDict to contain any features that were not tested for statistical significance, but do have a variable importance.
-    for i in varImpFeaturesTested:
-        if not i in featureDict:
-            featureDict[i] = {}
-            featureDict[i]['PValue'] = 1.0
-            featureDict[i]['Relative'] = '-'
-            featureDict[i]['Significance'] = '-'
-            featureDict[i]['Superiority'] = '-'
+        # Update featureDict to contain any features that were not tested for statistical significance, but do have a variable importance.
+        for i in varImpFeaturesTested:
+            if not i in featureDict:
+                featureDict[i] = {}
+                featureDict[i]['PValue'] = 1.0
+                featureDict[i]['Relative'] = '-'
+                featureDict[i]['Significance'] = '-'
+                featureDict[i]['Superiority'] = '-'
 
-    # Update featureDict with the variable importances.
-    for i in variableImportances:
-        meanImportance, maxImportance, minImportance, stdDevImportance, rangeImportance = calculate_level_stats(variableImportances[i])
-        featureDict[i]['Importance'] = meanImportance
+        # Update featureDict with the variable importances.
+        for i in variableImportances:
+            meanImportance, maxImportance, minImportance, stdDevImportance, rangeImportance = calculate_level_stats(variableImportances[i])
+            featureDict[i]['Importance'] = meanImportance
 
     # Write out the collated feature importance.
     writeTo = open(resultsLocation, 'w')
     writeTo.write('Feature\tPValue\tSignificant\tPositiveRankSumComparedToExpected\tMeanImportance\tSuperiority\n')
-    for i in varImpFeaturesTested:
+    for i in featureDict:
         writeTo.write(i + '\t' + str(featureDict[i]['PValue']) + '\t' + featureDict[i]['Significance'] + '\t' +
             featureDict[i]['Relative'] + '\t' + str(featureDict[i]['Importance']) + '\t' + str(featureDict[i]['Superiority']) + '\n')
     writeTo.close()
