@@ -19,6 +19,9 @@ import utilities.DetermineDatasetProperties;
 import utilities.ImmutableThreeValues;
 import utilities.ImmutableTwoValues;
 
+/**
+ * Implements a random forest.
+ */
 public class Forest
 {
 	

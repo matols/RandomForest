@@ -26,7 +26,7 @@ public class TreeGrower implements Callable<ImmutableTwoValues<Set<Integer>, Tre
 	
 	private int[] inBagObservations;
 	
-	private int numberOfUniqueObservations = 0;
+	private int numberOfUniqueObservations = 0;  // Recording the number of unique observations speed up split calcualtion by reducing the number of evaluations performed.
 
 	
 	public TreeGrower(Map<String, double[]> featureData, Map<String, int[]> indexData, Map<String, double[]> classData,

@@ -47,7 +47,9 @@ public final class ProcessDataset
 	 * 		2) A mapping from the name of each feature, F, to an array containing the original indices in the input file of the sorted
 	 * 		   observation values for the feature. For example, if the smallest observation value comes from the 3rd observation in
 	 * 		   the input file, then the 0th entry in this component for F will be 2.
-	 * 		3) A mapping from each class to an array containing the weight of each observation for the class.
+	 * 		3) A mapping from each class to an array containing the weight of each observation for the class. The weights are ordered
+	 * 		   according to the original indices of the observations not the sorted order.
+	 *  	Processing is done in this manner for speed and memory efficiencies.
 	 * Example:
 	 * 		The values of a feature, F, in the input file are		[4, 7, 2, 8, 3, 4]
 	 * 		The indices of the values are							[0, 1, 2, 3, 4, 5]

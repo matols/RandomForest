@@ -5,8 +5,7 @@ import random
 import sys
 
 def main(args):
-    """
-    """
+    """Carry out a permutation test to determine significance."""
 
     parser = argparse.ArgumentParser(description='Process the command line input for the significance testing.')
     parser.add_argument('dataset', help='the location containing the dataset')

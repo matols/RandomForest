@@ -24,6 +24,19 @@ public class Tree
 		this.tree = this.growTree(dataset, dataIndices, classData, inBagObservations, mtry, treeRNG, numberOfUniqueObservations);
 	}
 
+	/**
+	 * @param dataset
+	 * @param dataIndices
+	 * @param classData
+	 * @param inBagObservations				An array recording which observations in the dataset have reached the node for which the split
+	 * 										is being determined (in bag observations). Observations that are not in bag are given a value
+	 * 										of 0.
+	 * @param mtry
+	 * @param treeRNG
+	 * @param numberOfUniqueObservations	The number of unique observations that have reached the node. Observations can be duplicates
+	 * 										as sampling is performed with replacement.
+	 * @return
+	 */
 	private final Node growTree(Map<String, double[]> dataset, Map<String, int[]> dataIndices, Map<String, double[]> classData,
 			int[] inBagObservations, int mtry, Random treeRNG, int numberOfUniqueObservations)
 	{
