@@ -355,19 +355,26 @@ public class WeightOptimisation
 
 
 	/**
-	 * @param observationClasses
-	 * @param positiveClass
-	 * @param positiveWeight
-	 * @param unlabelledClass
-	 * @param unlabelledWeight
-	 * @return
+	 * Calculate the vector of weights for the observations in a dataset.
+	 * 
+	 * The vector of weights will contain the weights of the observations in the same order that they appear in the dataset.
+	 * The vector at index i therefore contains the weight of the ith observation.
+	 * 
+	 * @param observationClasses	A list where the value at index i is the class of observation i in te dataset.
+	 * @param positiveClass			The name of the positive class
+	 * @param positiveWeight		The weight of the positive class.
+	 * @param unlabelledClass		The name of the unlabelled class.
+	 * @param unlabelledWeight		The weight of the unlabelled class.
+	 * @return						An array of the observation weights ordered as the observationClasses are ordered.
 	 */
 	private static final double[] determineObservationWeights(List<String> observationClasses, String positiveClass, double positiveWeight,
 			String unlabelledClass, double unlabelledWeight)
 	{
+		// Initialise the number of observations and the weights.
 		int numberOfObservations = observationClasses.size();
 		double[] weights = new double[numberOfObservations];
 		
+		// For each observation, determine its class and then its weight.
 		for (int i = 0; i < numberOfObservations; i++)
 		{
 			String classOfObs = observationClasses.get(i);

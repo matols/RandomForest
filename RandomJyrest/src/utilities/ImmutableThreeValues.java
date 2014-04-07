@@ -1,5 +1,14 @@
 package utilities;
 
+/**
+ * @author Simon
+ * 
+ * Implements a class for permanently associating three values.
+ *
+ * @param <S>
+ * @param <T>
+ * @param <U>
+ */
 public class ImmutableThreeValues<S, T, U>
 {
 

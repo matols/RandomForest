@@ -1,5 +1,15 @@
 package utilities;
 
+/**
+ * @author Simon
+ * 
+ * Implements a class for permanently associating two values.
+ *
+ * @param <S>
+ * @param <T>
+ * @param <U>
+ * @param <V>
+ */
 public class ImmutableFourValues<S, T, U, V>
 {
 

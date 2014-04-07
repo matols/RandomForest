@@ -8,19 +8,29 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Class for evaluating predictions.
+ */
 public final class PredictionAnalysis
 {
 	
 	/**
-	 * @param observationClasses
-	 * @param predictions
-	 * @return
+	 * Generate a confusion matrix from the predicted classes of a set of observations.
+	 * 
+	 * @param observationClasses	The class of each observation ordered as the observations are in the dataset.
+	 * @param predictions			Mapping from class names to the prediction weight for that class for each observation.
+	 * @return						A confusion matrix. This is a mapping from class names to the number of observations of that class
+	 * 								correctly and incorrectly predicted as being members. For example, for class C, the number of
+	 * 								observations of class C correctly predicted as being members of class C will be recorded in
+	 * 								return.get("C").get("Correct"), and the number of observations of a difference class that were
+	 * 								predicted as being members of class C in return.get("C").get("Incorrect").
 	 */
 	public static final Map<String, Map<String, Double>> calculateConfusionMatrix(List<String> observationClasses,
 			Map<String, double[]> predictions)
 	{
 		Set<Integer> observationsToUse = new HashSet<Integer>(observationClasses.size());
 		int numberOfObservations = observationClasses.size();
+		// Use all observations.
 		for (int i = 0; i < numberOfObservations; i++)
 		{
 			observationsToUse.add(i);
@@ -29,10 +39,16 @@ public final class PredictionAnalysis
 	}
 	
 	/**
-	 * @param observationClasses
-	 * @param predictions
-	 * @param observationsToUse
-	 * @return
+	 * Generate a confusion matrix from the predicted classes of a set of observations.
+	 * 
+	 * @param observationClasses	The class of each observation ordered as the observations are in the dataset.
+	 * @param predictions			Mapping from class names to the prediction weight for that class for each observation.
+	 * @param observationsToUse		The indices of the observations to use when calculating the confusion matrix.
+	 * @return						A confusion matrix. This is a mapping from class names to the number of observations of that class
+	 * 								correctly and incorrectly predicted as being members. For example, for class C, the number of
+	 * 								observations of class C correctly predicted as being members of class C will be recorded in
+	 * 								return.get("C").get("Correct"), and the number of observations of a difference class that were
+	 * 								predicted as being members of class C in return.get("C").get("Incorrect").
 	 */
 	public static final Map<String, Map<String, Double>> calculateConfusionMatrix(List<String> observationClasses,
 			Map<String, double[]> predictions, Set<Integer> observationsToUse)
@@ -47,17 +63,21 @@ public final class PredictionAnalysis
 			confusionMatrix.put(s, classPredictions);
 		}
 
+		// Get the predicted class of each observation of interest. The predicted class of an observation is the class with the
+		// largest predicted weight for the observation.
 		for (int i : observationsToUse)
 		{
-			String obsClass = observationClasses.get(i);
-			String predictedClass = "";
+			String obsClass = observationClasses.get(i);  // The observation's true class.
+			String predictedClass = "";  // The class that the observation is predicted to be a member of.
 			double maxPredictedWeightForObs = 0.0;
+			// Look at the observation's predicted weight for each class.
 			for (Map.Entry<String, double[]> entry : predictions.entrySet())
 			{
-				String classOfPrediction = entry.getKey();
-				double predictedClassWeight = entry.getValue()[i];
+				String classOfPrediction = entry.getKey();  // The class.
+				double predictedClassWeight = entry.getValue()[i];  // The observation's predicted weight for the class.
 				if (predictedClassWeight > maxPredictedWeightForObs)
 				{
+					// The predicted weight for this class is the greatest weight seen so far.
 					predictedClass = classOfPrediction;
 					maxPredictedWeightForObs = predictedClassWeight;
 				}
@@ -66,7 +86,7 @@ public final class PredictionAnalysis
 			// Update the confusion matrix.
 			if (obsClass.equals(predictedClass))
 			{
-				// Correctly predicted the class of an observation.
+				// Correctly predicted the class of the observation.
 				Double oldCount = confusionMatrix.get(obsClass).get("Correct");
 				confusionMatrix.get(obsClass).put("Correct", oldCount + 1.0);
 			}
@@ -82,8 +102,10 @@ public final class PredictionAnalysis
 	}
 	
 	/**
-	 * @param confusionMatrix
-	 * @return
+	 * Calculate the accuracy of the predictions in a confusion matrix.
+	 * 
+	 * @param confusionMatrix	A confusion matrix as calculated by calculateConfusionMatrix.
+	 * @return					The accuracy of the predictions
 	 */
 	public static final double calculateAccuracy(Map<String, Map<String, Double>> confusionMatrix)
 	{
@@ -101,10 +123,12 @@ public final class PredictionAnalysis
 	}
 	
 	/**
-	 * @param confusionMatrix
-	 * @param observationClasses
-	 * @param fType
-	 * @return
+	 * Calculate the F beta measure from a confusion matrix.
+	 * 
+	 * @param confusionMatrix		A confusion matrix as calculated by calculateConfusionMatrix.
+	 * @param observationClasses	The indices of the observations to use when calculating the confusion matrix.
+	 * @param fType					The value of beta in the F beta calculation.
+	 * @return						The F beta measure.
 	 */
 	public static final double calculateFMeasure(Map<String, Map<String, Double>> confusionMatrix, List<String> observationClasses,
 			double fType)
@@ -113,11 +137,15 @@ public final class PredictionAnalysis
 	}
 	
 	/**
-	 * @param confusionMatrix
-	 * @param observationClasses
-	 * @param fType
-	 * @param numberOfTimesEachObsAppearsInConfMat
-	 * @return
+	 * Calculate the F beta measure from a confusion matrix.
+	 * 
+	 * @param confusionMatrix						A confusion matrix as calculated by calculateConfusionMatrix.
+	 * @param observationClasses					The indices of the observations to use when calculating the confusion matrix.
+	 * @param fType									The value of beta in the F beta calculation.
+	 * @param numberOfTimesEachObsAppearsInConfMat	The number of times each observation appears in the confusion matrix. Should be equal
+	 * 												to 1 unless the confusion matrix is an aggregate of predictions from multiple
+	 * 												classifiers.
+	 * @return										The F beta measure.
 	 */
 	public static final double calculateFMeasure(Map<String, Map<String, Double>> confusionMatrix, List<String> observationClasses,
 			double fType, int numberOfTimesEachObsAppearsInConfMat)
@@ -142,9 +170,11 @@ public final class PredictionAnalysis
 	}
 	
 	/**
-	 * @param confusionMatrix
-	 * @param observationClasses
-	 * @return
+	 * Calculate the G mean of the predictions in a confusion matrix.
+	 * 
+	 * @param confusionMatrix		A confusion matrix as calculated by calculateConfusionMatrix.
+	 * @param observationClasses	The indices of the observations to use when calculating the confusion matrix.
+	 * @return						The G mean of the predictions in the confusion matrix.
 	 */
 	public static final double calculateGMean(Map<String, Map<String, Double>> confusionMatrix, List<String> observationClasses)
 	{
@@ -152,10 +182,14 @@ public final class PredictionAnalysis
 	}
 	
 	/**
-	 * @param confusionMatrix
-	 * @param observationClasses
-	 * @param numberOfTimesEachObsAppearsInConfMat
-	 * @return
+	 * Calculate the G mean of the predictions in a confusion matrix.
+	 * 
+	 * @param confusionMatrix						A confusion matrix as calculated by calculateConfusionMatrix.
+	 * @param observationClasses					The indices of the observations to use when calculating the confusion matrix.
+	 * @param numberOfTimesEachObsAppearsInConfMat	The number of times each observation appears in the confusion matrix. Should be equal
+	 * 												to 1 unless the confusion matrix is an aggregate of predictions from multiple
+	 * 												classifiers.
+	 * @return										The G mean of the predictions in the confusion matrix.
 	 */
 	public static final double calculateGMean(Map<String, Map<String, Double>> confusionMatrix, List<String> observationClasses,
 			int numberOfTimesEachObsAppearsInConfMat)
@@ -176,41 +210,10 @@ public final class PredictionAnalysis
 	}
 	
 	/**
-	 * @param observationClasses
-	 * @param predictions
-	 * @return
-	 */
-	public static final double calculateLogarithmicScore(List<String> observationClasses, Map<String, double[]> predictions)
-	{
-		double averageLogarithmicScore = 0.0;
-		int numberOfObservations = observationClasses.size();
-		
-		for (int i = 0; i < numberOfObservations; i++)
-		{
-			String trueClass = observationClasses.get(i);
-			double totalPredictiveWeight = 0.0;
-			double weightOfTrueClass = 0.0;
-
-			for (Map.Entry<String, double[]> entry : predictions.entrySet())
-			{
-				double classWeight = entry.getValue()[i];
-				totalPredictiveWeight += classWeight;
-				if (entry.getKey().equals(trueClass))
-				{
-					weightOfTrueClass = classWeight;
-				}
-			}
-			
-			double score = Math.log(weightOfTrueClass / totalPredictiveWeight);
-			averageLogarithmicScore += score;
-		}
-		
-		return averageLogarithmicScore / numberOfObservations;
-	}
-	
-	/**
-	 * @param confusionMatrix
-	 * @return
+	 * Calculate the Matthews correlation coefficient.
+	 * 
+	 * @param confusionMatrix		A confusion matrix as calculated by calculateConfusionMatrix.
+	 * @return						The Matthews correlation coefficient for the confusion matrix, or NaN if there are not two classes.
 	 */
 	public static final double calculateMCC(Map<String, Map<String, Double>> confusionMatrix)
 	{
@@ -231,10 +234,15 @@ public final class PredictionAnalysis
 	
 	
 	/**
-	 * @param confusionMatrix
-	 * @param observationClasses
-	 * @param numberOfTimesEachObsAppearsInConfMat
-	 * @return
+	 * Determine the number of observations of each class in the confusion matrix.
+	 * 
+	 * @param confusionMatrix						A confusion matrix as calculated by calculateConfusionMatrix.
+	 * @param observationClasses					The indices of the observations to use when calculating the confusion matrix.
+	 * @param numberOfTimesEachObsAppearsInConfMat	The number of times each observation appears in the confusion matrix. Should be equal
+	 * 												to 1 unless the confusion matrix is an aggregate of predictions from multiple
+	 * 												classifiers.
+	 * @return										A mapping from the classes in the confusion matrix to the number of observations
+	 * 												of that class that were predicted.
 	 */
 	private static Map<String, Integer> determineCountsOfEachClass(Map<String, Map<String, Double>> confusionMatrix,
 			List<String> observationClasses, int numberOfTimesEachObsAppearsInConfMat)

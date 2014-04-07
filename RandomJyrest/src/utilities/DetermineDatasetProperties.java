@@ -8,30 +8,32 @@ import java.util.List;
 import java.util.Map;
 
 
+/**
+ * Implements a class to determine properties of a dataset.
+ */
 public class DetermineDatasetProperties
 {
 	
 	/**
+	 * Determine the features in the dataset.
 	 * 
-	 * returns the features ordered in the order they appear in the header line of the dataset file
-	 * 
-	 * @param dataset
-	 * @param feauresToIgnore
-	 * @return
+	 * @param dataset			The location of the file containing the data to be processed.
+	 * @param feauresToIgnore	The features in the dataset that should be removed (not processed).
+	 * @return					A list of the features (Strings) of the dataset in the order that they appear.
 	 */
 	public static final List<String> determineDatasetFeatures(String dataset, List<String> feauresToIgnore)
 	{
 		String classFeatureColumnName = "Classification";
 		return determineDatasetFeatures(dataset, feauresToIgnore, classFeatureColumnName);
 	}
-	
+
 	/**
+	 * Determine the features of interest in the dataset.
 	 * 
-	 * returns the features ordered in the order they appear in the header line of the dataset file
-	 * 
-	 * @param dataset
-	 * @param feauresToIgnore
-	 * @return
+	 * @param dataset					The location of the file containing the data to be processed.
+	 * @param feauresToIgnore			The features in the dataset that should be removed (not processed).
+	 * @param classFeatureColumnName	The name of the feature that indicates the class of the observation
+	 * @return							A list of the features (Strings) of the dataset in the order that they appear.
 	 */
 	public static final List<String> determineDatasetFeatures(String dataset, List<String> feauresToIgnore, String classFeatureColumnName)
 	{
@@ -84,12 +86,13 @@ public class DetermineDatasetProperties
 		
 		return featuresInDataset;
 	}
-	
 
 	/**
-	 * @param dataset
-	 * @param accessionColumnName
-	 * @return
+	 * Determine the accessions of the observations.
+	 * 
+	 * @param dataset	The location of the file containing the data to be processed.
+	 * @return			A list of the accessions (Strings) of the observations in the order that the observations appear
+	 * 					in the dataset from the top of the file to the bottom.
 	 */
 	public static final List<String> determineObservationAccessions(String dataset)
 	{
@@ -98,9 +101,12 @@ public class DetermineDatasetProperties
 	}
 	
 	/**
-	 * @param dataset
-	 * @param accessionColumnName
-	 * @return
+	 * Determine the accessions of the observations.
+	 * 
+	 * @param dataset				The location of the file containing the data to be processed.
+	 * @param accessionColumnName	The name of the feature that indicates the UniProt accessions of the observation
+	 * @return						A list of the accessions (Strings) of the observations in the order that the observations appear
+	 * 								in the dataset from the top of the file to the bottom.
 	 */
 	public static final List<String> determineObservationAccessions(String dataset, String accessionColumnName)
 	{
@@ -110,7 +116,7 @@ public class DetermineDatasetProperties
 		{
 			reader = new BufferedReader(new FileReader(dataset));
 			
-			// Determine the class and accession column indices.
+			// Determine the accession column indices.
 			String[] features = reader.readLine().trim().split("\t");
 			int accessionColumnIndex = -1;
 			for (int i = 0; i < features.length; i++)
@@ -124,7 +130,7 @@ public class DetermineDatasetProperties
 			
 			if (accessionColumnIndex == -1)
 			{
-				// No acession column was provided.
+				// No accession column was provided.
 				System.out.format("The accession column %s could not be found in the dataset header line. Please include a column with" +
 						" this name, or correct the name of the accession column\n", accessionColumnName);
 				System.exit(0);
@@ -170,11 +176,13 @@ public class DetermineDatasetProperties
 		
 		return proteinAccessions;
 	}
-	
-	
+
 	/**
-	 * @param inputFile
-	 * @return
+	 * Determine the classes of the observations in the dataset.
+	 * 
+	 * @param dataset	The location of the file containing the data to be processed.
+	 * @return			A list of the classes (Strings) of the observations in the order that the observations appear
+	 * 					in the dataset from the top of the file to the bottom.
 	 */
 	public static final List<String> determineObservationClasses(String dataset)
 	{
@@ -183,8 +191,12 @@ public class DetermineDatasetProperties
 	}
 	
 	/**
-	 * @param inputFile
-	 * @return
+	 * Determine the classes of the observations in the dataset.
+	 * 
+	 * @param dataset					The location of the file containing the data to be processed.
+	 * @param classFeatureColumnName	The name of the feature that indicates the class of the observation
+	 * @return							A list of the classes (Strings) of the observations in the order that the observations appear
+	 * 									in the dataset from the top of the file to the bottom.
 	 */
 	public static final List<String> determineObservationClasses(String dataset, String classFeatureColumnName)
 	{
@@ -265,7 +277,7 @@ public class DetermineDatasetProperties
 	 * The vector of weights will contain the weights of the observations in the same order that they appear in the dataset.
 	 * The vector at index i therefore contains the weight of the ith observation.
 	 * 
-	 * @param dataset				The location of the file containing the dataset.
+	 * @param dataset				The location of the file containing the data to be processed.
 	 * @param classWeights			A mapping between class names and class weights.
 	 * @return						An array of the observation weights ordered as the observationClasses are ordered.
 	 */
@@ -275,7 +287,7 @@ public class DetermineDatasetProperties
 		int numberOfObservations = observationClasses.size();  // Determine the total number of observations.
 		double[] weights = new double[numberOfObservations];  // Initialise the weight vector to contain one entry for each observation.
 		
-		// For each observation, determine its class, and then its weight.
+		// For each observation, determine its class and then its weight.
 		for (int i = 0; i < numberOfObservations; i++)
 		{
 			String classOfObs = observationClasses.get(i);  // The class of the ith observation is the ith entry in observationClasses.
