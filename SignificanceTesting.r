@@ -60,7 +60,18 @@ for (i in 1:(numberOfFeatures - 1))
 		{
 			wt <- wilcox_test(v ~ g, distribution="exact")
 		}
-		pValue[i] <- pvalue(wt)
+
+		# Calculate the p value directly from the z score in order to obtain "reasonable" p values (not just 0) when Z is large and positive.
+		zScore <- statistic(wt, "standardized")
+		if (zScore >= 0)
+		{
+			pValue[i] <- pnorm(zScore, lower.tail=FALSE) * 2
+		}
+		else
+		{
+			pValue[i] <- pnorm(zScore) * 2
+		}
+
 		U <- actualRankSum - (numberOfPositive * (numberOfPositive + 1) / 2)  # The rank sum of the observations minus the min rank sum they could obtain.
 		superiority[i] <- U / (numberOfPositive * numberOfUnlabelled)
 	}
