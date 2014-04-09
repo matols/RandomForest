@@ -1,0 +1,7 @@
+Forests	200
+Trees	5000
+Mtry	20
+Threads	3
+Features	UPAccession,InstabilityIndex,HalfLife,AlphaHelices,BetaStrands,Turns
+Weight	Positive	0.8
+Weight	Unlabelled	1.0

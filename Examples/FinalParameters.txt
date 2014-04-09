@@ -1,0 +1,7 @@
+Trees	1000
+Mtry	10
+Threads	3
+Weight	Positive	1.2
+Weight	Unlabelled	1.0
+Seed	2641231349290994133
+Features	NonPolar,T,L,Q,Phosphotyrosine,DS_Embryoid_Body,Small,Isoelectric,I,UPAccession,InstabilityIndex,HalfLife,AlphaHelices,BetaStrands,Turns,BS_Bladder,PredictedBuriedAlphaHelices,BS_Blood,BS_Trachea,BS_Connective_Tissue,N,H,BS_Embryonic_Tissue,NGlycosylation,DS_Neonate,V,PredictedExposedAlphaHelices,BinaryPPI,M,BS_Heart,PositivelyCharged,BS_Parathyroid,BS_Bone_Marrow,BS_Tonsil,D,LowComplexity,Hydrophobicity,BS_Salivary_Gland,NegativelyCharged,BS_Adipose_Tissue,P,S,BS_Mammary_Gland,Charged,Y,Polar,R,Aliphatic,E,BS_Eye,DS_Fetus,Aromatic,3Untranslated,BS_Cervix,BS_Ear,BS_Brain,Expression,BS_Larynx,DS_Infant,TransmembraneHelices,BS_Adrenal_Gland,BS_Pituitary_Gland,BS_Spleen,BS_Testis,Paralogs,BS_Placenta,DS_Adult,Phosphothreonine,BS_Stomach,BS_Skin

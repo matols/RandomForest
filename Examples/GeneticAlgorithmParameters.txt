@@ -1,0 +1,10 @@
+Trees	1000
+Mtry	10
+Threads	7
+Features	UPAccession,InstabilityIndex,HalfLife,AlphaHelices,BetaStrands,Turns
+Weight	Positive	1.2
+Weight	Unlabelled	1.0
+Repetitions	200
+NewRun	True
+Population	50
+Verbose	False
