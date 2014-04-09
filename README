@@ -1,0 +1,17 @@
+Notes
+	1) Need to ensure that the number of trees is large enough to ensure that all observations will be out of bag (100 trees is normally enough). If there are
+		too few trees and OOB predictions are made errors can occur due to attemptig to predict the class of an observation that is never OOB.
+
+Examples/
+	ExampleDataset.txt
+		An example of the tab delimited format that the random forest expects.
+	FinalParameters.txt
+		An example of the parameter file that would be used with RandomJyrest/src/finalclassification/Main.java.
+	ForestSizeParameters.txt
+		An example of the parameter file that would be used with RandomJyrest/src/analysis/ForestSizeOptimisation.java.
+	GeneticAlgorithmParameters.txt
+		An example of the parameter file that would be used with RandomJyrest/src/featureselection/GAFeatureSelection.java.
+	VariableImportanceParameters.txt
+		An example of the parameter file that would be used with RandomJyrest/src/featureselection/VariableImportance.java.
+	WeightAndMtryParameters.txt
+		An example of the parameter file that would be used with RandomJyrest/src/analysis/WeightAndMtryOptimisation.java.

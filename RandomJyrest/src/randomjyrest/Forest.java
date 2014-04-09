@@ -57,6 +57,18 @@ public class Forest
 	private List<Set<Integer>> oobObservations;
 
 
+	/**
+	 * Initialise a random forest.
+	 * 
+	 * @param dataset			The location of the file containing the data to be processed.
+	 * @param numberOfTrees		The number of trees to grow in the forest.
+	 * @param mtry				The number of features to evaluate for the cutpoint in each nonterminal node.
+	 * @param featuresToRemove	The features in the dataset that should be removed (not processed).
+	 * @param weights			The weights for each observation ordered in the same order that the observations appear in the dataset.
+	 * @param numberOfThreads	The number of threads to use for growing the forest.
+	 * @param isCalcualteOOB	Should the OOB predictions be made.
+	 * @return					The forest.
+	 */
 	public final Map<String, double[]> main(String dataset, int numberOfTrees, int mtry, List<String> featuresToRemove, double[] weights,
 			int numberOfThreads, boolean isCalcualteOOB)
 	{
@@ -68,6 +80,19 @@ public class Forest
 		return growForest(weights, numberOfTrees, mtry, numberOfThreads, isCalcualteOOB);
 	}
 
+	/**
+	 * Initialise a random forest.
+	 * 
+	 * @param dataset			The location of the file containing the data to be processed.
+	 * @param numberOfTrees		The number of trees to grow in the forest.
+	 * @param mtry				The number of features to evaluate for the cutpoint in each nonterminal node.
+	 * @param featuresToRemove	The features in the dataset that should be removed (not processed).
+	 * @param weights			The weights for each observation ordered in the same order that the observations appear in the dataset.
+	 * @param seed				The seed to use to seed the random number generator.
+	 * @param numberOfThreads	The number of threads to use for growing the forest.
+	 * @param isCalcualteOOB	Should the OOB predictions be made.
+	 * @return					The forest.
+	 */
 	public final Map<String, double[]> main(String dataset, int numberOfTrees, int mtry, List<String> featuresToRemove, double[] weights,
 			long seed, int numberOfThreads, boolean isCalcualteOOB)
 	{
@@ -77,8 +102,18 @@ public class Forest
 		this.seedUsedForGrowing = seed;
 		return growForest(weights, numberOfTrees, mtry, numberOfThreads, isCalcualteOOB);
 	}
+	
 
-
+	/**
+	 * Grow a random forest.
+	 * 
+	 * @param weights			The weights for each observation ordered in the same order that the observations appear in the dataset.
+	 * @param numberOfTrees		The number of trees to grow in the forest.
+	 * @param mtry				The number of features to evaluate for the cutpoint in each nonterminal node.
+	 * @param numberOfThreads	The number of threads to use for growing the forest.
+	 * @param isCalcualteOOB	Should the OOB predictions be made.
+	 * @return					The forest.
+	 */
 	private final Map<String, double[]> growForest(double[] weights, int numberOfTrees, int mtry, int numberOfThreads,
 			boolean isCalcualteOOB)
 	{
@@ -89,13 +124,14 @@ public class Forest
 		int numberOfObservations = 0;
 
 		{	
+			// Process the training dataset.
 			ImmutableThreeValues<Map<String, double[]>, Map<String, int[]>, Map<String, double[]>> processedData =
 					ProcessDataset.main(this.trainingDataset, this.featuresRemoved, weights);
 			Map<String, double[]> processedFeatureData = processedData.first;
 			Map<String, int[]> processedIndexData = processedData.second;
 			Map<String, double[]> processedClassData = processedData.third;
 	
-			// Determine the classes in the dataset, and the indices of the observations from each class.
+			// Determine the classes in the dataset, and the indices of the observations in each class.
 			this.classesInTrainingSet = new ArrayList<String>(processedClassData.keySet());
 			numberOfObservations = processedClassData.get(this.classesInTrainingSet.get(0)).length;
 			Map<String, List<Integer>> observationsFromEachClass = new HashMap<String, List<Integer>>();
@@ -156,7 +192,7 @@ public class Forest
 		Map<String, double[]> predictions = new HashMap<String, double[]>();
 		if (isCalcualteOOB)
 		{
-			// Generate the entire set of prediction data.
+			// Generate the entire set of prediction data (this is the same as the training data, but will be subsetted).
 			Map<String, double[]> datasetToPredict = ProcessPredictionData.main(this.trainingDataset, this.featuresRemoved).first;
 
 			// Setup the prediction output.
@@ -165,6 +201,7 @@ public class Forest
 				predictions.put(s, new double[numberOfObservations]);
 			}
 
+			// For each tree predict the class of the OOB observations.
 			for (int i = 0; i < numberOfTrees; i++)
 			{
 				Tree treeToPredictOn = this.forest.get(i);
@@ -175,13 +212,25 @@ public class Forest
 		return predictions;
 	}
 	
-	
+	/**
+	 * Get the seed used to grow the random forest.
+	 * 
+	 * @return	The seed used to grow the random forest.
+	 */
 	public final long getSeed()
 	{
 		return this.seedUsedForGrowing;
 	}
 	
-	
+	/**
+	 * Predict the class of observations in a dataset.
+	 * 
+	 * @param dataset			The location of the file containing the data to be predicted.
+	 * @param featuresToRemove	The features in the dataset that should be removed (not processed).
+	 * @return					A mapping from class names to observations. Each class contains an entry for each observation in the
+	 * 							dataset. For an observation, i, the ith entry in the array for each class, c, will record the predicted
+	 * 							weight given to class c for observation i. 
+	 */
 	public final Map<String, double[]> predict(String dataset, List<String> featuresToRemove)
 	{
 		ImmutableTwoValues<Map<String, double[]>, Integer> predictionData = ProcessPredictionData.main(dataset, featuresToRemove);
@@ -202,6 +251,7 @@ public class Forest
 			predictions.put(s, new double[numberOfObservations]);
 		}
 
+		// For each tree in the forest, add the predictions for each observation.
 		int numberOfTrees = this.forest.size();
 		for (int i = 0; i < numberOfTrees; i++)
 		{
@@ -211,7 +261,6 @@ public class Forest
 		
 		return predictions;
 	}
-	
 	
 	/**
 	 * Determine the importance of each feature in the training dataset.
